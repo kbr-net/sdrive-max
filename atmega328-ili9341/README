@@ -1,0 +1,6 @@
+bootloader.hex	Bootloader Flash File for ISP, install first!
+SDrive.bin	Flash+EEPROM File for SD-Card update with bootloader
+
+without bootloader use:
+SDrive.hex	Flash File for ISP
+SDrive.eep	EEPROM File for ISP

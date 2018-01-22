@@ -1,0 +1,60 @@
+SDrive-MAX
+==========
+
+SDrive-MAX is a new disk drive emulator for Atari 8bit computers based on
+sdrive-ng ported to arduino and enhanced with a touchscreen display for
+controlling. So it can work without sdrive software on the Atari, but could
+be used anyway. Changing disk images during live operation is one of the
+most important features, i think.
+
+What do you need?
+
+- an arduino UNO with atmega328p
+- an Elegoo 2,8" TFT-Touchscreen Shield or similar with ILI9341 compatible
+  controller using 8bit parallel mode(i think, that one from the adafruit
+  project is the same). Touchlines must be wired as followed:
+
+  X+ <-> 8
+  X- <-> A2
+  Y+ <-> A3
+  Y- <-> 9
+
+  The other lines are always the same, as far as i could see
+  (TFT-Data 2-9, -Ctrl. A0-A4, SD 10-13). In doubt, ask!
+- a diode 1N4148 or similar
+- a micro SD-Card(SD or SDHC)
+- some cable and connectors to Atari's SIO-Port
+- avrdude Software for firmware programming
+
+Wirering Arduino <-> Atari-SIO:
+
+  TXD <-> Pin 3 (Data-In, over the diode, cathode to arduino)
+  GND <-> Pin 4	(Ground)
+  RXD <-> Pin 5 (Data-Out)
+  A5  <-> Pin 7 (Command)
+* +5V <-> Pin 10 (+5V/Ready)
+
+*Optional, if you want power from Atari, but then you can't use Display
+ while Atari ist powered off!
+
+Firmware programming:
+
+First use the eeprom-writer.hex to set the correct values to the EEPROM!
+Then programm the SDrive.hex into the flash.
+That's it!
+
+Display usage:
+
+- press drive buttons in the middle to select the actual boot drive (D1:)
+  (on startup always the internal drive D0: with SDRIVE.ATR loaded is selected
+  for old sdrive(-ng) compatibility)
+- press drive buttons on the left do deactivate the drive
+- press dirve buttons on the right at the disk logo to insert an image
+- D0: can only be selected as boot drive, not changed
+- press on the New button will create a new image on the selected drive
+  during the next format command
+- press on the output window at bottom will open SIO debug mode. To close
+  press anywhere on the screen
+- file select window should be self descripting
+
+(by KBr from forum64.de)

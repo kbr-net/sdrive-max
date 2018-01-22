@@ -1,0 +1,11 @@
+SD-Card:
+1	error going into idle state
+2	error getting enhanced power requirements
+3	error on initialization for SD
+4	error on initialization for MMC
+5	error setting block length to 512
+
+FAT:
+6	error reading master bootblock
+7	error reading partition bootblock
+8	filesystem not supported

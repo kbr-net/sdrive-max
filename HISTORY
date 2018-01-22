@@ -1,0 +1,34 @@
+v0.4:
+- added debug output on sd-card init error
+- more tries for sd-card GO_IDLE_STATE, some cards needs this
+- also more tries for sd-card MMC_SEND_IF_COND
+- added scolling longfilename on headline
+- added actual folder output on status line
+- added support for ILI9329 and HX8347G displays
+- read display id(if necessary)
+- rotate 180° function
+- fixed bug in scroll function of outbox
+- added graphical output for eeprom_writer
+- fixed wrong frequency base for delays
+- added config page and store values in eeprom
+- wait for button release, otherways config buttons are bouncing
+
+v0.3:
+- fixed read config from sdrive control
+- made the command line interrupt driven for more stable communication
+- added SIO debug mode
+- some enhancements on the font
+- fixed bug in file create, if next dir sector needed
+
+v0.2:
+- added drive deactivation function
+- improved text output(scrolling, max. length)
+- added page/file counter
+- some bugfixes and optimizations
+
+v0.1:
+- ported to arduino UNO
+- added TFT-Touchscreen support
+- removed debugloader(can be done via Display now)
+- removed bootloader(easy update via arduino USB and avrdude)
+- removed write protection and card detect, not wired on arduino(shield)

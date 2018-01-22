@@ -1,0 +1,281 @@
+#define SIOV	$e459
+#define CIOV	$e456
+#define e_iocb	$10
+#define k_iocb	$20
+#define screenbuf $3000
+
+	* = $700			; boot location
+begin
+        .byte $00
+        .byte (end-begin-1)/$80+1       ; nr. of blocks to load
+        .word *-2                       ; load addr
+        .word start                     ; start addr
+	
+init:	clc				; init sets boot ok
+	rts
+
+start
+	;jsr prep_dcb
+	;jsr SIOV
+	;bcs notfound
+	jsr open
+	inc $2f0		; invisible cursor
+
+;funzt nicht mit dem Editor(E), der kennt nur 40x24
+;	lda #<screenbuf		; set screenbuffer pointer
+;	sta $58
+;	lda #>screenbuf
+;	sta $59
+;	lda #<dl		; set new dl
+;	sta $230
+;	lda #>dl
+;	sta $231
+
+	jsr list
+	lda #$1c		; cursor back
+	jsr put
+	jsr get			; read selected line
+	jsr mark		; mark selected
+
+loop	
+	jsr getkey
+	pha
+	jsr mark		; unmark old selected
+	pla
+
+	ldy 84			; load cursor line
+	cmp #$1c		; cursor up?
+	beq c_up
+	cmp #$1d		; cursor down?
+	beq c_down
+	jmp ign
+
+c_up	cpy #0
+	beq ign			; first entry?
+	jmp ok
+
+c_down	cpy lastentry		; last entry?
+	beq ign
+
+ok	jsr put
+ign	jsr get			; read selected line
+
+	jsr mark		; mark selected
+	;jmp loop
+
+	lda 85			; save cursor
+	sta cursor_x
+	lda 84
+	sta cursor_y
+	lda #0			; cursor to line 0
+	sta 84
+;	lda #<linebuf		; set screenbuffer pointer
+;	sta $58
+;	lda #>linebuf
+;	sta $59
+;	jsr select
+;	lda #<screenbuf		; restore screenbuffer pointer
+;	sta $58
+;	lda #>screenbuf
+;	sta $59
+	lda cursor_x		; restore cursor
+	sta 85
+	lda cursor_y
+	sta 84
+	jmp loop
+
+notfound:
+	jmp loop
+
+mark:
+	ldy #0
+m2	lda selectbuf,y
+	cmp #$9b
+	beq m3
+	eor #$80
+	sta selectbuf,y
+	iny
+	cpy #selectbuflen
+	bne m2
+m3	jmp select
+
+open:
+	ldx     #e_iocb           ;open editor
+	lda     #$03
+	sta     $0342,X
+	lda     #<e_device
+	sta     $0344,X
+	lda     #>e_device
+	sta     $0345,X
+	lda	#1		; len
+	sta	$348,X
+	lda	#0	
+	sta	$349,X
+	lda     #$0d		; read/write and forced read
+	sta     $034A,X
+	lda	#0		; graphics mode
+	sta     $034B,X
+	jsr     CIOV
+
+	ldx     #k_iocb           ;open keyboard
+	lda     #$03
+	sta     $0342,X
+	lda     #<k_device
+	sta     $0344,X
+	lda     #>k_device
+	sta     $0345,X
+	lda	#1		; len
+	sta	$348,X
+	lda	#0	
+	sta	$349,X
+	lda     #$04		; read
+	sta     $034A,X
+	jmp     CIOV
+
+list:
+	ldx     #e_iocb
+	;lda     #$09            ; set command put text
+	lda     #$0b            ; set command put block
+	sta     $0342,X
+	lda	#<listbuf	; set buffer
+	sta	$344,X
+	lda	#>listbuf
+	sta	$345,X
+	lda     #<listbuflen	; set length
+	sta     $0348,X
+	lda     #>listbuflen
+	sta     $0349,X
+
+	jmp	CIOV
+
+put:
+	tay			; save a
+	ldx     #e_iocb
+	lda     #$0B            ; set command put char
+	sta     $0342,X
+	lda     #0              ; set length 0, one byte
+	sta     $0348,X
+	sta     $0349,X
+	tya
+	jmp	CIOV
+
+select:
+;	ldy	#linebuflen	; clear line
+;	lda	#0
+;s1	sta	linebuf,Y
+;	dey
+;	bpl s1
+
+	lda	#$09		; set command put text
+	jmp	lineop
+get:
+	lda     #$05            ; set command get text
+lineop
+	ldx     #e_iocb
+	sta     $0342,X
+	lda	#<selectbuf	; set buffer
+	sta	$344,X
+	lda	#>selectbuf
+	sta	$345,X
+	lda     #<selectbuflen	; set length
+	sta     $0348,X
+	lda     #>selectbuflen
+	sta     $0349,X
+	jsr	CIOV
+	lda #$1c		; cursor back
+	jmp put
+
+getkey:
+	ldx     #k_iocb
+	lda     #$07            ; set command get char
+	sta     $0342,X
+	lda     #0		; set length 0, one byte
+	sta     $0348,X
+	sta     $0349,X
+	jmp	CIOV
+
+prep_dcb:
+	ldy #0
+p1:	lda dcb,y
+	sta $300,y
+	iny
+	cpy #dcb_size
+	bne p1
+	rts
+
+ip	= *			; save instruction pointer
+dcb:	* = $300		; real address of dcb
+dcb_start
+d_dev		.db     $71     ; device
+d_unit		.db     1       ; unit
+d_command	.db     $e0     ; command status
+d_stats		.db     $40     ; dstats
+d_buf		.dw     listbuf	; data buffer for sector
+d_timeout	.db     10      ; timeout
+		.db     0       ; unused
+d_byte		.dw     8       ; bytes transfered
+d_aux		.dw     8       ; parameter for command, sec. nr.
+dcb_size = *-dcb_start
+	* = ip+dcb_size		; restore ip
+
+e_device	.byte	"E"
+k_device	.byte	"K"
+
+dl		.dsb	3,$70
+		.db	$42	; set display buffer
+dl_start	.dw	screenbuf
+		.dsb	19,$02	; more same lines
+		.dsb	2,$70
+		.db	$42
+		.dw	linebuf
+		.db	$41	; jump back to dl
+		.dw	dl
+
+listbuf		.byte	"file1.atr",$9b
+		.byte	"file2.atr",$9b
+		.byte	"file3.atr",$9b
+		.byte	"file4.atr",$9b
+		.byte	"file5.atr",$9b
+		.byte	"file6.atr",$9b
+		.byte	"file7.atr",$9b
+		.byte	"file8.atr",$9b
+		.byte	"file9.atr",$9b
+		.byte	"file10.atr",$9b
+		.byte	"file11.atr",$9b
+		.byte	"file12.atr",$9b
+		.byte	"file13.atr",$9b
+		.byte	"file14.atr",$9b
+		.byte	"file15.atr",$9b
+		.byte	"file16.atr",$9b
+		.byte	"file17.atr",$9b
+		.byte	"file18.atr",$9b
+		.byte	"file19.atr",$9b
+		.byte	"file20.atr",$9b
+		.byte	"file21.atr",$9b
+		.byte	"file22.atr",$9b
+		.byte	"file23.atr",$9b
+		.byte	"file24.atr",$9b
+		.byte	"file25.atr",$9b
+		.byte	"file26.atr",$9b
+		.byte	"file27.atr",$9b
+		.byte	"file28.atr",$9b
+		.byte	"file29.atr",$9b
+		.byte	"file30.atr",$9b
+listbuflen	= *-listbuf
+lastentry	.db	22
+
+end
+;in ram only
+		* = $2000
+linebuf		= *
+		* = *+40
+linebuflen	= *-linebuf
+selectbuf	= *
+		* = *+40
+selectbuflen	= *-selectbuf
+cursor_x	= *
+cursor_y	= *+1
+		* = *+2
+lb_ptr		= *
+		* = *+2
+linecounter

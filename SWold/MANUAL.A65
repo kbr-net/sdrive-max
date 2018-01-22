@@ -1,0 +1,25 @@
+;
+;  INCLUDEoveny soubor pres
+;  ins "manual.a65"
+;
+;  manual
+;	
+	dta d"|by Bob!k & Raster / C.P.U.            |"	
+	dta c"ARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRD"
+	dta d"|",d"1"*,d"-",d"4"*,d" set file to drive           ",d"Q"*,d" quit|"		;'1-4' , 'Q'
+	dta d"|",d"RET"*,d" set directory or file to drive    |"		;'RET'
+	dta d"|",d"TAB"*,d" left/right area           ",72,d" reboot|"		;'TAB' , 'INV'
+	dta d"|",d"DEL"*,d" unset file           ",$DC,$BE,72,d" coldstart|"		;'DEL',  !^INV
+	dta d"|",$DB,d" directory up          ",$9C,d" first in dir|"			;'ESC' , '<'
+	dta d"|",$8F,d" set root directory     ",$9E,d" last in dir|"			;'/'   , '>'
+	dta d"|",d"A"*,d" select file from device             |"		;'A'
+	dta d"|",d"L"*,d",",$BE,d"L"*,d" show long filename    ",d"V"*,d" view file|"		;'L' , 'V'
+	dta d"|",d"I"*,d" show file info      ",$BE,d"F"*,d",",$DC,d"A"*,d"-",$DC,d"Z"*,d",",$DC,d"?"*,d" find|"		;'I' , '^F','!A-!Z','!?'
+	dta d"|",d"Z"*,d",",$DC,d"1"*,d"-",$DC,d"4"*,d" swap drives    ",$A6,d",",d"SPC"*,d" find next|"		;'Z','!1-!4' , 'F','SPC'
+	dta d"|",d"R"*,d" refresh             ",d"B"*,d",",$BE,d"B"*,d" bootl.reloc|"		;'R' , 'B','^B'
+	dta d"|",$BE,d"R"*,d" read cfg           ",d"U"*,d',',$BE,d"U"*,d',',d"N"*,d" sio speed|"		;'^R'  , 'U','^U','N'
+	dta d"|",$BE,d"W"*,d" write cfg           ",d"H"*,d" hardware info|"		;'^W', 'H'
+	dta d"|",d"X"*,d" next SDrive device   ",$DC,d"<"*,d" SDrive reset|"		;'X' , '!<'
+	dta c"ZRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRC"
+;
+;konec!

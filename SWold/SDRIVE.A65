@@ -1,0 +1,3066 @@
+;----------------------------------------------------------------
+;	SDRIVE.COM
+;   ovladaci program pro SDrive
+;	Robert Petruzela & Radek Sterba
+;   Bob!k & Raster, C.P.U., 2008-2009
+;----------------------------------------------------------------
+;
+;TYPE=1	... autoload config & autoreboot (if defined in config)
+;TYPE=2 ... no autoload config & no autoreboot
+;
+;HELP=0 ... built-in help no
+;HELP=1 ... built-in help yes
+;
+;
+firstzp	equ 203
+vptr	equ 203						;203,204
+start_dir_requested_files equ 205	;205,206
+page	equ 207						;207,208
+file_index equ 209					;209
+ns		equ 210						;210,211
+currentdrive equ 212				;212
+yposc	equ 213						;213
+maxyposc equ 214					;214
+attryposc	equ 215					;215
+action		equ 216					;216
+retry		equ 217					;217
+lastpage	equ 218					;218,219
+samedir		equ 220					;220
+find_shift_A_Z equ 221				;221
+isnextpage	equ 222					;222
+;parameters (nutno dodrzet poradri)
+fastsio_pokeydiv	equ 223			;223
+bootloader_relocation equ 224		;224
+;konec parameters
+fastsio_idx		equ 225				;225
+;
+vfgsecn		equ 226		;226,227
+vfgsecidx	equ 228
+vfgseclast	equ 229
+viflinepos	equ 230
+vfgviewtype	equ 231
+nd			equ 232		;232,233
+;lastzp		equ 233		;vcetne
+secsiz		equ 234		;234,235
+secfrm		equ 236		;236
+secbts		equ 237		;237
+driveidx	equ 238		;238
+cfrwtype	equ 239		;239
+cfsechbmask equ 240		;240
+autolong	equ 241		;241
+lastzp		equ 241		;vcetne
+;
+;
+FILESONEPAGE	equ 20
+FILENAMELENGTH	equ 40	;128
+FONTROM	equ $e000
+;
+datalo			equ $4000			;nejnizsi pamet odkud zacina prostor pracovnich dat
+screen			equ $4000			;$4000-$43ff	(1024 b)
+MYFONT			equ $4400			;$4400-$47ff	(1024 b)
+screeneoffs		equ screen_empty-screen		;(zaporny offset)
+videovf			equ $4800			;$4800-$4bff	(1024 b) video pro view file
+videovf_end		equ videovf+25*40
+;
+CFGMAXSIZE		equ 1016
+;vzdy trojice sectorlb,sectorhb(vcetne ID dir polozky),pocet dat v sektoru
+configsectors	equ $4f00			;$4f00-...
+configsectorslb	equ $4f00			;$4f00-4f09		(max. 9)
+configsectorshb	equ $4f20			;$4f20-4f29		(max. 9)
+configsectorsbs	equ $4f40			;$4f40-4f49		(max. 9)
+configsectorslen equ $60
+configdata		equ $5000			;$5000-$54ff	(max 5 stranek)
+;
+SIOV		equ $e459
+POWEROFFON	equ $33d	;PUPBT1 - jeho zmenou nasleduje pri rebootu totalni reset
+REBOOT		equ $e477	;reboot vec.
+COLDRESETVEC equ $fffc	;coldreset
+;SOUNDKEYCLICK	equ $f983
+;SOUNDBELL	equ $f556
+;
+;
+	org $2000
+prg_begin
+start
+	lda #0
+	sta 559
+
+	jsr Pau
+;
+;
+	lda 580
+	sta xorig580
+	lda 16
+	sta xorig16
+;
+	lda #128		;povoli jen BREAK, ne klavesove preruseni
+	sta 16
+	sta $d20e
+
+	ldx #lastzp-firstzp
+	lda #0
+izp sta firstzp,x
+	dex
+	bpl izp
+
+	jsr getkeyinit
+
+	jsr setDL
+	
+	lda #$02
+	sta $2c6	;710  (BG color)
+	lda #$0c
+	sta $2c5	;709  (PEN color)
+
+;font
+	mwa #FONTROM ns
+	mwa #MYFONT vptr
+	ldx #4
+	jsr copy_nsvptrX
+;screen empty-> screen
+	jsr screen_init
+;
+	ldx #7
+fo2	lda char_tilda,x
+	sta MYFONT+$7e*8,x
+	dex
+	bpl fo2
+	lda #>MYFONT
+	sta 756
+;
+	lda #34
+	sta 559			;budiz svetlo
+;
+	jsr Pau
+;
+;	jmp restart		;DEBUG !!!!!!!!!!!!!!!!
+;
+;detekce SDRIVE #1 az #4
+findsdrive0
+	lda #0
+	sta sdrive
+nextsdrive
+	jsr clearbottompanel	;pridano
+	lda #4		;4 pokusy (kvuli hledani dalsiho je to takto)
+	sta retry
+findsdrive
+	dec retry
+	bmi fis9
+	ldx sdrive
+	inx
+	cpx #5		;1,2,3,4,1,2,... kruhove
+	bcc fis0
+	ldx #1
+fis0
+	stx sdrive
+	txa
+	ora #$10
+	sta videosdrive
+	sta txtuncompatibledev		;predchysta kdyby bylo nekompatibilni
+	lda #0
+	sta siobuffer+0
+	lda #$e0	;SDRIVE status
+	jsr Set300UniCommandA
+	lda #8		;delka "SDriveVV"
+	sta $30a	;aux1
+	sta $308	;len
+	jsr SIOV
+	ldx #5		;delka "SDrive"-1
+fis1
+	lda siobuffer,x
+	cmp sdriveidentification,x	;souhlasi?
+	bne findsdrive 	;nesouhlasi => jde hledat na dalsim cisle #
+	dex
+	bpl fis1
+	;nasel pristroj odpovidajici "SDrive"
+;nyni porovnat cislo verze firmware "VV"
+;firmware musi byt >= nez verze sdrive.xex
+	lda siobuffer+6	;VV prvni znak
+	cmp #"0"
+	bcc bav1	;je mensi, takze skok uncompatible
+	bne restart		;je vetsi, takze je to OK!
+	;je roven, nutno porovnat druhy byte
+	lda siobuffer+7	;VV druhy znak
+	cmp #"1"
+	bcs restart	;je roven nebo vetsi, takze OK!
+bav1
+	;bad SDrive version (VV firmware je mensi nez sdrive.xex)
+	;vypise #X Uncompatible SDriveVV
+	ldy #msgid_uncompatibledev
+	jsr clearbottompanelandShowMessageIdY
+	ldx #7
+bav3
+	lda siobuffer,x	;SDriveVV
+	jsr convert
+	sta video3+txtuncompatiblelen+1,x
+	dex
+	bpl bav3
+	jsr SOUNDBELL_OWN	;zabzuci!
+	jsr GetKey	;pocka na key
+	jsr clearbottompanel	;smaze to
+	jmp findsdrive ;a hned jde hledat dal
+fis9
+	;nenasel ani jeden
+	lda #'?'-32
+	sta videosdrive
+	jsr GetKey
+	cmp #28			;'ESC'?
+	beq fis9z
+	cmp #$2f		;'Q'
+	beq fis9z
+	jmp findsdrive0
+fis9z
+	jmp quit_yes
+sdriveidentification dta c"SDrive"
+;
+;
+restart
+;
+	lda sdrive
+	ora #$10
+	sta videosdrive		;treba po screen_restore aby tam bylo cislo
+;
+	lda #1
+	sta 580		;az ted, aby kdyby nenasel zadny sdrive, aby to ani nedelal
+;	a=1
+	sta currentdrive
+;
+	lda #0
+	sta yposc	
+	sta action
+;
+	IFT TYPE=1
+	lda $d20f
+	and #8		;drzeny shift?
+	ora $d010	;joy trig (fire)? => 8+1=9
+	cmp #9
+	bne nrc2	;!=9 => ano, vynecha autoload konfigu => skok
+xreadconfigyes equ *+1
+	lda #1		;par. je prepisovan
+	ELS
+xreadconfigyes equ *+1
+	lda #0		;par. je prepisovan
+	EIF
+	beq nrc2
+	lda #0		;read config
+	jsr readwriteconfig
+nrc2
+	lsr xreadconfigyes	;1=>0 (0=>0)
+;
+;	ted prepne sdrive na Dsdrivenum:
+	lda #$EE		;$EE = change actual_drive_num
+	jsr Set300UniCommandA
+	lda #$ff	;switch to default (vDsdrivenum: to Dsdrivenum:)
+	sta $30a	;aux1
+	lda #1
+	sta $303	;neceka zadna data
+	jsr SIOV
+;
+	jsr GetAndShowParameters	;vypise parametry
+;
+;vypise jednotky
+	lda #1
+	sta ns
+uzo1
+	lda ns
+	cmp #5
+	beq uzo2
+	;1-4
+	jsr GetAndShowDeviceA
+	inc ns
+	bne uzo1	;!
+uzo2
+;
+	IFT TYPE=1
+;autoreboot funkce, resi se jen jedinkrat po startu, nikdy vice
+xonlyonce equ *+1
+	lda #1		;par. je prepisovan
+	beq nar2
+xautoreboot equ *+1
+	lda #0		;par. je prepisovan dle konfigu
+	bpl nar2	;neni nejvyssi bit=> nebude autoreboot => skok
+rebootcold
+	inc POWEROFFON		;po resetu bude totalni restart kvuli pripadne zmenene rychlosti!
+	jmp (COLDRESETVEC)	;autoreboot pres COLDRESETVEC
+nar2
+	lsr xonlyonce	;1=>0 (0=>0)
+	EIF
+;
+;
+rootdir			;sem skace pres klavesu '/' (nastaveni rootdir)
+	lda #$FE	;root dir cmd
+	jsr Set300UniCommandA
+	lda #1
+	sta $303	;neceka zadna data
+	jsr SIOV
+;
+;redrawpage0
+newdirredraw
+;vypise cestu
+	jsr GetAndShowPath
+;
+;page 00
+	lda #0
+	sta lastpage
+	sta lastpage+1
+newdirredraw_nolast		;pokud je to ve stejnem adresari
+	lda #$00
+	sta yposc
+	sta start_dir_requested_files
+	sta start_dir_requested_files+1
+	sta page
+	sta page+1
+;
+pageredraw
+	lda samedir		;je to operace probihajici ve stejnem adresari?
+	beq pgr2		;0=> neni=> skok
+	;je, zjisti jestli je na stejne strane
+	;pokud jo, nebude znovu nacitat tuto stranku
+	lda page
+	cmp lastpage
+	bne pgr2
+	lda page+1
+	cmp lastpage+1
+	bne pgr2
+	jmp choose	;preskoci mazani a nacitani teto stranky
+pgr2
+	lda page
+	sta lastpage
+	lda page+1
+	sta lastpage+1
+;
+;nacte a vypise nazvy souboru
+;	vsech 20 najednou
+	lda #0
+	sta isnextpage	;jestli bude dalsi strana
+	sta siobuffer+0
+	lda #$c0	;$C0 xl xh	Get 20 filenames from xhxl. 8.3 + attribute (11+1)*20+1 [<241]
+	jsr Set300UniCommandA
+	lda #241
+	sta $308	;len
+	lda start_dir_requested_files
+	sta $30a	;aux1
+	lda start_dir_requested_files+1
+	sta $30b	;aux2
+	jsr SIOV
+	;nacetl vsech 20 nazvu najednou + 1 znak z 21
+;
+	jsr clear
+	;vykresluje page $xxxx
+	lda page+1
+	jsr HexAX
+	sta videopage+0
+	stx videopage+1
+	lda page
+	jsr HexAX
+	sta videopage+2
+	stx videopage+3
+;
+;a ted bude vykreslovat soubory v adresari
+	lda #0
+	sta file_index
+	lda #<siobuffer
+	sta ns
+	lda #>siobuffer
+	sta ns+1			;horni se nebude menit
+redraw15
+	ldy #0
+	lda (ns),y
+	beq redraw19	;nema nazev=>cele to preskoci konec!
+
+	ldy file_index
+	lda YposLb,y
+	sta vptr
+	lda YposHb,y
+	sta vptr+1
+
+	ldy #11
+	lda (ns),y			;xxxDVxxx filename[11] jsou fat attributy
+	;zmenime na vlastni druh atributu
+	asl @				;xxDVxxxx
+	asl @				;xDVxxxxx
+	sec
+	rol @				;DVxxxxx1
+	and #$c1			;DV000001
+	ldy file_index
+	sta attr,y
+	cmp #$81		;directory?
+	bne redraw16	;neni=>skok
+	;je to dir
+	ldy #0			;nulta pozice
+	lda #$0f		;'/'
+	sta (vptr),y	;'/' pred nazev
+	ldy #12			;vynechat 12 znak (posledni)
+	bne redraw16b ;!
+redraw16
+	;je to soubor	
+	ldy #9			;devata pozice
+	lda #$0e		;'.'
+	sta (vptr),y	;'.' pred extendr
+	;y=9			;bude se vynechavat 9 znak
+redraw16b
+	sty xfilenamespaceatpos	;y= 9 nebo 12, znak na teto pozici bude vynechan
+;
+	ldx #0
+	ldy #1
+	lda ns
+	sta xfilenameptrlb
+redraw17
+	lda siobuffer,x		;lb parametru je prepisovan
+xfilenameptrlb equ *-2
+	beq redraw18
+	cpy #9				;par.je prepisovan
+xfilenamespaceatpos equ *-1
+	beq red17a
+	inx
+	jsr convert
+	sta (vptr),y
+red17a
+	iny
+	cpy #13		;lengthline
+	bne redraw17
+redraw18
+;
+	inc file_index
+	lda ns
+	clc
+	adc #12		;na dalsi file
+	sta ns
+	cmp #FILESONEPAGE*12		;20 souboru na strance * 12 bytu kazdy
+	bne redraw15
+	lda siobuffer+FILESONEPAGE*12
+	sta isnextpage	;nenulovy znak znamena ze bude dalsi strana
+redraw19
+	ldx file_index
+	beq red20
+	dex
+red20
+	stx maxyposc			;dolni mez
+	cpx yposc
+	bcs red21
+	stx yposc				;korekce pokud by byl pod dolni mezi
+red21
+	;jeste vytiskne '<- ->' ($5e,$5f) pro predchozi/nasledujici page
+	ldx #$5e	;'<-'
+	lda page
+	ora page+1
+	bne red22	;je na nejake dalsi strance => skok
+	ldx #0	;' '
+red22
+	stx videopageprev
+	;
+	ldx #$5f	;'->'
+	lda isnextpage
+	bne red23		;muze jit jeste na dalsi => skok
+	ldx #0	;' '
+red23
+	stx videopagenext
+;
+choosedrive
+	jsr ShowCurrentDrive
+;
+choose
+;
+	lda autolong
+	beq choosenol
+showlongname
+	jsr clearbottompanelandsiobuffer
+	lda #$E7	;long fname 128b
+	jsr Set300UniCommandA
+	lda start_dir_requested_files
+	clc
+	adc yposc
+	sta $30a		;aux1
+	lda start_dir_requested_files+1
+	adc #0
+	sta $30b		;aux2
+	lda #128		;len db (len=128)
+	sta $308
+sho1			;sem skace hw info
+	jsr SIOV
+;
+	ldy #0
+sho2
+	lda siobuffer,y
+	beq sho3
+	jsr convert
+	sta video3,y
+	iny
+	cpy #40*2
+	bne sho2
+sho3
+;
+choosenol
+;
+	lda #0
+	sta samedir		;inicializace pred jakoukoliv operaci
+	lda yposc
+	jsr inverseline
+;
+	lda #$80		;inicializace
+	sta 17			;BRKKEY
+;read key
+	jsr getkey
+	jsr SOUNDKEYCLICK_OWN	;zachovava obsah A
+	pha			;PHA key
+;
+	ldy yposc
+	lda attr,y
+	sta attryposc
+	tya	;A=yposc
+	jsr inverseline
+;
+	pla			;PLA key
+;klavesy
+;
+	cmp #44		;TAB
+	bne kaa2
+;tab
+tabkey
+	ldx #0
+	lda action
+	bne kaa2a
+	ldx #1
+kaa2a
+actionX_choosedrivenol
+	stx action
+choosedrivenol
+	jsr ShowCurrentDrive
+	jmp choosenol
+;
+kaa2
+	cmp #$21	;' ' space
+	bne kaa3
+	jsr clearbottompanel	;mezernik promaze spodek
+	lda findtxt+0
+	bne kaa2b
+	jmp choosenol
+kaa2b
+	jmp find_file_next	;hleda dalsi
+;
+kaa3
+	cmp #$2f	;'Q'
+	bne kaa4
+;quit?
+	ldy #msgid_quit
+	jsr clearbottompanelandShowMessageIdY
+	jsr GetKey
+	cmp #$2b	;'Y' ?
+	beq kaa3c
+	jsr clearbottompanelandsiobuffer
+	jmp choose
+kaa3c ; yes
+quit_yes
+	lda #0		;par. je prepisovan
+xorig16 equ *-1
+	sta 16
+	sta $d20e
+	lda #0		;par. je prepisovan
+xorig580 equ *-1
+	sta 580		;vrati stav po resetu
+	lda #255
+	sta 764
+	jmp (10)	;quit to DOS
+;
+kaa4
+;
+;
+	ldx action
+	beq kuu1
+	jmp kww1
+;action=0
+kuu1
+	cmp #$06	;'+' kurzor <-
+	bne kuu2
+;left
+wantleft
+	lda page
+	ora page+1
+	bne left02
+	lda #0		;vic doleva uz nejde
+	sta yposc
+	jmp choose
+left02
+	lda start_dir_requested_files
+	sec
+	sbc #FILESONEPAGE
+	sta start_dir_requested_files
+	bcs left05
+	dec start_dir_requested_files+1
+left05
+	lda page
+	sec
+	sbc #1
+	sta page
+	bcs left10	;horni byte cisla stranky se nesnizuje
+	dec page+1
+left10
+	jmp pageredraw
+;
+kuu2
+	cmp #$07	;'*' kurzor ->
+	bne kuu3
+wantright
+	lda isnextpage	;existuje jeste dalsi stranka?
+	bne rig2		;ano => skok
+	lda maxyposc
+	sta yposc
+	jmp choose
+rig2
+	lda start_dir_requested_files
+	clc
+	adc #FILESONEPAGE
+	sta start_dir_requested_files
+	bcc right05
+	inc start_dir_requested_files+1
+right05
+	inc page
+	bne right10
+	inc page+1
+right10
+	jmp pageredraw
+;
+kuu3
+	cmp #$0e	;'-' up
+	bne kuu4
+;up
+	lda yposc
+	beq up11
+	dec yposc
+	jmp choose
+up11
+	lda #FILESONEPAGE-1
+	sta yposc
+	jmp wantleft	;chtel by doleva
+;
+kuu4
+	cmp #$0f	;'=' down
+	bne kuu5
+;down
+	lda yposc
+	cmp maxyposc
+	bcs dow11
+	inc yposc
+dow10
+	jmp choose
+dow11
+	cmp #FILESONEPAGE-1
+	bcc dow10		;neni ani plna stranka => uz nemuze doprava
+	lda #0
+	sta yposc
+	jmp wantright	;chtel by doprava
+;
+kuu5
+	cmp #12		;return?
+	bne kuu6
+;return (action=0)
+	lda attryposc
+	cmp #$41	;volume label?
+	bne kuu5a	;neni=>skok
+kuu5b
+	jmp choose	;je,takze nic
+kuu5a
+	cmp #0
+	bmi kuu5c	;$8x (adresar)=>skok
+	beq kuu5b	;$00 nic=>skok
+	;file
+	ldx #2
+	jmp actionX_choosedrivenol
+kuu5c
+	;odklepl adresar
+	;zkontroluje jestli to je '..', aby pouzil cd'..' s nalistovanim updiru
+	ldy yposc
+	lda YposHb,y
+	sta ns+1
+	lda YposLb,y
+	sta ns
+	ldy #2		;'/..' (na 0.pozici je '/', me ale zajima tecka na 2.pozici - tam muze byt jen u polozky '..')
+	lda (ns),y
+	cmp #'.'-32	;je tam video kod znaku tecka?
+	bne kuu5d	;neni => skok
+	;je
+	jmp set_upper_directory
+kuu5d
+	;normalni adresar - nastavi ho
+	ldx currentdrive
+	jsr setdeviceX
+	jmp newdirredraw
+;
+kuu6
+	cmp #54		;'<'
+	bne kuu7
+;na prvni stranku
+	inc samedir	;oprace vyhledavani probiha ve stejnem adresari
+	jmp newdirredraw_nolast ;bez vynulovani lastpage
+;
+kuu7
+	cmp #55		;'>'
+	bne kuu8
+;na posledni soubor
+	lda #0
+	sta siobuffer+0
+	sta siobuffer+1
+	lda #$ea	;$EA ?? ??	Get number of items in actual directory [<2]
+	jsr Set300UniCommandA
+	lda #2
+	sta $308	;len db
+	jsr SIOV
+	lda siobuffer+0	;db
+	sec
+	sbc #1
+	sta siobuffer+12
+	lda siobuffer+1 ;hb
+	sbc #0
+	sta siobuffer+13
+	jsr selectfilebyfileindex1213
+	inc samedir		;probiha ve stejnem adresari
+	jmp pageredraw
+;
+kuu8
+	cmp #56+128		;Control+'F'
+	bne kuu9
+;vyhledavani
+kuu8a
+	jmp find_file
+;
+kuu9
+	cmp #56			;'F'
+	bne kuu10
+;vyhledavani, dalsi prvek
+	lda findtxt
+	beq kuu8a	;neni co, takze nabidne "Find: " (jako Ctrl+F)
+	jmp find_file_next
+;
+kuu10
+;
+	jmp kee1
+;---
+kww1
+;action=1,2
+	cmp #$0e	;up
+	bne kww2
+;up
+	ldx currentdrive
+	cpx #2		;<2?
+	bcc kww1a	;ano, nebude snizovat
+	dex
+kww1a
+	stx currentdrive
+	jmp choosedrivenol
+;
+kww2
+	cmp #$0f	;down
+	bne kww3
+;down
+	ldx currentdrive
+	cpx #4
+	bcs kww2a
+	inx
+kww2a
+	jmp kww1a
+;
+kww3
+	cmp #28		;ESC
+	bne kww4
+;ESC (action=1,2)
+kww3a
+	jmp tabkey	;=>action=0
+;
+kww4
+	cmp #6		;<-
+	bne kww5
+;left (action=1,2)
+	dec action
+	jmp choosedrivenol
+;
+kww5
+	cmp #7		;->
+	bne kww6
+;right (action=1,2)
+	lda action
+	cmp #2
+	bcs kww5b
+	lda attryposc
+	cmp #$01		;file?
+	bne kww5b		;cokoli jineho nez file (adresar, volume label)=>skok
+	ldx #2
+	jmp actionX_choosedrivenol
+kww5b jmp choosenol
+;
+kww6
+;
+kee1
+;
+kee2
+	cmp #38		;/
+	bne kee3
+	jmp rootdir
+;
+kee3
+	and #128+63	;bez shiftu
+	ldx #1
+	cmp #31		;'1' nebo Shift+'1'
+	beq key1
+	cmp #30		;'2' nebo Shift+'2'
+	beq key2
+	cmp #26		;'3' nebo Shift+'3'
+	beq key3
+	cmp #24		;'4' nebo Shift+'4'
+	beq key4
+	jmp kee4
+key4 inx
+key3 inx
+key2 inx
+key1
+	lda shiftcontrolkey
+	beq key1to4
+;shift+key1to4
+	stx currentdrive
+	jsr ShowCurrentDrive
+	jmp swapdrive
+key1to4
+	stx currentdrive
+	lda attryposc
+	cmp #$01	;file?
+	bne kyt2	;neco jineho nez file (dir,volume)=>skok
+	ldx #2
+	stx action
+	jsr ShowCurrentDrive	;aby pred nastavovanim zobrazil "->"
+	jmp returnaction2
+kyt2
+	jmp choosedrivenol
+;
+kee4
+	lda activekey	;ZNOVU SI VEZME KLAPKU Z GETKEY!
+;
+	cmp #12		;return?
+	bne kee5
+;return (action>0)
+	lda action
+	cmp #2
+	bne kee4b
+;return (action=2)
+returnaction2
+	ldx currentdrive
+	jsr setdeviceX
+	ldx #0
+	jmp actionX_choosedrivenol
+kee4b
+;return (action=1)
+	ldx #0
+	stx action
+	jmp activatedirectory
+;	
+setdeviceX
+	;v X je cislo device 1 az 4 (nebo 0)
+	stx xsdev
+	lda attryposc
+	bpl sv01	;neni to directory =>skok
+	ldx #$0f	;X=$0f ! device $0f je pro nastavovani adresaru
+sv01
+	txa
+	ora #$F0	;command $F1..$F4 pro set (nebo $F0), nebo $FF pro nastaveni adresare
+	jsr Set300UniCommandA
+	lda #1
+	sta $303	;neceka zadna data
+	lda yposc
+	clc
+	adc start_dir_requested_files
+	sta $30a
+	lda #$00
+	adc start_dir_requested_files+1
+	sta $30b
+	lda attryposc
+	bmi sv09	;je to directory =>skok
+	jsr SIOV	;nastavi file do jednotky
+;	lda #0		;par.je prepisovan
+;xsdev equ *-1
+; to moc zdrzuje
+;	jsr GetAndShowDeviceA 	;zjisti nastaveny nazev a zobrazi vpravo u prislusneho device
+; radeji to vypise primo dle listingu
+	lda #0		;par.je prepisovan
+xsdev equ *-1
+	beq sv08	;device 0 nezobrazuje
+	jsr ShowDeviceA_ByYposc
+sv08
+	rts
+sv09
+	jmp SIOV ;jr!	;nastavi adresar
+;	rts
+;
+kee5
+	cmp #63		;'A'
+	bne kee6
+;Get file in drive and show them
+activatedirectory
+kee5b
+	lda action
+	cmp #2
+	bcc ke5b1	;action>=2 => skok
+	dec action	;action=2 => action=1
+ke5b1
+	lda currentdrive
+	jsr GetAndShowDeviceA 	;zjisti nastaveny nazev a zobrazi vpravo u prislusneho device
+	;a tim zaktivuje tento adresar
+	;
+	lda siobuffer+0
+	beq kee5z	;nenasel nic
+	jsr selectfilebyfileindex1213
+	jsr GetAndShowPath	;vypise celou cestu
+	jmp pageredraw
+kee5z
+	jmp newdirredraw
+;
+	;posune se podle indexu na prislusnou stranku a radek
+selectfilebyfileindex1213
+	lda #0
+	sta start_dir_requested_files
+	sta start_dir_requested_files+1
+	sta page
+	sta page+1
+ke5c
+	lda siobuffer+12	;db index
+	sec
+	sbc start_dir_requested_files
+	sta ns
+	lda siobuffer+13	;hb index
+	sbc start_dir_requested_files+1
+	bne ke5d
+	lda ns
+	cmp #FILESONEPAGE
+	bcs ke5d
+	sta yposc
+	rts				;konec
+ke5d
+	lda start_dir_requested_files
+	clc
+	adc #FILESONEPAGE
+	sta start_dir_requested_files
+	bcc ke5e
+	inc start_dir_requested_files+1
+ke5e
+	inc page
+	bne ke5f
+	inc page+1
+ke5f
+	jmp ke5c
+;
+kee6
+	cmp #52		;'DEL'
+	bne kee7
+;Unset file
+	lda #$E2	;$E2  n ??	Deactivation of device Dn:
+	jsr Set300UniCommandA
+	lda currentdrive
+	sta $30a	;aux1 (cislo jednotky co deaktivovat)
+	lda #1
+	sta $303	;neceka zadna data
+	jsr SIOV
+	lda currentdrive
+	jsr GetAndShowDeviceA 	;zjisti nastaveny nazev a zobrazi vpravo u prislusneho device
+	jmp choosenol
+;
+kee7
+	cmp #13		;'I'
+	bne kee8
+;Info
+	jsr clearbottompanelandsiobuffer
+;
+	lda #$E5	;$E5 xl xh	Get more detailed filename xhxl. 8.3 + attribute + size/date/time + text info (1234567890 YYYY-MM-DD HH:MM:SS) + [11+1+8+30=50]
+	jsr Set300UniCommandA
+	lda start_dir_requested_files
+	clc
+	adc yposc
+	sta $30a		;aux1
+	lda start_dir_requested_files+1
+	adc #0
+	sta $30b		;aux2
+	lda #50			;len db (len=50)
+	sta $308
+	jsr SIOV
+	lda siobuffer+0
+	beq kee7e
+	ldx #-1
+kee7c
+	inx
+	lda siobuffer+20,x
+	cmp #32				;hleda prvni znak jiny nez ' '
+	beq kee7c
+	ldy #0
+kee7d
+	lda siobuffer+20,x
+	beq kee7e
+	jsr convert
+	sta video3,y
+	iny
+	inx
+	cpx #50
+	bne kee7d
+kee7e
+	jmp choosenol
+;
+kee8
+	cmp #28		;ESC
+	bne kee9
+;directory up
+set_upper_directory
+	lda #$FD	;$FD  n ??	Change actual directory up (..). If n<>0 => get dirname. 8+3+attribute+fileindex [<14]
+	jsr Set300UniCommandA
+	lda #14
+	sta $308	;len db (prebira 14 bytu)
+	sta $30a	;n<>0!
+	jsr SIOV
+	jsr selectfilebyfileindex1213	;vybere nalezeny adresar podle fileindexu v siobuff 12,13
+	;jmp newdirredraw
+	jsr GetAndShowPath
+	jmp pageredraw
+;
+kee9
+	cmp #39+64+128	;Shift+Control+'INV'
+	beq kee9b
+	cmp #39+64	;Shift+'INV'
+	beq kee9a
+	cmp #39		;'INV'
+	bne kee10
+kee9a
+	jmp REBOOT	;reboot
+kee9b
+	IFT TYPE=1
+	jmp rebootcold
+	ELS
+rebootcold
+	inc POWEROFFON		;po resetu bude totalni restart kvuli pripadne zmenene rychlosti!
+	jmp (COLDRESETVEC)	;autoreboot pres COLDRESETVEC
+	EIF
+;
+kee10
+	cmp #23		;'Z'
+	bne kee11
+swapdrive
+;Z - swap drive
+	lda #$EE	;$EE  n ??	Switch Dn: with D{SDrivenum}:
+	jsr Set300UniCommandA
+	lda currentdrive
+	sta $30a
+	lda #1
+	sta $303	;neceka zadna data
+	jsr SIOV
+	jmp choosenol
+;
+kee11
+	cmp #40		;'R'
+	beq kee11b	;=> skok na restart BEZ nacitani konfigu
+	cmp #128+40	;Control+'R'
+	bne kee12
+;restart s nacitanim konfigu
+	lda #1
+	sta xreadconfigyes	;restart vcetne nacitani konfigu
+kee11b
+clearbottompanelandrestart	;sem skace na konci Shift+< (Clear)
+	jsr clearbottompanel
+	jmp restart
+;
+kee12
+	cmp #17		;'HELP'
+	bne ked13
+;manual
+	IFT HELP
+	ldx #<mandlist
+	ldy #>mandlist
+	jsr setDLxy
+;	jsr waitreleasekey	;ceka az pusti
+	jsr getkey			;ceka na libovolnou klavesu
+	jsr setDL
+	ELS
+	ldy #msgid_helpversion
+	jsr clearbottompanelandShowMessageIdY
+	EIF ;/HELP
+	jmp choosenol
+;
+ked13
+	cmp #57		;'H'
+	bne kee13
+;hardware info
+	jsr clearbottompanelandsiobuffer
+	lda #$E0	;get status
+	jsr Set300UniCommandA
+	lda #80		;vic se dolu na bottom panel stejne nevejde
+	sta $30a	;aux1
+	sta $308	;len db
+	jmp sho1
+;
+kee13
+	cmp #0+128	;Control+'L'
+	bne kee13_2
+	lda autolong
+	eor #1
+	sta autolong
+	jsr clearbottompanelandsiobuffer
+	jmp choose
+;
+kee13_2
+	cmp #0		;'L'
+	bne kee14
+;longname
+	jmp showlongname
+;
+kee14
+	cmp #22		;'X'
+	bne kee15
+;neXt SDrive device Num
+	jmp nextsdrive
+;
+kee15
+	cmp #21		;'B'
+	bne kee16
+;bootloader relocation
+	inc bootloader_relocation
+kee15a
+	lda bootloader_relocation
+	cmp #$bf-7
+	bne kee15a1
+	lda #$05-7
+kee15a1
+	cmp #$04-7
+	bne kee15a2
+	lda #$be-7
+kee15a2
+	sta bootloader_relocation
+	;a ted to nastavi v SDrive
+	lda #$C2	;$C2 nn ??	set bootloader relocation = $0700+$nn00
+	jsr Set300UniCommandA
+	lda bootloader_relocation
+AUX1_SIOV_ShowParameter_Choosenol
+	sta $30a	;aux1
+	lda #1
+	sta $303	;neceka zadna data
+	jsr SIOV
+	jsr GetAndShowParameters
+	jmp choosenol
+;
+kee16
+	cmp #21+128	;Control+'B'
+	bne kee17
+	dec bootloader_relocation
+	jmp kee15a
+;
+kee17
+	cmp #11		;'U'
+	bne kee18
+;ultra speeds
+	ldx fastsio_idx
+	inx
+	cpx #fastsio_pokeydivtable_len
+	bcc kee17b
+	ldx #1
+kee17b
+	stx fastsio_idx ;0..40
+	lda #$c1	;$C1 nn ??	set fastsio mode
+	jsr Set300UniCommandA
+	ldx fastsio_idx
+	lda fastsio_pokeydivtable,x
+	jmp AUX1_SIOV_ShowParameter_Choosenol
+;
+kee18
+	cmp #11+128	;Control+'U'
+	bne kee19
+	ldx fastsio_idx
+	cpx #2
+	bcs kee18b
+	ldx #fastsio_pokeydivtable_len	;bude dex
+kee18b
+	dex
+	jmp kee17b	;!
+;
+kee19
+	cmp #35		;'N'
+	bne kee20
+;No ultra speed
+	ldx #1
+	bne kee17b	;!
+;
+;
+kee20
+	cmp #16		;'V'
+	bne kee21
+;view
+	lda attryposc
+	cmp #$01	;file?
+	bne kee20z	;neco jineho nez file => skok
+	jsr inverseline
+	jsr ViewFile
+	jsr inverseline
+	jsr clearbottompanelandsiobuffer	
+	jsr setDL
+kee20z
+	jmp choose
+;
+kee21
+	cmp #128+46	;Control+'W'
+	bne kee22
+;write config
+	lda #$80	;write config
+	jsr readwriteconfig
+	;protoze po write configu zustane v poslednim nacitanem adresari
+	;tak ted vola rootdir
+	jmp rootdir
+;
+kee22
+	cmp #64+54	;Shift+'<' (Clear)
+	bne kee23
+;clear
+	lda #$e1		;init SDrive n<>0 (jen setbootdrive d0: bez zmeny actual drive!)
+	jsr Set300UniCommandA
+	jsr Set1to303jsrSIOV	;$303<=1 jsr SIOV
+	jmp clearbottompanelandrestart	;jmp restart
+;
+kee23
+;
+;
+;dalsi klapky sem
+;
+;
+kee98 ;toto nejlepe nechat jako posledni klavesovou akci
+;protoze saskuje s PHA,PLA
+	cmp #102	;Shift+'?'
+	beq kee98a
+	pha	;PHA1ab
+	tay
+	lda (121),y
+	cmp #'A'		;SHIFT+A
+	bcc kee98b
+	cmp #'Z'+1		;az SHIFT+Z
+	bcs kee98b
+	pla ;PLA1a
+kee98a
+	sta find_shift_A_Z	;nastavi pismenko ('A' az 'Z')
+	jmp find_file
+kee98b
+	pla ;PLA1b (vybere ze stacku)
+;
+kee99
+	jmp choosenol
+;
+convert
+	cmp #32
+	bcs convert10
+	;0-31 => +64
+	;C=0
+	adc #64
+	rts
+convert10
+	cmp #96
+	bcs convert20
+	;32-95 => -64
+	;C=0
+	sbc #31	;-1 carry=0 => -32
+	rts
+convert20
+	cmp #128
+	bcs convert30
+	;96-127 => stejne
+	rts
+convert30
+	cmp #160
+	bcs convert40
+	;128-159 => +64
+	;C=0
+	adc #64
+	rts
+convert40
+	cmp #224
+	bcs convert50
+	;160-223 =>-32
+	;C=0
+	sbc #31 ;-1 carry=0 => -32
+convert50
+	rts
+;
+;
+;
+inverseline
+	pha
+	tya
+	pha
+
+	ldy yposc
+	lda YposLb,y
+	sta vptr
+	lda YposHb,y
+	sta vptr+1
+
+	ldy #13
+inv10
+	lda (vptr),y
+	eor #$80
+	sta (vptr),y
+	dey
+	bpl inv10
+	
+	pla
+	tay
+	pla
+	rts
+;
+;
+clear
+;	pha
+;	txa
+;	pha
+;	tya
+;	pha
+
+	ldy #FILESONEPAGE-1
+	lda #0
+clear9
+	sta attr,y		;vymaze atributy
+	ldx YposLb,y
+	stx xclearv
+	ldx YposHb,y
+	stx xclearv+1
+	ldx #13		;delka radku
+clear10
+	sta $ffff,x			;parametry se prepisuji
+xclearv equ *-2
+	dex
+	bpl clear10
+	dey
+	bpl clear9
+;
+;	jsr clearbottompanel
+;
+;	pla
+;	tay
+;	pla
+;	tax
+;	pla
+	rts
+;
+clearDevices
+	ldx #4
+ced0
+	lda YposDeviceLb,x
+	sta vptr
+	lda YposDeviceHb,x
+	sta vptr+1
+	ldy #11
+	lda #0
+ced1
+	sta (vptr),y
+	dey
+	bpl ced1
+	dex
+	bne ced0
+	rts
+;
+clearbottompanel
+	lda #0
+	ldy #40*2-1
+cbp1
+	sta video3,y		;promaze bottom panel
+	dey
+	bpl cbp1
+	rts
+;
+clearbottompanelandsiobuffer
+	jsr clearbottompanel
+	;a pokracuje
+clearsiobuffer
+	lda #0
+	tay	;vsech 256 bytu
+csb1
+	sta siobuffer,y		;promaze buffer
+	iny
+	bne csb1
+	rts
+;
+HexAX
+	pha
+:4	lsr @
+	tax
+	lda hex,x
+	sta ausha
+	pla
+	and #$0f
+	tax
+	lda hex,x
+	tax
+	lda #0		;par. je prepisovan
+ausha equ *-1
+	rts
+hex
+	dta d"0123456789ABCDEF"
+;
+;
+ShowCurrentDrive
+;ukaze sipku podle aktualniho drive
+	ldx #4
+shc1
+	lda #0
+	cpx currentdrive
+	bne shc2
+	ldy action
+	lda tabact,y
+shc2 ldy mul40,x	;nasobky 40
+	sta video2devcurrdrive,y
+	dex
+	bpl shc1
+	rts
+tabact
+	dta c"T"		;kolecko
+	dta 30+64+128	;znak "<-" sipka inverzni
+	dta 31+64+128	;znak "->" sipka inverzni
+;
+;
+SetBootDriveToD0
+	lda #$e1		;init SDrive n<>0 (jen setbootdrive d0: bez zmeny actual drive!)
+	jsr Set300UniCommandA
+	inc $30a	;aux1 !=0 => jen setbootdrive d0
+Set1to303jsrSIOV	;$303<=1 jsr SIOV
+	lda #1
+	sta $303	;neceka zadna data
+	jmp SIOV ;jr!  	;nevraci chybove hlaseni
+;
+GetAndShowDeviceA
+	pha		;pha1
+	pha		;pha2
+	lda #0
+	sta siobuffer+0
+	lda #$e3	;Set actual directory by device Dn: and get filename. 8.3 + attribute + fileindex [11+1+2=14]
+	jsr Set300UniCommandA
+	lda #14		;vraci detailed filename
+	sta $308	;len db
+	pla		;pla2
+	sta $30a
+	jsr SIOV
+	pla		;pla1
+	tay
+	lda YposDeviceLb,y
+	sta vptr
+	lda YposDeviceHb,y
+	sta vptr+1
+;
+	ldx #0
+	ldy #0
+shd1
+	lda siobuffer,x
+	beq shd2
+	inx
+	cpy #8
+	bne shd1a
+	lda #46		;'.'
+	dex
+shd1a
+	jsr convert
+	sta (vptr),y
+	iny
+	cpy #12
+	bne shd1
+	rts
+shd2
+	sta (vptr),y		;domaze zbytek od prvni 0
+	iny
+	cpy #12
+	bne shd2
+	rts
+;
+ShowDeviceA_ByYposc
+	tay ;device 1-4
+	lda YposDeviceLb,y
+	sta vptr
+	lda YposDeviceHb,y
+	sta vptr+1
+	ldy yposc
+	lda YPosHb,y
+	sta ns+1
+	ldx YPosLb,y
+	inx
+	stx ns
+	bne sdb1
+	inc ns+1
+sdb1
+	ldy #11
+sdb2 lda (ns),y
+	sta (vptr),y
+	dey
+	bpl sdb2
+	rts
+;
+clearPath
+	ldx #0
+	txa
+clp1
+	sta siobuffer,x
+	inx
+	bne clp1
+	jmp clp2
+;
+GetAndShowPath
+;vypise celou cestu
+	lda #0
+	sta siobuffer+0
+	lda #$EB	;$EB get path
+	jsr Set300UniCommandA
+	lda #120	;120bytes
+	sta $308	;lendb
+	lda #10		;10 updirs
+	sta $30a	;aux1
+	jsr SIOV
+	lda siobuffer+0
+	beq clearPath
+clp2 ;
+	lda #<video2path
+	sta ns
+	lda #>video2path
+	sta ns+1
+	ldx #0
+pth1
+	lda ns
+	clc
+	adc #41	;o jeden radek + 1 znak
+	sta ns
+	bcc pth2
+	inc ns+1
+pth2
+	ldy #0
+pth3
+	lda siobuffer,x
+	beq pth4
+	jsr convert
+pth4
+	sta (ns),y
+	inx
+	iny
+	cpy #12
+	bne pth3
+	cpx #10*12		;10 podadresaru
+	bne pth1
+	rts
+;
+;
+GetAndShowParameters
+	lda #$ef	;get SDrive parameters
+	jsr Set300UniCommandA
+	lda #2		;chci 2 byty
+	sta $30a	;aux1
+	sta $308	;len db
+	lda #2		;od parametru 2
+	sta $30b	;aux2
+	jsr SIOV
+	cpy #0
+	bpl gasp0
+;nepodarilo se
+clearParameters
+	ldy #21
+gasp3
+	lda video2parameters+screeneoffs,y
+	sta video2parameters,y
+	lda video2parameters+40+screeneoffs,y
+	sta video2parameters+40,y
+	dey
+	bpl gasp3
+	rts
+gasp0
+;podarilo se
+gasp1
+	lda siobuffer+0
+	sta fastsio_pokeydiv
+	lda siobuffer+1
+	sta bootloader_relocation
+;siospeed
+	lda fastsio_pokeydiv
+	jsr HexAX
+	sta video2fastsiomode+0
+	stx video2fastsiomode+1
+	ldx #fastsio_pokeydivtable_len-1
+	lda fastsio_pokeydiv
+gasp2
+	cmp fastsio_pokeydivtable,x
+	beq gasp4
+	dex
+	bne gasp2
+	;nenasel
+	;x=0
+gasp4 ;nasel
+	stx fastsio_idx
+	lda #0
+	cpx #[fastsio_pokeydivtable_over100-fastsio_pokeydivtable]
+	bcc gasp4b	;rychlost je mene nez 100=> skok
+	lda #$11	;'1' (sto neco)
+gasp4b
+	sta video2fastsiomode+3
+	lda txsiot1,x
+	sta video2fastsiomode+4
+	lda txsiot2,x
+	sta video2fastsiomode+5
+	beq gasp5
+	lda #$10	;'0'
+gasp5
+	ldy #2
+gasp5b
+	sta video2fastsiomode+6,y
+	dey
+	bpl gasp5b
+gasp6
+;bootloader
+	lda bootloader_relocation
+	clc
+	adc #$07
+	jsr HexAX
+	sta video2bootloader+0		;0700-07F7
+	sta video2bootloader+5
+	stx video2bootloader+1
+	stx video2bootloader+6
+gasp9
+	rts
+fastsio_pokeydivtable dta 6,40,16,10,9,8,7,6
+	dta 5,4,3,2
+fastsio_pokeydivtable_over100
+	dta 1,0
+fastsio_pokeydivtable_len equ *-fastsio_pokeydivtable
+txsiot1	dta d' -355666'
+	dta d'7889'
+	dta d'12'
+txsiot2	dta d'  936049'
+	dta d'5199'
+	dta d'28'
+;
+;
+find_file	;vyhledavani
+	jsr clearbottompanelandsiobuffer
+	ldx #findend-findtxt-1
+	lda #0
+	sta findcuridx
+fii1 sta findtxt,x	;promaze hledany nazev
+	dex
+	bpl fii1
+fin0
+	ldx #findend-findtitle-1
+fin1
+	lda findtitle,x
+	beq fin2
+	jsr convert
+fin2
+	sta video3,x
+	dex
+	bpl fin1
+	ldx findcuridx
+	lda #128
+	sta video3+[findtxt-findtitle],x
+	lda #0
+	sta findtxt,x
+	sta video3+[findtxt-findtitle]+1,x	;kvuli odmazavani
+fin3
+	lda find_shift_A_Z
+	bne fin3c	;preskoci getkey (pouzije tuto hodnotu)
+	jsr GetKey
+	jsr SOUNDKEYCLICK_OWN	;zachovava obsah A
+fin3c
+	ldx #0
+	stx find_shift_A_Z ;vynuluje (aby to platilo jen pro 1 znak)
+	and #63		;vymaskuje Shift+,Control+
+	cmp #12		;return ve vyhledavani
+	beq fin9
+	cmp #52		;backspace ve vyhledavani
+	beq fin8
+	cmp #28		;esc ve vyhledavani
+	bne fin3b
+	lda #0
+	sta findtxt+0	;smaze 0.znak, aby to zneplatnil
+	jsr clearbottompanelandsiobuffer
+	jmp choose
+fin3b
+	tay
+	lda (121),y
+	cmp #47		;('/') ve vyznamu Shift+'?' povoleny znak
+	bne fin3d
+	lda #63		;preklad '/' na '?'
+	bne fin4 ;!
+fin3d
+	cmp #97
+	bcc fin3a
+	sbc #32		;prevod mala pismena na velka
+fin3a
+	cmp #48		;<'0'
+	bcc fin3
+	cmp #91		;>'Z'
+	bcs fin3
+	cmp #65		;>='A'
+	bcs fin4
+	cmp #58		;>'9'
+	bcs fin3
+fin4
+	ldx findcuridx
+	cpx #8
+	bcs fin3
+	sta findtxt,x
+	inc findcuridx
+	jmp fin0
+fin8 ;backspace
+	lda findcuridx
+	beq fin3
+	dec findcuridx
+	jmp fin1
+fin9 ;return ve vyhledavani
+	jsr find_sendfindtext
+	;a ted necha vyhledat
+	lda #$ed	;$ED xl xh       Find results from xhxl index in actual directory, get filename 8+3+attribute+fileindex (11+1+2) [<14]
+	jsr Set300UniCommandA
+	;aux1,2 necha nulove, aby se vyhledavalo od 0.polozky
+	jmp fne1	;skok na nastaveni len atd., jako u findnext
+;
+find_sendfindtext
+	ldx #11
+fise1
+	lda findtxt,x
+	cmp #63	 ;'?' ?
+	bne fise2
+	lda #0	   ;libovolny znak ve vyhledavani
+fise2
+	sta siobuffer,x
+	dex
+	bpl fise1
+;
+	lda #$ec	;$EC  n 	m	Find filename 8+3. (Predava se vzor 11 bytu, nulove znaky jsou pri porovnavani ignorovany). [>11]
+	jsr Set300UniCommandA
+	lda #$80
+	sta $303	;posila data
+;	lda #<findtxt
+;	sta $304	;db dat
+;	lda #>findtxt
+;	sta $305	;hb dat
+	lda #11
+	sta $308	;len db
+	jmp SIOV ;jsrrts
+;
+find_file_next
+	jsr find_sendfindtext
+	;a ted necha vyhledat
+	lda #$ed	;$ED xl xh       Find results from xhxl index in actual directory, get filename 8+3+attribute+fileindex (11+1+2) [<14]
+	jsr Set300UniCommandA
+	lda start_dir_requested_files
+	sec			;+1 (zacne o 1 dal nez aktualni pozice)
+	adc yposc
+	sta $30a		;aux1
+	lda start_dir_requested_files+1
+	adc #0
+	sta $30b		;aux2
+fne1 ;sem skace z findfirst
+	lda #14			;len db
+	sta $308
+	lda #0
+	sta siobuffer+0
+	jsr SIOV
+	inc samedir	;oprace vyhledavani probiha ve stejnem adresari
+	lda siobuffer+0
+	beq fin10		;nenasel =>skok
+	;nasel
+	jsr selectfilebyfileindex1213	;nasel, tak to vybere
+	jsr clearbottompanelandsiobuffer
+	jmp pageredraw
+fin10
+	;nenasel
+	jsr clearbottompanelandsiobuffer
+	jsr SOUNDBELL_OWN
+	jmp choose
+;
+;
+waitreleasekey
+wark1
+	lda $d20f
+	and #$04
+	beq wark1	;drzi=>skok
+	rts
+;
+getkeyinit
+	ldx #15		;wait key
+	lda #$ff
+	sta lastkey
+	rts
+;
+getkey
+	ldx #3		;repeat key
+getk1a
+	lda $d20f
+	and #$04	;drzi klavesu?
+	beq getk1d	;drzi=>skok
+getk1b
+	lda 53279	;start,sel,opt
+	and #7		;MUSI BYT!!! kvuli keyclicku :-o
+	cmp #6		;start?
+	beq getk_consolestart
+	tay
+	lda ssotab,y
+	bpl getk1f	;je nejaka konzolova co se preklada na key=>skok
+getk1e
+	lda 644		;joy trig (fire)
+	beq getknotri
+	lda #16
+getknotri		;0 nebo 16
+	ora 632		;$d300	;joy
+	;0-15 nebo 16-31
+	tay
+	lda joytab,y	;nejaky smer
+	bpl getk1f ;je nejaky smer co se preklada na key=>skok
+getk1
+	jsr getkeyinit
+	jmp getk1a	;smycka
+getk1d
+;drzi
+	lda $d209
+getk1f
+	sta activekey
+	lda lastkey
+	cmp #$ff
+	beq getk3
+	cmp activekey
+	beq getk2	;stejnou jako minule => skok
+	jsr getkeyinit	;jinou
+getk2
+	dec repkey
+	beq getk3
+	jsr Pau
+	lda $d20f
+	and #$04	;drzi?
+	beq getk2	;ano
+	lda 53279	;nejaka konzolova stale drzena?
+	and #7		;musi byt kvuli keyclicku! :-o
+	cmp #7
+	bne getk2	;ano
+	lda 632		;$d300
+	cmp #15
+	bne getk2	;ano
+	;uz ne
+	jmp getk1	
+getk3
+	stx repkey
+	lda #0
+	sta 77			;zrusit attract mod po prvni klavese (akci)
+	lda activekey	;keycode
+	sta lastkey
+	and #$c0		;shift$40|control$80
+	sta shiftcontrolkey
+	lda activekey
+	rts
+;
+getk_consolestart
+	ldy #16 ;mereni 0.32 sec
+	bne getks2 ;!
+getks1
+	jsr Pau
+	dey
+	bpl getks2	;>=0
+	iny	;<0 => +1 => Y=0
+getks2
+	lda 53279
+	and #7	;musi byt
+	cmp #6  ;porad drzi start?
+	beq getks1 ;ano=>skok
+	;pustil
+	lda #12	;return
+	cpy #0
+	bne getk1f	;klapka return
+	lda #0
+	beq getk1f  ;klapka L (longname)
+repkey	dta 0
+activekey dta 0
+lastkey	dta 0
+shiftcontrolkey dta 0
+joytab
+;stlacene tlacitko
+		dta -1,-1,-1,-1
+		dta -1,-1,-1,12	;return
+		dta -1,-1,-1,28	;esc
+		dta -1,55,54,-1	;>,<
+;nestlacene tlacitko
+		dta -1,-1,-1,-1
+		dta -1,-1,-1,7	;vpravo
+		dta -1,-1,-1,6	;vlevo
+		dta -1,15,14,-1	;dolu,nahoru
+ssotab
+		dta -1
+		dta 28		;select+option	Esc
+		dta 7		;option+start	vpravo
+		dta 15		;option			dolu
+		dta 6		;select+start	vlevo
+		dta 14		;select			nahoru
+		dta 12		;start			Return
+		dta -1
+;
+SOUNDKEYCLICK_OWN
+	PHA
+	LDX #$7E
+KC1	STX $D01F ;CONSOL
+	LDA $D40B ;VCOUNT
+KC2	CMP $D40B ;VCOUNT
+	BEQ KC2
+	DEX
+	DEX
+	BPL KC1
+	PLA
+	RTS
+;
+SOUNDBELL_OWN
+	LDY #$20
+BU1	JSR SOUNDKEYCLICK_OWN
+	DEY
+	BPL BU1
+	RTS
+;
+setDL
+	ldx #<dlist
+	ldy #>dlist
+setDLxy
+	jsr Pau
+	stx 560
+	sty 561
+	jmp Pau		;jr!
+;
+Pau
+	lda 20
+py2	cmp 20
+	beq py2
+	rts
+;
+;
+Set300UniCommandA
+	pha
+	ldy #15
+sdx1
+	lda SIO_unico,y
+	sta $300,y
+	dey
+	bpl sdx1
+	pla
+	sta $302
+	rts
+;;;;
+;
+SIO_unico
+	dta $71				;device ID
+sdrive
+	dta $01				;device num
+	dta $00				;Command
+	dta $40				;status $40..prijem dat, $80..vysilani dat
+	dta a(siobuffer)	;adresa bufferu
+	dta $07				;cekaci doba
+	dta $00				;nepouzito
+	dta $00,$00			;length ($0e,$00 short) or ($10,$00 detailed) or ($00,$01 long)
+	dta $00,$00			;pomocna specifikace (DAUX1/2)
+	dta $00,$00,$00,$00
+;
+;
+;
+char_tilda
+	dta %00000000
+	dta %00111000
+	dta %01101011
+	dta %00001110
+	dta %00000000
+	dta %00000000
+	dta %00000000
+	dta %00000000
+;
+attr
+:FILESONEPAGE	dta $00
+;
+YposLb
+:FILESONEPAGE	dta l([*-YposLb]*40+video2p1)
+YposHb
+:FILESONEPAGE	dta h([*-YposHb]*40+video2p1)
+;
+YposDeviceLb
+:5	dta l(video2dev+40*[*-YposDeviceLb])
+;
+YposDeviceHb
+:5	dta h(video2dev+40*[*-YposDeviceHb])
+;
+mul40 dta 0,40,80,120,160
+;
+;
+;	org [>[*+255]]*256
+;
+video_head
+	dta c"QRRRRRRRRRRRRRRWRRRRRRRRRRRRRRRRRRRRRRRE"
+screen_empty
+		org r:screen		;screen se kopiruje jinam => vektory musi souhlasit
+video	equ *
+;	      0123456789012345678901234567890123456789	
+;	dta c"QRRRRRRRRRRRRRRWRRRRRRRRRRRRRRRRRRRRRRRE"
+	dta d"| Page $0000   | SDrive by C.P.U.   #? |"	
+	dta c"ARRRRRRRRRRRRRRSRRRRRRRRRRRRRRRRRRRRRRRD"
+video2
+	dta d"|              |                       |"	
+	dta d"|              |  D1:                  |"
+	dta d"|              |  D2:                  |"
+	dta d"|              |  D3:                  |"
+	dta d"|              |  D4:                  |"
+	dta d"|              |                       |"
+:[FILESONEPAGE-9]	dta d"|              |                       |"
+video2p1 equ video2+1
+	dta d"|              ",c"ARRRRRRRRRRRRRRRRRRRRRRRD"
+video2p2
+	dta d"|              | FastSIO $??           |"
+	dta d"|              | BootLoader $??00-??F7 |"
+	dta c"ZRRRRRRRRRRRRRRXRRRRRRRRRRRRRRRRRRRRRRRC"
+video3
+	dta d"                                        "
+	dta d"                                        "
+video_end
+		org r:screen_empty+[video_end-video]
+;
+;
+videopage equ video+40*0+8
+videopageprev equ videopage+4
+videopagenext equ videopage+5
+videosdrive equ video+40*0+37
+video2dev equ video2+40*0+20+1
+video2path equ video2+40*5+20-4
+video2devcurrdrive equ video2dev-4
+video2parameters  equ video2p2+17
+video2fastsiomode equ video2p2+26
+video2bootloader equ video2p2+40+29
+;
+	org 256*[>[*+255]]
+;
+dlist
+	dta 112,112,48
+	dta $42,a(video_head)
+	dta $42,a(video)
+:24	dta $02
+	dta $41,a(dlist)
+edlist equ *-1
+	ERT [dlist&$fc00]!=[edlist&$fc00]	;dlist pres hranu 1KB
+;
+;
+dlistvf
+	dta 112,112,48
+	dta 64+2,a(videovf)
+:24	dta 2
+	dta 65,a(dlistvf)
+edlistvf equ *-1
+	ERT [dlistvf&$fc00]!=[edlistvf&$fc00]	;dlistvf pres hranu 1KB
+;
+;
+	IFT HELP
+;	org 256*[>[*+256]]
+mandlist
+	dta 112,112,48
+	dta $42,a(manvi)
+:18	dta $02
+	dta $41,a(mandlist)
+emandlist equ *-1
+	ERT [mandlist&$fc00]!=[emandlist&$fc00]	;mandlist pres hranu 1KB
+manvi
+	dta c"QRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRE"
+	IFT TYPE=1
+	dta d"|SDrive                     "
+	ELS
+	dta d"|SDrive (NoAutoload"
+	IFT HELP=0
+                        dta d")       "
+	ELS
+                        dta d"+Help)  "
+	EIF
+	EIF
+;                                    "CISLOVERZEXX"
+	icl "version.a65"			;     v01 20090322
+                                            dta d"|"		;cislo verze v01
+    icl "manual.a65"			;zbytek manualu
+	EIF ;/HELP
+;
+findtitle
+	dta c"Find: "
+findtxt
+:11	dta 0		;8+3
+findend
+findcuridx dta 0
+;
+;
+screen_init
+	mwa #screen_empty ns
+	mwa #screen vptr
+	ldx #4
+;	jmp copy_nsvptrX	;jr
+	;pokracuje... (usetreny skok)
+copy_nsvptrX
+	ldy #0
+mnp1
+	lda (ns),y
+	sta (vptr),y
+	iny
+	bne mnp1
+	inc ns+1
+	inc vptr+1
+	dex
+	bne mnp1
+	rts
+;
+;
+;
+viferr
+	jmp SOUNDBELL_OWN ;jr!
+vifnoxex
+vif99end
+	rts
+ViewFile
+	ldx #0
+	jsr SetDeviceX	;nastavi do vD0:
+;akce s tim souborem
+	lda #$DB	;read vDisk flag
+	jsr Set300UniCommandA
+	lda #1
+	sta $308	;len = 1
+	jsr SIOV	;get flag
+	cpy #0	;result
+	bmi viferr	;chyba=> error
+	lda siobuffer+0		;vDisk flag
+	and #$61	;$40=xexloader,$20=doublesectors,$01=driveon
+	cmp #$41	;xexloader,singlesectors,driveon?
+	bne vif99end ;neni=>konec
+;vfselecttype
+	ldy #msgid_viewfiletype
+	jsr clearbottompanelandShowMessageIdY
+	jsr GetKey
+	ldx #0
+	cmp #63		;'A' (1) ATASCII
+	beq vft8
+	inx
+	cmp #18		;'C' (2) ASCII
+	beq vft8
+	inx
+	cmp #57		;'H' (3) HEX
+	beq vft8
+	inx
+	cmp #21		;'B' (4) BIN.FILE
+	beq vft8
+	rts 	;endof view file
+vft8
+	stx vfgviewtype
+vft9
+;
+	lda #0
+	sta vfgsecidx
+	sta vfgseclast
+	sta vptr		;pouzije pro vif_hex
+	sta vptr+1
+	lda #$71
+	sta vfgsecn
+	lda #$01
+	sta vfgsecn+1	;zacit od sec.$0171
+;
+vif3a
+	mwa #videovf ns
+	;smaze obrazovku
+	ldx #4	;4 stranky
+	lda #0
+	tay	;Y=0
+vif3b
+	sta (ns),y
+	iny
+	bne vif3b
+	inc ns+1
+	dex
+	bne vif3b
+	lda #>videovf
+	sta ns+1		;(dolni byte se nemenil)
+vif3c
+	;dlist nastavi az po promazani obrazovky
+	ldx #<dlistvf
+	ldy #>dlistvf
+	jsr SetDLxy
+	lda #0
+	sta viflinepos
+vif3
+	ldx vfgviewtype
+	cpx #2
+	bcs vif3e
+	;0,1
+	jmp vif_atasciiascii
+vif3e
+	bne vif3f	;!=2 =>skok
+	jmp vif_hex	;=2
+vif3f
+vif_binaryfile
+	;fromadr
+	jsr vfGetByte
+	sta xbfv1
+	jsr vfGetByte
+	sta xbfv2
+	bcc jmp_vif99eof	;konec
+	jsr viflinehexout
+	lda #0	;par.je prepisovan
+xbfv1	equ *-1
+	jsr viflinehexout
+	lda #0	;par. je prepisovan
+xbfv2	equ *-1
+	and xbfv1
+	cmp #$ff
+	beq jmp_vif3eol
+	;pomlcka
+	lda #'-'-32
+	ldy viflinepos
+	sta (ns),y
+	inc viflinepos
+	;toadr
+	jsr vfGetByte
+	sta xbfv3
+	jsr vfGetByte
+	sta xbfv4
+	bcc jmp_vif99eof	;konec
+	jsr viflinehexout
+	lda #0	;par.je prepisovan
+xbfv3	equ *-1
+	pha
+	jsr viflinehexout
+	pla
+	sec
+	sbc xbfv1
+	sta nd
+	lda #0	;par.je prepisovan
+xbfv4	equ *-1
+	sbc xbfv2
+	sta nd+1
+	;nd obsahuje pocet bytu bloku-1
+	inc nd
+	bne vfbi2
+	inc nd+1
+vfbi2
+	;nd obsahuje pocet bytu bloku
+	;vyhazi obsah bloku
+vfbi3
+	lda nd+1	;hb poctu kolik ma vyhazet
+	bne vfbi3a	;>255 => posunout se dal
+	lda nd		;db
+	clc
+	adc vfgsecidx ;+index bajtu v sektoru 0-124
+	bcs	vfbi3a	;>255 => posunout se dal
+	cmp #251	;(protoze index bajtu v sektoru je od nuly)
+	bcc vfbi3c  ;skok=>vyhazet zbytek 1-250
+vfbi3a
+	;>250
+	lda nd
+	sec
+	sbc #125	;vynecha 1 sektor
+	sta nd
+	bcs vfbi3b	;>=0 =>skok
+	dec nd+1	;hb
+vfbi3b
+	;preskocit sektor
+	inc vfgsecn	;dolni byte sektoru
+	bne vfbi3
+	inc vfgsecn+1 ;horni
+	jmp vfbi3
+vfbi3c ;vyhazet 1-250 bajtu
+	jsr vfGetByte
+	bcc jmp_vif99eof
+	dec nd
+	bne vfbi3c
+	jmp vif3eol
+jmp_vif99eof
+	jmp vif99eof
+jmp_vif3eol
+	jmp vif3eol
+;
+vif_hex
+	lda viflinepos
+	bne vfh9
+	;zacatek radku, tiskne '1234: ' (adresa)
+	lda vptr+1
+	jsr viflinehexout
+	lda vptr
+	jsr viflinehexout
+	lda #':'-32
+	sta (ns),y
+	iny
+	iny
+	sty viflinepos
+	lda vptr		;posune adresu o 8
+	clc
+	adc #8
+	sta vptr
+	bcc vfh2
+	inc vptr+1
+vfh2
+vfh9
+	jsr vfGetByte
+	bcc vif99eof
+	jsr viflinehexout
+	iny
+	cpy #6+24		;1234: 01 02 03 04 05 06 07 08
+	bcs vif3eol
+	jmp vif3z
+;
+vif_atasciiascii
+	jsr vfGetByte
+	bcc vif99eof
+	ldx vfgviewtype
+	beq vifata1
+	;ascii
+	cmp #10
+	beq vif3eol
+	cmp #9
+	beq vifascitab
+	cmp #32
+	bcc vif_atasciiascii
+	jmp vif3o
+vifascitab
+	ldy viflinepos
+	iny
+	iny			;+2 mezery a pak se prida jeste jedna
+	bne vif3otab ;!
+vifata1
+	cmp #155
+	beq vif3eol
+	cmp #127	;atari tab
+	beq vifascitab
+vif3o
+	jsr convert		;asci->video
+	ldy viflinepos
+	sta (ns),y
+vif3otab
+	iny
+	cpy #40
+	bcc vif3z
+	;novy radek
+vif3eol
+	lda ns
+	clc
+	adc #40
+	sta ns
+	bcc vif3y
+	inc ns+1
+vif3y
+	ldy #0
+vif3z
+	sty viflinepos
+vif4
+	lda ns
+	cmp #<[videovf_end]
+	bne jmp_vif3
+	lda ns+1
+	cmp #>[videovf_end]
+	bne jmp_vif3
+	jsr GetKey
+	cmp #28			;esc
+	beq vif98
+	jmp vif3a
+vif98
+	rts
+vif99eof
+	;dosel na konec
+	jmp GetKey ;jr!
+;
+jmp_vif3	jmp vif3
+;
+;
+viflinehexout
+	jsr HexAX
+	ldy viflinepos
+	sta (ns),y
+	iny
+	txa
+	sta (ns),y
+	iny
+	sty viflinepos
+	rts
+;
+vfGetByte
+	ldx vfgsecidx
+	cpx vfgseclast
+	beq vfg2
+	lda siobuffer,x
+	inx
+	stx vfgsecidx
+	sec	;ok res.
+	rts
+vfg2
+	lda vfgsecn
+	ora vfgsecn+1
+	beq vfg5	;uz byl posledni sektor => skok konec
+	jsr vfReadSector
+	cpy #0
+	bmi vfg5	;error=>skok konec
+;nacteny sektor
+	lda siobuffer+126
+	sta vfgsecn	;dalsi sektor lb
+	lda siobuffer+125
+	sta vfgsecn+1	;dalsi sektor hb
+	lda siobuffer+127
+	sta vfgseclast
+	lda #0
+	sta vfgsecidx
+	beq vfGetByte ;!
+;
+vfg5 ;dalsi je 0
+	clc
+	rts
+;
+vfReadSectorXY
+	stx vfgsecn
+	sty vfgsecn+1
+vfReadSector
+	lda #$52	;read sector
+	jsr Set300UniCommandA
+	lda #128	;sec size
+	sta $308
+	lda vfgsecn
+	sta $30a
+	lda vfgsecn+1
+	sta $30b
+	jmp SIOV ;jr!	;read sector
+;
+;
+	IFT 1
+
+readwriteconfig
+	sta cfrwtype
+;
+	jsr clearbottompanel
+;
+;nastavit SDRIVE.ATR do vD0:
+	jsr SetBootDriveToD0	;Set SDRIVE.ATR to vD0: without change of actual drive.
+;
+;get status
+	lda #$53		;$53 = Get status of internal drive vD0:.
+	jsr Set300UniCommandA
+	lda #4
+	sta $308	;ceka 4 byty
+	jsr SIOV
+	cpy #0
+	bpl rc01
+	;err status
+	jmp ShowErrorMsgY ;jr! - a tim skonci
+rc01
+;
+	ldx #$80
+	ldy #$00
+	lda siobuffer+0		;zajima nas bit 5 Sector size (0=$80 1=$100)  
+	asl @
+	asl @	
+	bpl rc02
+	;=1 => $100
+	ldx #0
+	iny ;y=1
+rc02
+	stx secsiz+0	;lb
+	sty secsiz+1	;hb
+	dex
+	dex
+	dex
+	stx secfrm		;125 nebo 253
+;
+;read first dir sect.
+	ldx #$01
+	stx vfgsecn+1
+	ldx #$69	;$169 je prvni dir sektor
+rc02a				;sem skace pri hledani v dalsim sektoru directory
+	stx vfgsecn+0
+	ldx #$ff	;plna maska se pouzije pro adresarove sektor
+	stx cfsechbmask
+	jsr cfReadSector_IfErrShowMsgAndRTS
+;
+;
+	lda #>siobuffer
+	sta ns+1
+	lda #<siobuffer		;=0
+	beq rc02c ;!
+rc02b
+	lda ns
+	clc
+	adc #16
+	bpl rc02c		;0,16,..,114 (8 polozek v adresari)
+	;uz prosel vsech 8 polozek, jde do dalsiho sektoru
+	ldx vfgsecn+0
+	inx
+	cpx #$69+8
+	bcc rc02a		;jde hledat v dalsim X sektoru => skok
+rc02bn
+	;nenasel vubec "SDRIVE.CFG" v zadnem dir sektoru - konec
+	lda cfrwtype	;je to operace pro write?
+	bmi rc03uc	;ano => nahlasi "Unknown config" => skok
+	;pri operaci read nerika vubec nic
+	rts
+rc02c
+	sta ns
+	ldy #0
+	lda (ns),y	;0.byte status
+	beq rc02bn	;status =0, probral vsechny polozky, takze konec hledani
+	bmi rc02b	;status bit7=1, soubor je smazany, takze pokracuje na dalsi polozku
+	ldx #$03	;maska pro DOS2x standard (1023 sektoru)
+	and #4		;status bit2=1 znamena format MyDOS (>=1024 sektoru)
+	beq rc02d
+	ldx #$ff	;maska pro MyDOS sektory (>=1024 sektoru)
+rc02d
+	stx cfsechbmask
+	ldy #5+10
+	ldx #10
+rc03
+	lda (ns),y
+	cmp cfgname,x
+	bne rc02b
+	dey
+	dex
+	bpl rc03
+	;nasel, zapise si cislo pocatecniho sektoru konfigu
+	lda (ns),y	;4.byte hb secptr
+	sta vfgsecn+1
+	dey
+	lda (ns),y	;3.byte lb secptr
+	sta vfgsecn+0
+;
+	jsr cfReadSector_IfErrShowMsgAndRTS	;nacte 1.sektor konfiguraku
+;
+	lda siobuffer+2		;verze konfigu
+	cmp #$01
+	beq rc03a
+	;jina verze konfigu - konec
+rc03uc
+	ldy #msgid_unknownconfig
+	jmp clearbottompanelandShowMessageIdY ;jr!
+	;rts
+rc03a
+	ldx siobuffer+0		;velikost konfigu co se ma nacitat
+	ldy siobuffer+1		;pro read (jen minimalni cast)
+	lda cfrwtype
+	bpl rc03b			;read => skok
+	ldx #<CFGMAXSIZE	;velikost konfigu co se ma nacitat
+	ldy #>CFGMAXSIZE	;pro nasledne write (maximalni delka - vsechny sektory)
+rc03b
+	stx nd
+	sty nd+1
+	lda #<configdata
+	sta ns
+	lda #>configdata
+	sta ns+1
+;
+	ldx #0
+rc04a
+	stx vfgsecidx
+;schova si cislo nacteneho sektoru a pocet platnych bajtu v nem
+	ldy secfrm		;125 nebo 253
+	lda vfgsecn+0
+	sta configsectorslb,x
+	lda vfgsecn+1
+	sta configsectorshb,x
+	lda siobuffer+0,y	;3.od konce (hb dalsiho sektoru)
+;	ano, neorezava!   and #$03			;jen dolni 3 bity
+	sta vfgsecn+1		;hb sektoru co bude nacitat priste
+	sta configsectorshb+1,x	;hb dalsiho si ulozi, protoze u posledniho schazelo ID dir polozky
+	lda siobuffer+1,y	;predposledni byte (lb next sect)
+	sta vfgsecn+0		;lb sektoru co bude nacitat priste
+	sta configsectorslb+1,x ;ulozi si taky
+	lda siobuffer+2,y	;posledni byte v sektoru
+	sta configsectorsbs,x	;pocet bytu v sektoru
+	sta secbts
+;schova si obsah sektoru
+	ldy #0
+rc04
+	lda siobuffer,y
+	sta (ns),y
+	iny
+	cpy secbts	;pocet dat v sektoru
+	bne rc04
+;posun ns o pocet dat v sektoru
+	;Y=secbts
+	tya		
+	clc
+	adc ns
+	sta ns
+	bcc rc05
+	inc ns+1
+rc05
+	lda nd
+	sec
+	sbc secbts	;opocet nactenych dat
+	sta nd
+	bcs rc05a
+	dec nd+1
+	bmi rc06	;<0 => nacteno vse (i vic nez je potreba)
+rc05a
+	ora nd+1	;nd ORA nd+1
+	beq rc06	;==0 => nacteno vse (presne na 0)
+;
+	jsr cfReadSector_IfErrShowMsgAndRTS	;nacte dalsi sektor konfiguraku
+;
+;
+	ldx vfgsecidx
+	inx
+	bne rc04a ;!		;dalsi sektor
+;
+rc06
+;hotovo, konfig nacten, muze zpracovavat
+	lda cfrwtype
+	bpl rc07			;read => skok
+	jmp wc01	;skok na write config
+rc07
+;NASTAVENI SDRIVE dle nacteneho CONFIGU
+;sio speed
+	lda #$C1	;$C1 nn ??	set fastsio mode	
+	jsr Set300UniCommandA
+	lda configdata+3	;sio speed
+	cmp #255
+	beq rc11	;=255 => vynecha
+	sta $30a	;aux1
+	lda #1
+	sta $303	;=1 neceka zadna data
+	jsr SIOV
+;
+rc11
+;bootload reloc
+	lda #$C2	;$C2 nn ??	set bootloader relocation = $0700+$nn00
+	jsr Set300UniCommandA
+	lda configdata+4	;boot reloc
+	cmp #$f0
+	beq rc11b	;=$f0 => vynecha
+	sta $30a	;aux1
+	lda #1
+	sta $303	;=1 neceka zadna data
+	jsr SIOV
+;
+rc11b
+	lda configdata+6	;autolong
+	beq rc11c		;=0 => nemeni
+	sta autolong
+;
+rc11c
+;autoreboot
+	IFT TYPE=1
+	lda configdata+5	;autoreboot
+	sta xautoreboot
+	EIF
+;
+rc12
+;cesty
+	lda #<[configdata+8]
+	sta ns
+	lda #>[configdata+8]
+	sta ns+1
+	lda #$00		;0:
+	sta driveidx
+;
+rc13
+	inc driveidx	;1:-4:
+	lda driveidx
+	cmp #5
+	beq rc20		;>4 => skok, konec nastavovani cest a souboru
+;
+	lda #$FE	;root dir cmd
+	jsr Set300UniCommandA
+	lda #1
+	sta $303	;neceka zadna data
+	jsr SIOV
+;
+rc14
+	ldy #0
+	lda (ns),y
+	bpl rc16		;0-127 => skok
+;konec radku 9b
+	inc ns
+	bne rc15
+	inc ns+1
+rc15
+	jmp rc13
+rc16
+	ldy #11
+rc17
+	lda (ns),y
+	sta siobuffer,y
+	dey
+	bpl rc17
+;nastavi
+	lda #$EC	;$EC = Find filename 8.3. Search pattern has 11 chars, zero characters are ignored.
+	jsr Set300UniCommandA
+	ldx #$0f	;$0f => change current dir
+	lda #12
+	ldy siobuffer+11	;bud '/' za adresarem nebo $9b za souborem
+	bpl rc17b	;<128 => '/' => skok
+	ldx driveidx	;1-4 => set file to D1:-D4:
+	lda #11
+rc17b
+	stx $30a	;aux1 ; n=$00..$04 for vD0:..vD4: or n=$0f  for change of current directory (same as commands $F0..$F4 or $FF)
+	pha	;PHA1
+	inc $30b	;=1 aux2 ; m!=0 => Set file or directory to vDn:
+	lda #$80
+	sta $303	;posila data
+	lda #11
+	sta $308	;len db
+	jsr SIOV
+	;Y status kontroluje o kousicek dal
+;
+	pla ;PLA1	;A=12 (pro adresar) nebo 11 (pro soubor)
+	cpy #0
+	bpl rc19	;Ok => skok
+	;neproslo nastaveni cesty nebo souboru
+	lda driveidx	;1-4
+	ora #$10	;'1'-'4' znak
+	sta txtdxfailed
+	ldy #msgid_configdxfailed
+	jsr clearbottompanelandShowMessageIdY
+	jsr SOUNDBELL_OWN	;zabzuci!
+	ldy #-1
+rc19b
+	iny
+	lda (ns),y	;hleda ukonceni $9b (>=128)
+	bpl rc19b	;0-127
+	;>=128 ($9b)
+	tya
+rc19
+	clc
+	adc ns
+	sta ns
+	bcc rc14
+	inc ns+1
+	bne rc14 ;!
+;
+rc20
+;
+	ldy #msgid_configread
+	jmp clearbottompanelandShowMessageIdY ;jr!
+	;rts
+;
+;
+wc01
+;WRITE CONFIG - pokracovani po uspesnem nacteni vsech sektoru konfigu
+;
+	lda #<[configdata+8]
+	sta ns
+	lda #>[configdata+8]
+	sta ns+1
+	ldx #$01		;D1:
+wc10
+	stx driveidx
+;
+	lda #0
+	sta siobuffer+256+0		;o 256 za siobufferem
+	lda #$e3	;Set actual directory by device Dn: and get filename. 8.3 + attribute + fileindex [11+1+2=14]
+	jsr Set300UniCommandA
+	lda #14		;vraci 14 znaku detailed filename
+	sta $308	;len db
+	lda driveidx
+	sta $30a
+	inc $305	;hb bufferu +1 => siobuffer+256 !!!
+	jsr SIOV
+	cpy #0 ;status
+	bmi wc10a ;err=>skok
+	ldy #0
+	lda siobuffer+256+0		;o 256 za siobufferem
+	beq wc12	;neni tam zadne file
+;
+	lda #0
+	sta siobuffer+0
+	lda #$EB	;$EB get path
+	jsr Set300UniCommandA
+	lda #240	;240bytes
+	sta $308	;lendb
+	lda #20		;20 updirs
+	sta $30a	;aux1
+	jsr SIOV
+	;siobuffer:  "/DIRECTOREXT/../DIRECTOREXT"
+	;nebo 0x00.... kdyz je to v rootdir
+	cpy #0 ;status
+	bpl wc10b ;ok=>skok
+wc10a ;err
+	lda driveidx	;1-4
+	ora #$10	;'1'-'4' znak
+	sta txtdxfailed
+	ldy #msgid_configdxfailed
+	jsr clearbottompanelandShowMessageIdY
+	jsr SOUNDBELL_OWN
+	ldy #0
+	beq wc12 ;!	;skok jako by tam nebyl zadny soubor ani cesta
+;
+wc10b
+	ldx #0
+	ldy #0
+	lda siobuffer+0
+	beq wc11d	;je v rootdiru
+	cmp #63		;'?' na zacatku path
+	beq wc10a	;skok jako by tam nebyl zadny soubor ani cesta
+wc11
+	lda siobuffer+1,y	;na zacatku je lomitko ktere se vynechava
+	beq wc11b		;0x00 => konec
+	sta (ns),y
+	iny
+	cpy #240-1	;(-1 protoze cte siobuffer+1,y) pokud je vsech 240 znaku, neni za nim zarucena 0x00
+	bne wc11
+wc11b
+	lda #$2f	;'/'  lomitko za cestou
+	sta (ns),y
+;	ldx #0 presunuto nahoru
+wc11c
+	iny
+wc11d
+	lda siobuffer+256,x	;nazev souboru je na siobuffer+256
+	sta (ns),y
+	inx
+	cpx #12		;naschval o 1 vic, aby bylo Y o 1 za koncem, nasledne se prepise EOLem
+	bne wc11c
+wc12
+	lda #$9b	;eol
+	sta (ns),y
+	tya
+	sec		;+1
+	adc ns
+	sta ns
+	bcc wc13
+	inc ns+1
+wc13
+	ldx driveidx
+	inx
+	cpx #5
+	beq wc13a
+	jmp wc10
+wc13a
+;
+	ldy #0
+	tya
+wc13b
+	sta (ns),y		;vynuluje 256 bajtu za koncem konfigu
+	iny
+	bne wc13b
+;
+;ulozi pocet dat konfigu do prvnich dvou bajtu konfigu
+	lda ns
+	sta configdata+0
+	lda ns+1
+	sec
+	sbc #>configdata
+	sta configdata+1
+;
+;Dotaz na zapis konfigu?
+	ldy #msgid_writeconfig
+	jsr clearbottompanelandShowMessageIdY
+;default hodnoty
+	ldx #0
+	stx configdata+5	;no autoreboot
+	stx configdata+6	;no autolong
+	dex ;x=255
+	stx configdata+3	;no SIO speed
+	ldx #$f0
+	stx configdata+4	;no bootloader reloc
+;
+cva1
+	jsr GetKey
+	cmp #11		;'U'?
+	bne cva2
+;U - siospeed
+	ldx fastsio_pokeydiv
+	stx configdata+3
+	ldx #0		;pozice
+	lda #85-32	;video'U'
+showlett
+	sta video3+txtwritecfglen+1,x	;zobrazi aktivovane pismenko
+	bne cva1 ;!
+cva2
+	cmp #21		;'B'?
+	bne cva3
+;B - bootloader reloc
+	ldx bootloader_relocation
+	stx configdata+4
+	ldx #1		;pozice
+	lda #66-32	;video'B'
+	bne showlett ;!
+cva3
+	cmp #0		;'L'?
+	bne cva4
+;L - autolong
+	ldx #1		;autolong=yes
+	stx configdata+6
+	ldx #2		;pozice
+	lda #76-32	;video'L'
+	bne showlett ;!
+cva4
+	cmp #39		;'INV'?
+	bne cva5
+;INV - autoreboot
+	ldx #$ff
+	stx configdata+5
+	ldx #3		;pozice
+	lda #72		;video'INV'
+	bne showlett ;!
+cva5
+cva7
+	cmp #28		;'ESC'?
+	bne cva8
+;ukonceno esc
+	jmp clearbottompanel ;jr!
+cva8
+	cmp #43		;'Y' ?
+	bne cva1
+;YES!
+;
+;skutecne ulozeni configu do sektoru
+	lda #<configdata
+	sta ns
+	lda #>configdata
+	sta ns+1
+	lda #0
+	sta vfgsecidx
+	beq wc15 ;!
+wc14a
+	jsr clearsiobuffer
+	ldy secfrm		;125 nebo 253
+	ldx vfgsecidx
+	inc vfgsecidx	;pro priste (v X zustava predesla hodnota)	
+	lda configsectorslb+1,x	;lb dalsi sektor
+	sta siobuffer+1,y	;predposledni
+	lda configsectorshb+1,x ;hb dalsi sektor (pripadne vcetne ID dir polozky)
+	sta siobuffer+0,y	;3.od konce
+	lda configsectorsbs,x
+	sta siobuffer+2,y	;posledni byte v sektoru (pocet dat v sektoru)	
+	sta secbts		;ulozi si pocet platnych dat v sektoru
+	beq wc15		;nulovy pocet=>vynecha ukladani tohoto sektoru (nema to smysl)
+	tay ;Y=secbts
+wc14b
+	dey
+	lda (ns),y
+	sta siobuffer,y
+	cpy #0
+	bne wc14b
+;
+	jsr cfWriteSector_IfErrShowMsgAndRTS
+;
+	lda secbts		;pocet dat v sektoru
+	clc
+	adc ns
+	sta ns
+	bcc wc14b2
+	inc ns+1
+wc14b2
+wc15
+	ldx vfgsecidx	;uz posunute o 1 pro dalsi sektor co se ma ted zpracovavat
+	lda configsectorslb,x
+	sta vfgsecn+0
+	lda configsectorshb,x
+	sta vfgsecn+1	;nejdriv ulozi!
+	and cfsechbmask	;vymaskuje jen pro zjisteni nuloveho sektoru
+	ora vfgsecn+0
+	bne wc14a		;!=0,0 => ve smycce dalsi zpracovat a ulozit
+;ulozeno
+;
+;hotovo
+	ldy #msgid_configwritten
+	jmp clearbottompanelandShowMessageIdY ;jr!
+;	rts
+;
+;
+cfgname
+	dta c"SDRIVE  CFG"
+;
+cfWriteSector_IfErrShowMsgAndRTS
+	lda #$50	;write sector
+	jsr Set300UniCommandA
+	lda #$80	;posila data
+	sta $303
+	bne cfr2 ;!
+;
+cfReadSector_IfErrShowMsgAndRTS
+	lda #$52	;read sector
+	jsr Set300UniCommandA
+cfr2
+	lda secsiz+0
+	sta $308	;lb
+	lda secsiz+1
+	sta $309	;hb
+	lda vfgsecn+0
+	sta $30a	;lb
+	lda vfgsecn+1
+	and cfsechbmask	;hb vymaskuje
+	sta $30b
+	ldy #$00	;cislo chyby pri cteni/ukladani nulteho sektoru
+	ora vfgsecn+0 ;lb or hb cisla sektoru
+	beq cfe1	;snazi se nacitat/ukladat sektor 0,0
+	jsr SIOV 	;read/write sector
+	cpy #0
+	bmi cfe1
+	rts			;ok - rts
+cfe1
+	pla			;vybere pryc navratovou adr.
+	pla			;vybere pryc navratovou adr.
+ShowErrorMsgY
+	tya
+	jsr HexAX
+	sta txterrornum
+	stx txterrornum+1
+	ldy #msgid_error
+	jsr clearbottompanelandShowMessageIdY
+	jmp SOUNDBELL_OWN ;jr!
+;
+;
+	EIF
+;
+;
+clearbottompanelandShowMessageIdY
+	tya
+	pha
+	jsr clearbottompanel
+	pla
+	tay
+ShowMessageIdY
+	ldx #0
+sm1
+	lda showmessages,y
+	cmp #$9b
+	beq sm2
+	sta video3,x
+	inx
+	iny
+	bne sm1
+sm2 rts
+;
+showmessages
+msgid_error	equ *-showmessages
+txterrormsg	dta d'Error #$'
+txterrornum dta d'XX'
+	dta $9b
+msgid_uncompatibledev equ *-showmessages
+txtuncompatible dta d"Uncompatible v01 with #"
+txtuncompatibledev dta d"X"
+txtuncompatiblelen equ *-txtuncompatible
+	dta $9b
+msgid_quit	equ *-showmessages
+txtquit dta d'Quit? (',d'Y'*,d')'
+	dta $9b
+msgid_viewfiletype	equ *-showmessages
+vseltypetxt dta d'View file ',d'A'*,d'TASCII ',d'AS',d'C'*,d'II ',d'H'*,d'ex ',d'B'*,d'in.File'
+vseltypetxtlen equ *-vseltypetxt
+	dta $9b
+msgid_writeconfig	equ *-showmessages
+txtwritecfg	dta d'Write cfg? [',d'U'*,d',',d'B'*,d',',d'L'*,d',',72,d'](',d'Y'*,d')'
+txtwritecfglen equ *-txtwritecfg
+	dta $9b
+msgid_unknownconfig	equ *-showmessages
+	dta d'Unknown cfg.'
+	dta $9b
+msgid_configread	equ *-showmessages
+	dta d'Cfg read.'
+	dta $9b
+msgid_configwritten	equ *-showmessages
+	dta d'Cfg written.'
+	dta $9b
+msgid_configdxfailed equ *-showmessages
+	dta d'Cfg D'
+txtdxfailed dta d'X: failed.'
+	dta $9b
+	IFT HELP==0
+msgid_helpversion	equ *-showmessages
+	dta d'SW '
+    icl "version.a65"			;   v01 20090322
+	IFT TYPE==2
+	dta d" (NoAutoload)"
+	EIF
+	dta $9b
+	EIF	;/HELP
+;
+;
+;
+	org 256*[>[*+255]]
+siobuffer equ *			;musi zacinat na hranici stranky!!!
+;pouziva se 256+16 bytu
+;(16 bytu je jmeno souboru u zapisu cest a souboru do konfigu)
+;
+	ERT [siobuffer+256+16]>=datalo	;siobuffer zasahuje do prostoru dat
+;
+	run start
+;

@@ -1,0 +1,241 @@
+;----------------------------------------------------------------
+;	SBOOT
+;   bootloader pro SDrive
+;	Robert Petruzela & Radek Sterba
+;   Bob!k & Raster, C.P.U., 2008
+;----------------------------------------------------------------
+;
+;- 188 bytes
+;
+;14.2.2008
+;- zoptimalizovano aby se vyuzival init i run adresa v bootsektoru
+;  (diky tomu nezustanou ve stacku viset 2 byty navratove adresy a navic je loader o 2 byty kratsi)
+;- osekani zbytecnosti z "jednou_a_pak_next_block" casti
+;  (zkraceno o 10 bytu)
+;- 176 bytes
+;- pridana kontrola vysledku nacitacni sektoru, kdyz neni #1, nacita znovu
+;- 178 bytes
+;- optimalizace initu adresy 9 (uspora 2 bytes)
+;- 176 bytes
+;- 179 bytes
+;
+;7.6.2008
+;- nahrada storeX ($47) za txa,pha a pla,tax
+;  (uspora jedne bunky v nulte strance (na ukor stacku))
+;
+;
+buffer	equ $700		;dolni byte bufferu musi byt 0!
+
+edst equ $43	;2
+dst equ $45		;2
+;storeX equ $47	;1
+
+sc_nsector equ $30a
+
+	opt h-
+firstpartlen	equ adr780-bootsector
+
+	org buffer+$80-firstpartlen
+;
+;Tahle prvni cast je v oblasti pod $0780, takze po prvnim
+;nacteni sektoru do bufferu $700-$77f bude preplacnuta
+;
+bootsector		;$72='r' (identifikace SD'r'ive)
+	dta $72,$02,a(bootsector),a(jednou_a_pak_next_block)
+reloc_00 equ bootsector+3
+reloc_01 equ bootsector+5
+init
+;	jmp *
+	lda #<buffer
+	sta $304				;can't be replaced by sty $304 because no init at the begining
+	ert [<buffer]!=0	;dolni byte bufferu neni 0 !
+	;a=0
+	sta 580			;rusi boot po resetu (nektere programy vyuzivaji skok pres reset vektor (Joust))
+	lda #>buffer
+reloc_02 equ *-1
+	sta $305
+	lda #$70		;tady je cislo sektoru $170
+	sta $30a		;protoze to hned na zacatku o 1 inkrementuje
+	lda #$01		;a zacne od $171
+	sta $30b
+	;A=1
+;	lda #1
+	sta $9			;some games need it (RASTER's invention from Xin1)
+;	lda #125		;jako by mel nacteno uz 125 bajtu
+;	sta index
+	rts
+	dta 125				;jako by v tom sektoru bylo 125 bajtu, aby nacetl dalsi sektor
+;
+;----------------------
+;
+adr780
+read_next_sector
+;	stx storeX
+	txa
+	pha			;uschova X
+rea1
+	jsr $e453
+	dey			;je vysledek operace 1 (ok) ? dey dekrementuje na Y=0
+	bne rea1	;je Y=0 ? neni => znovu
+;	ldx storeX
+	pla
+	tax			;obnoveni X
+	;Y=0				;Y-reg is zero ( used for next sta (ns),y ), not necessary -> replaced by (ns,x)
+	sty index
+reloc_03 equ *-1
+readbyte					;reading one byte from buffer and incrementing index pointer
+index	equ *+1
+	lda buffer+125		;.		;overwritting LB, index=$7d
+reloc_04 equ *-1
+;	ldy index
+;	lda buffer,y
+	inc index
+reloc_05 equ *-1
+lrts
+	rts						;used two times, one is for return from get_next_byte
+							;second one is for jmp ($02e2)
+;--
+;
+next_block
+;
+	lda #<lrts				;init address point to rts
+	sta $02e2
+	lda #>lrts
+reloc_06 equ *-1
+	sta $02e3
+;
+	ldx #2
+nb10
+	jsr get_next_byte		;read destination adress
+reloc_07 equ *-1
+	sta edst,x				;edst+2 => dst and in second round edst
+neu1
+	jsr get_next_byte
+reloc_08 equ *-1
+	sta edst+1,x			;edst+1+2 => dst+1 and in second round edst+1
+neu2
+	and edst,x				;we are lucky, end address could not be $FFFF
+	cmp #$ff
+	beq nb10
+
+	dex
+	dex
+	bpl nb10				;should be X==0;
+	bmi nb20				;need to skip one incrementation of dst because block length is edst-dst-1
+
+nb15
+	inc dst					;incrementing destination address
+	bne nb20
+	inc dst+1
+
+nb20
+	jsr get_next_byte		;copy next byte from buffer to destination address
+reloc_09 equ *-1
+	ldx #1
+	sta (dst-1,x)			;Ughh, I know ;-)
+	;x=1
+eofb
+	lda dst,x
+	cmp edst,x
+	bne nb15	
+	dex
+	bpl eofb
+
+nb30
+	jsr nb40				;everytime jmp on init address, normaly is there pointer on RTS else original init
+							;has to be JSR here!!!
+reloc_10 equ *-1
+
+	jmp next_block			;go for next binary-block
+reloc_11 equ *-1
+
+;--
+
+nb40
+	lda #3
+	sta $d20f
+	jmp ($02e2)				;jmp on init address
+
+;--
+	
+get_next_byte				;return next byte in A-reg
+
+	lda index				;last byte in sector?
+reloc_12 equ *-1
+	cmp buffer+127
+reloc_13 equ *-1
+	bne readbyte			;no - get next byte
+;
+	inc $30a				;pocita s tim ze sektory souboru
+	bne nxv1				;nasleduji od $171 porad pekne
+	inc $30b				;sekvencne porad dal za sebou bez mezer ani niceho
+nxv1
+	lda buffer+125
+reloc_14 equ *-1
+	ora buffer+126
+reloc_15 equ *-1
+	bne read_next_sector	;jde na dalsi sektor
+	;ukazatel na dalsi sektor je nulovy
+	;takze koncime
+	jsr nb40				;kvuli initu zvuku (I believe $02e2 still point to RTS)
+reloc_16 equ *-1
+	jmp ($02e0)				;jump on run address
+;
+;
+;
+;nasledujici cast presahuje pres $800 a po provedeni
+;muze byt klidne prepsana daty (pokud se nejaky blok bude zavadet od $800...)
+jednou_a_pak_next_block
+jad1
+	jsr get_next_byte		;nacte prvni sektor a preplacne 0700-077f
+reloc_17 equ *-1
+	sta $02e0
+	jsr get_next_byte
+reloc_18 equ *-1
+	sta $02e1
+	and $02e0	
+	cmp #$ff		;oba jsou FF?
+	beq jad1		;ano => tak zkusi dalsi dva
+;
+	lda #0
+	sta index
+reloc_19 equ *-1
+	beq next_block	;!
+;
+;
+;	relokacni tabulka 20 bytu
+;
+	ift 0
+	dta reloc_00-bootsector
+	dta reloc_01-bootsector
+	dta reloc_02-bootsector
+	dta reloc_03-bootsector
+	dta reloc_04-bootsector
+	dta reloc_05-bootsector
+	dta reloc_06-bootsector
+	dta reloc_07-bootsector
+	dta reloc_08-bootsector
+	dta reloc_09-bootsector
+	dta reloc_10-bootsector
+	dta reloc_11-bootsector
+	dta reloc_12-bootsector
+	dta reloc_13-bootsector
+	dta reloc_14-bootsector
+	dta reloc_15-bootsector
+	dta reloc_16-bootsector
+	dta reloc_17-bootsector
+	dta reloc_18-bootsector
+	dta reloc_19-bootsector
+	eif
+
+
+;sio_cmd
+;	dta $31,$02,$52,$40,a(buffer),$07,$00
+;	dta $80,$00
+;sc_nsector	*	;,a($ffff)
+
+;	org $4000
+;test jmp *
+
+;	run init
+;	run test

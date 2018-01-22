@@ -1,0 +1,23 @@
+;
+;  #include "manual.xa"
+;
+;  manual
+;	
+	.byte"|by",0,"kbr":.dsb 32:.byte"|"	
+	.byte"ARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRD"
+	.byte"|",$91,13,$94,0,"set",0,"file",0,"to",0,"drive":.dsb 11:.byte 49+128,0,"quit|"	;'1-4' , 'Q'
+	.byte"|","2%4",0,"set",0,"directory",0,"or",0,"file",0,"to",0,"drive",0,0,0,0,"|"	;'RET'
+	.byte"|","4!",34,0,"left",15,"right",0,"area":.dsb 11:.byte 72,0,"reboot|"		;'TAB' , 'INV'
+	.byte"|","$%,",0,"unset",0,"file":.dsb 11:.byte $DC,$BE,72,0,"coldstart|"		;'DEL',  !^INV
+	.byte"|",$DB,0,"directory",0,"up":.dsb 10:.byte $9C,0,"first",0,"in",0,"dir|"		;'ESC' , '<'
+	.byte"|",$8F,0,"set",0,"root",0,"directory",0,0,0,0,0,$9E,0,"last",0,"in",0,"dir|"	;'/'   , '>'
+	.byte"|","!",0,"select",0,"file",0,"from",0,"device":.dsb 13:.byte"|"		;'A'
+	.byte"|",",",12,$BE,",",0,"show",0,"long",0,"filename",0,0,0,0,"6",0,"view",0,"file|"	;'L' , 'V'
+	.byte"|",")",0,"show",0,"file",0,"info":.dsb 6:.byte $BE,"&",12,$DC,"!",13,$DC,":",12,$DC,31,0,"find|"		;'I' , '^F','!A-!Z','!?'
+	.byte"|",":",12,$DC,$91,13,$DC,$94,0,"swap",0,"drives",0,0,0,0,$A6,12,"30#",0,"find",0,"next|"		;'9','!1-!4' , '&','SPC'
+	.byte"|","2",0,"refresh":.dsb 13:.byte"B"-32,12,$BE,"B"-32,0,"bootl",14,"reloc|"	;'2' , 'B','^B'
+	.byte"|",$BE,"2",0,"read",0,"cfg":.dsb 11:.byte"5",12,$BE,"5",12,".",0,"sio",0,"speed|"		;'^2'  , '5','^5','8'
+	.byte"|",$BE,"7",0,"write",0,"cfg":.dsb 11:.byte 40,0,"hardware",0,"info|"		;'^7', '2'
+	.byte"|","8",0,"next",0,"3$rive",0,"device",0,0,0,$DC,"<"-32,0,"3$rive",0,"reset|"	;'8' , '!<'
+	.byte"ZRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRC"
+;
