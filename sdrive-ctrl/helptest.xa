@@ -1,0 +1,16 @@
+	.word $ffff
+	.word start
+	.word end-1
+
+	* = $2000
+
+start
+	lda #<help
+	sta $bc24
+	lda #>help
+	sta $bc25
+loop	jmp loop
+
+help
+#include "manual.xa"
+end
