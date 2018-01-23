@@ -384,6 +384,7 @@ struct winentry {
 #define FLAGS_XFDTYPE		0x10
 #define FLAGS_ATRNEW		0x08
 #define FLAGS_WRITEERROR	0x04
+#define FLAGS_ATXTYPE		0x02
 #define FLAGS_DRIVEON		0x01
 
 // Stuctures
