@@ -24,6 +24,7 @@
 #include "tft.h"
 #include "touchscreen.h"
 #include "display.h"
+#include "atx.h"
 
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	0
@@ -2040,6 +2041,15 @@ Command_EC_F0_FF_found:
 							}
 						}
 					}
+                    else
+                    if( atari_sector_buffer[8]=='A' &&
+                         atari_sector_buffer[9] =='T' &&
+                          atari_sector_buffer[10] == 'X' )
+                    {
+                        //ATX
+                        loadAtxFile(); // TODO: check return value
+                        FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
+                    }
 					else
 					{
 						// XEX
