@@ -250,10 +250,10 @@ unsigned int press () {
 struct button buttons_main[] = {
 	//name, x, y, width, heigth, fg-col, bg-col, font-col, type, act, sel
 	{"D0:",10,200,50,30,Grey,Black,Black,ROUND,1,1,action_b0},
-	{"D1:<empty>",10,40,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D2:<empty>",10,80,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D3:<empty>",10,120,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D4:<empty>",10,160,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
+	{"D1:<empty>     ",10,40,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
+	{"D2:<empty>     ",10,80,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
+	{"D3:<empty>     ",10,120,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
+	{"D4:<empty>     ",10,160,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
 	{"New",240-61,200,50,30,Grey,Black,Green,ROUND,1,0,press},
 	{"Cfg",240-61,240,50,30,Grey,Black,Blue,ROUND,1,0,action_cfg},
 	{"Outbox",10,280,240-11,320-1,0,0,0,0,0,0,debug_page}
