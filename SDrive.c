@@ -2021,9 +2021,12 @@ Command_EC_F0_FF_found:
 						if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE; //atr_medium_size = 0x80;
 					}
 					else
-					if( atari_sector_buffer[8]=='X' &&
+					if(( atari_sector_buffer[8]=='X' &&
 						 atari_sector_buffer[9]=='F' &&
 						  atari_sector_buffer[10]=='D' )
+					  || ( atari_sector_buffer[8]=='C' &&
+						 atari_sector_buffer[9]=='A' &&
+						  atari_sector_buffer[10]=='S' ))
 					{
 						//XFD
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_XFDTYPE);
