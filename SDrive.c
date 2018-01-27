@@ -1073,55 +1073,62 @@ percom_prepared:
 
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
 			{
-				//ATR or XFD
-				if(n_sector<4)
-				{
-					//sector 1 to 3
-					atari_sector_size = (unsigned short)0x80;	//128
-					//Optimization: n_sector = 1 to 3 and sector size is fixed 128!
-					//Old way: n_data_offset = (u32) ( ((u32)(((u32)n_sector)-1) ) * ((u32)atari_sector_size));
-					n_data_offset = (u32) ( (n_sector-1) << 7 ); //*128;
-				}
-				else
-				{
-					//sector 4 or greater
-					atari_sector_size = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? ((unsigned short)0x100):((unsigned short)0x80);	//FileInfo.vDisk->atr_sector_size;
-					n_data_offset = (u32) ( ((u32)(((u32)n_sector)-4) ) * ((u32)atari_sector_size)) + ((u32)384);
-				}
+                if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
+                {
+                    loadAtxSector(n_sector);
+                }
+                else
+                {
+                    //ATR or XFD
+                    if(n_sector<4)
+                    {
+                        //sector 1 to 3
+                        atari_sector_size = (unsigned short)0x80;	//128
+                        //Optimization: n_sector = 1 to 3 and sector size is fixed 128!
+                        //Old way: n_data_offset = (u32) ( ((u32)(((u32)n_sector)-1) ) * ((u32)atari_sector_size));
+                        n_data_offset = (u32) ( (n_sector-1) << 7 ); //*128;
+                    }
+                    else
+                    {
+                        //sector 4 or greater
+                        atari_sector_size = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? ((unsigned short)0x100):((unsigned short)0x80);	//FileInfo.vDisk->atr_sector_size;
+                        n_data_offset = (u32) ( ((u32)(((u32)n_sector)-4) ) * ((u32)atari_sector_size)) + ((u32)384);
+                    }
 
-				//ATR or XFD?
-				if (! (FileInfo.vDisk->flags & FLAGS_XFDTYPE) ) n_data_offset+= (u32)16; //ATR header;
+                    //ATR or XFD?
+                    if (! (FileInfo.vDisk->flags & FLAGS_XFDTYPE) ) n_data_offset+= (u32)16; //ATR header;
 
-				if(cmd_buf.cmd==0x52)
-				{
-					//read
-					proceeded_bytes = faccess_offset(FILE_ACCESS_READ,n_data_offset,atari_sector_size);
-					if(proceeded_bytes==0)
-					{
-						goto Send_ERR_and_Delay;
-					}
-				}
-				else
-				{
-					//write do image
-					if (USART_Get_atari_sector_buffer_and_check_and_send_ACK_or_NACK(atari_sector_size))
-					{
-						break;
-					}
+                    if(cmd_buf.cmd==0x52)
+                    {
+                        //read
+                        proceeded_bytes = faccess_offset(FILE_ACCESS_READ,n_data_offset,atari_sector_size);
+                        if(proceeded_bytes==0)
+                        {
+                            goto Send_ERR_and_Delay;
+                        }
+                    }
+                    else
+                    {
+                        //write do image
+                        if (USART_Get_atari_sector_buffer_and_check_and_send_ACK_or_NACK(atari_sector_size))
+                        {
+                            break;
+                        }
 
-					//if ( get_readonly() )
-					//	 goto Send_ERR_and_Delay; //READ ONLY
+                        //if ( get_readonly() )
+                        //	 goto Send_ERR_and_Delay; //READ ONLY
 
-					proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
-					if(proceeded_bytes==0)
-					{
-						goto Send_ERR_and_Delay;
-					}
+                        proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
+                        if(proceeded_bytes==0)
+                        {
+                            goto Send_ERR_and_Delay;
+                        }
 
-					goto Send_CMPL_and_Delay;
+                        goto Send_CMPL_and_Delay;
 
-				}
-				//atari_sector_size= (bud 128 nebo 256 bytu)
+                    }
+                    //atari_sector_size= (bud 128 nebo 256 bytu)
+                }
 			}
 			else
 			{
