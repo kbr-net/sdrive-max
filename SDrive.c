@@ -107,6 +107,7 @@ unsigned char mmc_sector_buffer[512];	// one SD sector
 u32 n_actual_mmc_sector;
 unsigned char n_actual_mmc_sector_needswrite;
 unsigned char atari_sector_buffer[256];
+u08 atari_sector_status = 0xff;
 
 #define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
 char DebugBuffer[14];
@@ -1262,7 +1263,7 @@ set_number_of_sectors_to_buffer_1_2:
 			}
 			//if (get_readonly()) atari_sector_buffer[0]|=0x08;	//write protected bit
 
-			atari_sector_buffer[1] = 0xff;
+			atari_sector_buffer[1] = atari_sector_status;
 			atari_sector_buffer[2] = 0xe0; 		//(244s) timeout pro nejdelsi operaci
 			atari_sector_buffer[3] = 0x00;		//timeout hb
 

@@ -28,6 +28,7 @@ struct atxTrackInfo {
 };
 
 extern unsigned char atari_sector_buffer[256];
+extern u08 atari_sector_status;
 
 u16 gBytesPerSector;                    // number of bytes per sector
 u08 gSectorsPerTrack;                   // number of sectors in each track
@@ -100,8 +101,8 @@ u16 loadAtxSector(u16 num) {
 
             // TODO: for duplicate sectors, the sector that we return should be based on timing and not the first one that is found
             if (sectorHeader->number == tgtSectorNumber) {
-                // TODO: how do we pass sector status back?
-
+                // set the aux2 drive status byte
+                atari_sector_status = (u08)0xE3 | (sectorHeader->status & (u08)0x1C);
                 // read the sector data
                 return faccess_offset(FILE_ACCESS_READ, gTrackInfo[tgtTrackNumber - 1].offset + sectorHeader->data, gBytesPerSector);
             }
