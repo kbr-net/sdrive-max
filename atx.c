@@ -33,7 +33,7 @@ u16 gBytesPerSector;                    // number of bytes per sector
 u08 gSectorsPerTrack;                   // number of sectors in each track
 struct atxTrackInfo gTrackInfo[40];     // pre-calculated info for each track
 
-u08 loadAtxFile() {
+u16 loadAtxFile() {
     struct atxFileHeader *fileHeader;
     struct atxTrackHeader *trackHeader;
 
@@ -48,7 +48,7 @@ u08 loadAtxFile() {
         fileHeader->signature[3] != 'X' ||
         fileHeader->version != ATX_VERSION ||
         fileHeader->minVersion != ATX_VERSION) {
-        return 1;
+        return 0;
     }
 
     // enhanced density is 26 sectors per track, single and double density are 18
@@ -67,7 +67,7 @@ u08 loadAtxFile() {
         startOffset += trackHeader->size;
     }
 
-    return 0;
+    return gBytesPerSector;
 }
 
 u16 loadAtxSector(u16 num) {
