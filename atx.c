@@ -55,7 +55,7 @@ u16 loadAtxFile() {
     // enhanced density is 26 sectors per track, single and double density are 18
     gSectorsPerTrack = (fileHeader->density == 1) ? (u08)26 : (u08)18;
     // single and enhanced density are 128 bytes per sector, double density is 256
-    gBytesPerSector = (fileHeader->density == 1) ? (u08)256 : (u08)128;
+    gBytesPerSector = (fileHeader->density == 1) ? (u16)256 : (u16)128;
 
     // calculate track offsets
     u32 startOffset = fileHeader->startData;
@@ -64,7 +64,7 @@ u16 loadAtxFile() {
             break;
         }
         trackHeader = (struct atxTrackHeader*)atari_sector_buffer;
-        gTrackInfo[trackHeader->trackNumber - 1].offset = startOffset;
+        gTrackInfo[trackHeader->trackNumber].offset = startOffset;
         startOffset += trackHeader->size;
     }
 
@@ -77,8 +77,8 @@ u16 loadAtxSector(u16 num) {
     struct atxSectorHeader *sectorHeader;
 
     // calculate track and relative sector number from the absolute sector number
-    int tgtTrackNumber = (num - 1) / gSectorsPerTrack + 1;
-    int tgtSectorNumber = (num - 1) % gSectorsPerTrack + 1;
+    u08 tgtTrackNumber = (num - 1) / gSectorsPerTrack + 1;
+    u08 tgtSectorNumber = (num - 1) % gSectorsPerTrack + 1;
 
     // read the track header
     u32 offset = gTrackInfo[tgtTrackNumber - 1].offset;
@@ -95,7 +95,8 @@ u16 loadAtxSector(u16 num) {
     offset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
 
     // iterate through all sector headers to find the requested one
-    for (int i=0; i < sectorCount; i++) {
+    u16 i;
+    for (i=0; i < sectorCount; i++) {
         if (faccess_offset(FILE_ACCESS_READ, offset, sizeof(struct atxSectorHeader))) {
             sectorHeader = (struct atxSectorHeader*)atari_sector_buffer;
 
