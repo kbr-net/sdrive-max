@@ -202,8 +202,6 @@ struct ATR_header {
 	u08 flags;
 };
 
-#define atr_hdr_magic 0x0296
-
 //sdrparams je nadeklarovano uvnitr main() (hned na zacatku)
 #define actual_drive_number	sdrparams.p0
 #define fastsio_active		sdrparams.p1
@@ -289,7 +287,7 @@ u08 newFile (u32 size) {	// size without ATR header
 	//sec = fatFileNew(133136);
 	sec = fatFileNew(size+16);
 	if(sec) {	// write ATR-Header
-		hdr.magic = atr_hdr_magic;
+		hdr.magic = 0x0296;
 		hdr.pars = size/16;
 		if(size > 130*1024UL)
 			hdr.secsize = 0x0100;
@@ -2002,14 +2000,16 @@ Command_EC_F0_FF_found:
 					//reset flags except ATRNEW
 					FileInfo.vDisk->flags &= FLAGS_ATRNEW;
 
-					faccess_offset(FILE_ACCESS_READ,0,16); //read file header
-
-					if ((atari_sector_buffer[0]|atari_sector_buffer[1]<<8)==atr_hdr_magic)
+					if( atari_sector_buffer[8]=='A' &&
+						 atari_sector_buffer[9]=='T' &&
+						  atari_sector_buffer[10]=='R' )
 					{
 						// ATR
 						unsigned long compute;
 						unsigned long tmp;
 
+						faccess_offset(FILE_ACCESS_READ,0,16); //je to ATR
+								
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON;
 						//FileInfo.vDisk->atr_sector_size = (atari_sector_buffer[4]+(atari_sector_buffer[5]<<8));
 						if ( (atari_sector_buffer[4]|atari_sector_buffer[5])==0x01 )
@@ -2019,19 +2019,16 @@ Command_EC_F0_FF_found:
 						tmp = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;		//FileInfo.vDisk->atr_sector_size;
 						compute /=tmp;
 						if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE; //atr_medium_size = 0x80;
-
-						outbox_P(PSTR("ATR"));
 					}
 					else
-					if ((atari_sector_buffer[0]|atari_sector_buffer[1]<<8)==0xffff)
+					if(( atari_sector_buffer[8]=='X' &&
+						 atari_sector_buffer[9]=='F' &&
+						  atari_sector_buffer[10]=='D' )
+					  || ( atari_sector_buffer[8]=='C' &&
+						 atari_sector_buffer[9]=='A' &&
+						  atari_sector_buffer[10]=='S' ))
 					{
-						// XEX
-						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
-						outbox_P(PSTR("XEX"));
-					}
-					else
-					{
-						//XFD, CAS, or other raw image
+						//XFD
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_XFDTYPE);
 						//if ( FileInfo.vDisk->Size == 92160 ) //normal XFD
 						if ( FileInfo.vDisk->size>IMSIZE1)
@@ -2047,7 +2044,11 @@ Command_EC_F0_FF_found:
 								FileInfo.vDisk->flags|=FLAGS_ATRDOUBLESECTORS;
 							}
 						}
-						outbox_P(PSTR("RAW"));
+					}
+					else
+					{
+						// XEX
+						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 
 					if((cmd_buf.cmd&0xf) != 0 && ((cmd_buf.cmd&0xf) < DEVICESNUM)) {
