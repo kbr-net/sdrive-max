@@ -28,7 +28,7 @@
 
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	0
-#define SWVERSIONMINOR	4
+#define SWVERSIONMINOR	5
 //#define DEVID		0x53444e47
 //#define DEVID		0x474e4453	// SDNG reverse!
 
@@ -489,11 +489,11 @@ find_sdrive_atr_finished:
 
 	unsigned long autowritecounter = 0;
 	unsigned int select_file_counter = 0;
-	unsigned char *sfp;
+	unsigned char *sfp;	//scrolling filename pointer
 ST_IDLE:
 	sfp = atari_sector_buffer;
 
-	LED_GREEN_OFF(virtual_drive_number);  // LED OFF
+	LED_GREEN_OFF(virtual_drive_number);	// LED OFF
 	sei();	//enable interrupts
 
 	//Mainloop: Wait for touchscreen input
@@ -558,6 +558,7 @@ ST_IDLE:
 			}
 		}
 
+		//scrolling long filename
 		if (tft.cfg.scroll && actual_page == 1 && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
 			if (select_file_counter > 20000) {
 				sfp++;
@@ -589,6 +590,7 @@ ST_IDLE:
 	return(0);
 } //main
 
+//interrupt routine, triggered by level change on command signal from Atari
 ISR(PCINT1_vect)
 {
 	if(CMD_PORT & (1<<CMD_PIN))	//do nothing on high
@@ -852,7 +854,7 @@ Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE:
 			goto device_command_accepted;
 
 	   default:
-			//For all the other red green LEDs
+			//For all the other green LEDs
 			LED_GREEN_ON(virtual_drive_number); // LED on
 
 		}
@@ -2029,9 +2031,12 @@ Command_EC_F0_FF_found:
 						if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE; //atr_medium_size = 0x80;
 					}
 					else
-					if( atari_sector_buffer[8]=='X' &&
+					if(( atari_sector_buffer[8]=='X' &&
 						 atari_sector_buffer[9]=='F' &&
 						  atari_sector_buffer[10]=='D' )
+					  || ( atari_sector_buffer[8]=='C' &&
+						 atari_sector_buffer[9]=='A' &&
+						  atari_sector_buffer[10]=='S' ))
 					{
 						//XFD
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_XFDTYPE);
