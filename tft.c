@@ -475,39 +475,3 @@ struct button * check_Buttons() {
 	return(0);
 }
 
-/* Testcode
-int main () {
-	atari_bg = RGB565_converter(0x20,0xaf,0xde);
-
-	TFT_init();
-	TFT_set_rotation(tft.cfg.rot);
-	//file_page();
-	while(1) {
-		tft.pages[actual_page].draw();
-		while(!isTouching());
-		p = getPoint();
-		print_I(30,292,1,White,atari_bg,p.x);
-		print_I(60,292,1,White,atari_bg,p.y);
-		_delay_ms(50);
-		struct button *b;
-		unsigned char i;
-		//check buttons pressed
-		for(i = 0; i < nbuttons; i++) {
-			b = &tft.pages[actual_page].buttons[i];
-			if(p.x > b->x && p.x < b->x+b->width && p.y > b->y && p.y < b->y+b->heigth) {
-				//clear all selections
-				for(i = 0; i < nbuttons; i++)
-					tft.pages[actual_page].buttons[i].selected = 0;
-				//select the new button
-				b->selected = 1;
-				draw_Buttons();
-				b->pressed();	//do action
-				break;
-			}
-			else
-				actual_page = 0;
-		}
-	}
-	return(0);
-}
-*/
