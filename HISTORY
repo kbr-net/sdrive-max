@@ -1,5 +1,6 @@
 v0.5:
 - added support for CAS-Files(only raw binary, not such with FUJI header!)
+- fixed bug on file view function after usage of display
 
 v0.4:
 - added debug output on sd-card init error

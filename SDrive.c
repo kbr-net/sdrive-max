@@ -588,19 +588,22 @@ ST_IDLE:
 	return(0);
 } //main
 
+virtual_disk_t *vp = &vDisk[0];
+
 //interrupt routine, triggered by level change on command signal from Atari
 ISR(PCINT1_vect)
 {
 	if(CMD_PORT & (1<<CMD_PIN))	//do nothing on high
 		return;
 
-	//save actual vDisk pointer
-	virtual_disk_t *vp = FileInfo.vDisk;
+	FileInfo.vDisk = vp;		//restore vDisk pointer
 
-	cmd_buf.cmd = 0;	//clear cmd to allow read from atari
+	cmd_buf.cmd = 0;		//clear cmd to allow read from atari
 	process_command();
 	LED_GREEN_OFF(virtual_drive_number);  // LED OFF
-	FileInfo.vDisk = vp;	//restore vDisk pointer
+
+	vp = FileInfo.vDisk;		//save actual vDisk pointer
+	FileInfo.vDisk = &tmpvDisk;	//set vDisk pointer to tmp
 }
 
 //////process command frame
@@ -2029,7 +2032,12 @@ Command_EC_F0_FF_found:
 						  atari_sector_buffer[10]=='S' ))
 					{
 						//XFD
+						faccess_offset(FILE_ACCESS_READ,0,4); //read header
+						if (memcmp_P(atari_sector_buffer,PSTR("FUJI"),4) == 0)	//check for FUJI header
+							goto Set_XEX;
+
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_XFDTYPE);
+
 						//if ( FileInfo.vDisk->Size == 92160 ) //normal XFD
 						if ( FileInfo.vDisk->size>IMSIZE1)
 						{
@@ -2047,7 +2055,7 @@ Command_EC_F0_FF_found:
 					}
 					else
 					{
-						// XEX
+Set_XEX:					// XEX
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 
