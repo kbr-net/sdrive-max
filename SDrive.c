@@ -424,6 +424,8 @@ SET_SDRIVEATR_TO_D0:	//pro nastaveni SDRIVE.ATR do vD0: bez zmeny actual_drive_n
 
 	//set vDisk Ptr to drive D0:
 	FileInfo.vDisk = &vDisk[0];
+	//reset to root dir
+	FileInfo.vDisk->dir_cluster=RootDirCluster;
 	//Vyhledani a nastaveni image SDRIVE.ATR do vD0:
 	{
 		unsigned short i;
