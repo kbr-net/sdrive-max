@@ -6,6 +6,6 @@ SD-Card:
 5	error setting block length to 512
 
 FAT:
-6	error reading master bootblock
-7	error reading partition bootblock
-8	filesystem not supported
+1	error reading master bootblock
+2	error reading partition bootblock
+3	filesystem not supported
