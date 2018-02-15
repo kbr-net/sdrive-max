@@ -1062,7 +1062,7 @@ percom_prepared:
 		case 0x50:	//write
 		case 0x57:	//write (verify)
 		case 0x52:	//read
-			{
+		    {
 			unsigned short proceeded_bytes;
 			unsigned short atari_sector_size;
 			u32 n_data_offset;
@@ -1075,7 +1075,7 @@ percom_prepared:
 			n_sector = cmd_buf.aux;	//2,3
 
 			if(n_sector==0)
-				goto Send_ERR_and_Delay;
+				goto Send_ERR_and_DATA;;
 
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
 			{
@@ -1104,7 +1104,7 @@ percom_prepared:
 					proceeded_bytes = faccess_offset(FILE_ACCESS_READ,n_data_offset,atari_sector_size);
 					if(proceeded_bytes==0)
 					{
-						goto Send_ERR_and_Delay;
+						goto Send_ERR_and_DATA;;
 					}
 				}
 				else
@@ -1116,12 +1116,12 @@ percom_prepared:
 					}
 
 					//if ( get_readonly() )
-					//	 goto Send_ERR_and_Delay; //READ ONLY
+					//	 goto Send_ERR_and_DATA;; //READ ONLY
 
 					proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
 					if(proceeded_bytes==0)
 					{
-						goto Send_ERR_and_Delay;
+						goto Send_ERR_and_DATA;;
 					}
 
 					goto Send_CMPL_and_Delay;
@@ -1145,7 +1145,7 @@ percom_prepared:
 					}
 					//And return error
 					//because we can not write to XEX (beee, beee ... ;-)))
-					goto Send_ERR_and_Delay;
+					goto Send_ERR_and_DATA;
 				}
 
 				//clear buffer
@@ -1240,7 +1240,12 @@ set_number_of_sectors_to_buffer_1_2:
 			//Send either 128 or 256 (atr / xfd) or 128 (xex)
 			USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(atari_sector_size);
 
+			if (0) {	//on error we have to send data also
+					//because we have already acked!
+Send_ERR_and_DATA:
+				USART_Send_ERR_and_atari_sector_buffer_and_check_sum(atari_sector_size);
 			}
+		    }
 			break;
 
 		case 0x53:	//get status
