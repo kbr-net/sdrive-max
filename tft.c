@@ -24,6 +24,7 @@ unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
 char path[13] = "/";
+const char ready_str[] PROGMEM = "READY";
 struct TSPoint p;
 struct button *disk_button;
 
@@ -243,17 +244,18 @@ unsigned int action_save () {
 	return(0);
 }
 
-unsigned int press () {
+unsigned int press () {	//for buttons with no action here
 	return(0);
 }
 
 struct button buttons_main[] = {
 	//name, x, y, width, heigth, fg-col, bg-col, font-col, type, act, sel
 	{"D0:",10,200,50,30,Grey,Black,Black,ROUND,1,1,action_b0},
-	{"D1:<empty>",10,40,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D2:<empty>",10,80,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D3:<empty>",10,120,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D4:<empty>",10,160,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
+	//D1:FILENAME.ATR must fit!
+	{"D1:<empty>     ",10,40,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
+	{"D2:<empty>     ",10,80,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
+	{"D3:<empty>     ",10,120,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
+	{"D4:<empty>     ",10,160,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
 	{"New",240-61,200,50,30,Grey,Black,Green,ROUND,1,0,press},
 	{"Cfg",240-61,240,50,30,Grey,Black,Blue,ROUND,1,0,action_cfg},
 	{"Outbox",10,280,240-11,320-1,0,0,0,0,0,0,debug_page}
@@ -384,7 +386,7 @@ void main_page () {
 
 	outx = 20; outy = 284;
 
-	TFT_off();
+	TFT_off();	//turn off if returned to main to avoid scrollbak ef.
 	TFT_scroll_init(outy,32,4);
 	TFT_scroll(outy);
 	TFT_on();
@@ -392,7 +394,7 @@ void main_page () {
 
 	//Header
 	print_str_P(20, 10, 2, Orange, Black, PSTR("SDrive-MAX"));
-	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.4"));
+	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.5b"));
 	Draw_H_Line(0,tft.width,30,Orange);
 
 	draw_Buttons();
@@ -401,7 +403,7 @@ void main_page () {
 	Draw_Rectangle(10,280,tft.width-11,tft.heigth-1,1,SQUARE,atari_bg,Black);
 	scroll = 0;
 	set_text_pos(outx, outy);
-	outbox_P(PSTR("READY"));
+	outbox_P(ready_str);
 	print_char(20,292,1,White,atari_bg,0x80);
 
 }
@@ -437,7 +439,7 @@ unsigned int debug_page () {
 	TFT_scroll(outy);
 	scroll = 0;
 	set_text_pos(outx, outy);
-	outbox_P(PSTR("READY"));
+	outbox_P(ready_str);
 	print_char(10,18,1,White,atari_bg,0x80);
 
 	debug = 1;
@@ -473,39 +475,3 @@ struct button * check_Buttons() {
 	return(0);
 }
 
-/* Testcode
-int main () {
-	atari_bg = RGB565_converter(0x20,0xaf,0xde);
-
-	TFT_init();
-	TFT_set_rotation(tft.cfg.rot);
-	//file_page();
-	while(1) {
-		tft.pages[actual_page].draw();
-		while(!isTouching());
-		p = getPoint();
-		print_I(30,292,1,White,atari_bg,p.x);
-		print_I(60,292,1,White,atari_bg,p.y);
-		_delay_ms(50);
-		struct button *b;
-		unsigned char i;
-		//check buttons pressed
-		for(i = 0; i < nbuttons; i++) {
-			b = &tft.pages[actual_page].buttons[i];
-			if(p.x > b->x && p.x < b->x+b->width && p.y > b->y && p.y < b->y+b->heigth) {
-				//clear all selections
-				for(i = 0; i < nbuttons; i++)
-					tft.pages[actual_page].buttons[i].selected = 0;
-				//select the new button
-				b->selected = 1;
-				draw_Buttons();
-				b->pressed();	//do action
-				break;
-			}
-			else
-				actual_page = 0;
-		}
-	}
-	return(0);
-}
-*/

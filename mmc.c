@@ -322,13 +322,13 @@ u08 mmcReadCached(u32 sector)
         if(sector==n_actual_mmc_sector) return(-1);
 
         u08 ret,retry;
-        //predtim nez nacte jiny, musi ulozit soucasny
+        //save cache before read another sector
         mmcWriteCachedFlush();
-        //az ted nacte novy
-        retry=0; //zkusi to maximalne 256x
+        //from now on
+        retry=0; //maximal 256x tries
         do
         {
-                ret = mmcRead(sector);  //vraci 0 kdyz ok
+                ret = mmcRead(sector);  //returns 0 if ok
                 retry--;
         } while (ret && retry);
         if(ret)	// exit on error
@@ -344,13 +344,13 @@ u08 mmcWriteCached(unsigned char force)
         if (force)
         {
                 u08 ret,retry;
-                retry=16; //zkusi to maximalne 16x
+                retry=16; //maximal 16x tries
                 do
                 {
-                        ret = mmcWrite(n_actual_mmc_sector); //vraci 0 kdyz ok
+                        ret = mmcWrite(n_actual_mmc_sector); //returns 0 if ok
                         retry--;
                 } while (ret && retry);
-                while(ret); //a pokud se vubec nepovedlo, tady zustane zablokovany cely SDrive!
+                while(ret); //and if it did not work, SDrive blocks it!
                 n_actual_mmc_sector_needswrite = 0;
                 //LED_RED_OFF;
         }
@@ -358,14 +358,14 @@ u08 mmcWriteCached(unsigned char force)
         {
                 n_actual_mmc_sector_needswrite=1;
         }
-        return 0; //vraci 0 kdyz ok
+        return 0; //return 0 if ok
 }
 
 void mmcWriteCachedFlush()
 {
         if (n_actual_mmc_sector_needswrite)
         {
-         while (mmcWriteCached(1)); //pokud je zakazany zapis, tady zustane zablokovany cely SDrive!
-                                                                //do okamziku, nez ten zapis nebude povolen (visi mu neco v cache)
+         while (mmcWriteCached(1)); //if it's forbidden to write, SDrive blocks it!
+	//until the write is not allowed (you are hanging something in the cache)
         }
 }

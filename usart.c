@@ -159,18 +159,24 @@ u08 USART_Get_buffer_and_check_and_send_ACK_or_NACK(unsigned char *buff, u16 len
 	return 0;	//kdyz je ok vraci 0
 }
 
-void USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(unsigned short len) {
+void USART_Send_atari_sector_buffer_and_check_sum(unsigned short len, unsigned char status) {
 	u08 check_sum;
 
 	//	Delay300us();	//po ACKu pred CMPL pauza 250us - 255sec
 	//Kdyz bylo jen 300us tak nefungovalo
 	//_delay_us(800);	//t5
 	if (debug) {
-		sio_debug('C');
+		if (status)
+			sio_debug('E');
+		else
+			sio_debug('C');
 	}
 	else
 		_delay_us(800);	//t5
-	send_CMPL();
+	if (status)
+		send_ERR();
+	else
+		send_CMPL();
 	//	Delay1000us();	//S timhle to bylo doposud (a nefunguje pod Qmegem3 Ultraspeed vubec)
 	//	Delay100us(); 		//Pokusne kratsi pauza
 						//(tato fce se pouziva se i u read SpeedIndex 3F,

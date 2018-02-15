@@ -1,3 +1,10 @@
+v0.5:
+- added support for CAS-Files(only raw binary, not such with FUJI header!)
+- fixed bug on file view function(sdrive control) after usage of display
+- fixed bug on change back to D0: after use of file view function
+  (sdrive control) in other directory
+- fixed wrong error handling during read/write commands(Atari was hanging)
+
 v0.4:
 - added debug output on sd-card init error
 - more tries for sd-card GO_IDLE_STATE, some cards needs this
