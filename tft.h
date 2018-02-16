@@ -1,6 +1,7 @@
 
 struct button {
-	char name[16];
+	//char name[16];	//now as pointer to save mem
+	char *name;
 	unsigned int x;
 	unsigned int y;
 	unsigned int width;
