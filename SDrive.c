@@ -1083,7 +1083,7 @@ percom_prepared:
 			{
                 if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
                 {
-                    atari_sector_size = loadAtxSector(n_sector);
+                    atari_sector_size = loadAtxSector(n_sector, &atari_sector_status);
                     // TODO: if sector size is 0 (meaning ATX couldn't be loaded)?
                 }
                 else
