@@ -24,6 +24,7 @@
 #include "tft.h"
 #include "touchscreen.h"
 #include "display.h"
+#include "atx.h"
 
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	0
@@ -106,6 +107,7 @@ unsigned char mmc_sector_buffer[512];	// one SD sector
 u32 n_actual_mmc_sector;
 unsigned char n_actual_mmc_sector_needswrite;
 unsigned char atari_sector_buffer[256];
+u08 atari_sector_status = 0xff;
 
 #define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
 char DebugBuffer[14];
@@ -1079,55 +1081,64 @@ percom_prepared:
 
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
 			{
-				//ATR or XFD
-				if(n_sector<4)
-				{
-					//sector 1 to 3
-					atari_sector_size = (unsigned short)0x80;	//128
-					//Optimization: n_sector = 1 to 3 and sector size is fixed 128!
-					//Old way: n_data_offset = (u32) ( ((u32)(((u32)n_sector)-1) ) * ((u32)atari_sector_size));
-					n_data_offset = (u32) ( (n_sector-1) << 7 ); //*128;
-				}
-				else
-				{
-					//sector 4 or greater
-					atari_sector_size = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? ((unsigned short)0x100):((unsigned short)0x80);	//FileInfo.vDisk->atr_sector_size;
-					n_data_offset = (u32) ( ((u32)(((u32)n_sector)-4) ) * ((u32)atari_sector_size)) + ((u32)384);
-				}
+                if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
+                {
+                    if (!loadAtxSector(n_sector, &atari_sector_size, &atari_sector_status)) {
+                        goto Send_ERR_and_DATA;
+                    }
+                }
+                else
+                {
+                    //ATR or XFD
+                    if(n_sector<4)
+                    {
+                        //sector 1 to 3
+                        atari_sector_size = (unsigned short)0x80;	//128
+                        //Optimization: n_sector = 1 to 3 and sector size is fixed 128!
+                        //Old way: n_data_offset = (u32) ( ((u32)(((u32)n_sector)-1) ) * ((u32)atari_sector_size));
+                        n_data_offset = (u32) ( (n_sector-1) << 7 ); //*128;
+                    }
+                    else
+                    {
+                        //sector 4 or greater
+                        atari_sector_size = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? ((unsigned short)0x100):((unsigned short)0x80);	//FileInfo.vDisk->atr_sector_size;
+                        n_data_offset = (u32) ( ((u32)(((u32)n_sector)-4) ) * ((u32)atari_sector_size)) + ((u32)384);
+                    }
 
-				//ATR or XFD?
-				if (! (FileInfo.vDisk->flags & FLAGS_XFDTYPE) ) n_data_offset+= (u32)16; //ATR header;
+                    //ATR or XFD?
+                    if (! (FileInfo.vDisk->flags & FLAGS_XFDTYPE) ) n_data_offset+= (u32)16; //ATR header;
 
-				if(cmd_buf.cmd==0x52)
-				{
-					//read
-					proceeded_bytes = faccess_offset(FILE_ACCESS_READ,n_data_offset,atari_sector_size);
-					if(proceeded_bytes==0)
-					{
-						goto Send_ERR_and_DATA;;
-					}
-				}
-				else
-				{
-					//write do image
-					if (USART_Get_atari_sector_buffer_and_check_and_send_ACK_or_NACK(atari_sector_size))
-					{
-						break;
-					}
+                    if(cmd_buf.cmd==0x52)
+                    {
+                        //read
+                        proceeded_bytes = faccess_offset(FILE_ACCESS_READ,n_data_offset,atari_sector_size);
+                        if(proceeded_bytes==0)
+                        {
+                            goto Send_ERR_and_DATA;;
+                        }
+                    }
+                    else
+                    {
+                        //write do image
+                        if (USART_Get_atari_sector_buffer_and_check_and_send_ACK_or_NACK(atari_sector_size))
+                        {
+                            break;
+                        }
 
-					//if ( get_readonly() )
-					//	 goto Send_ERR_and_DATA;; //READ ONLY
+                        //if ( get_readonly() )
+                        //	 goto Send_ERR_and_DATA;; //READ ONLY
 
-					proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
-					if(proceeded_bytes==0)
-					{
-						goto Send_ERR_and_DATA;;
-					}
+                        proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
+                        if(proceeded_bytes==0)
+                        {
+                            goto Send_ERR_and_DATA;;
+                        }
 
-					goto Send_CMPL_and_Delay;
+                        goto Send_CMPL_and_Delay;
 
-				}
-				//atari_sector_size= (bud 128 nebo 256 bytu)
+                    }
+                    //atari_sector_size= (bud 128 nebo 256 bytu)
+                }
 			}
 			else
 			{
@@ -1265,7 +1276,7 @@ Send_ERR_and_DATA:
 			}
 			//if (get_readonly()) atari_sector_buffer[0]|=0x08;	//write protected bit
 
-			atari_sector_buffer[1] = 0xff;
+			atari_sector_buffer[1] = atari_sector_status;
 			atari_sector_buffer[2] = 0xe0; 		//(244s) timeout pro nejdelsi operaci
 			atari_sector_buffer[3] = 0x00;		//timeout hb
 
@@ -2060,6 +2071,15 @@ Command_EC_F0_FF_found:
 							}
 						}
 					}
+                    else
+                    if( atari_sector_buffer[8]=='A' &&
+                         atari_sector_buffer[9] =='T' &&
+                          atari_sector_buffer[10] == 'X' )
+                    {
+                        //ATX
+                        loadAtxFile(); // TODO: check return value
+                        FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
+                    }
 					else
 					{
 Set_XEX:					// XEX
