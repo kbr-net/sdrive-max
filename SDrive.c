@@ -426,6 +426,8 @@ SET_SDRIVEATR_TO_D0:	//pro nastaveni SDRIVE.ATR do vD0: bez zmeny actual_drive_n
 
 	//set vDisk Ptr to drive D0:
 	FileInfo.vDisk = &vDisk[0];
+	//reset to root dir
+	FileInfo.vDisk->dir_cluster=RootDirCluster;
 	//Vyhledani a nastaveni image SDRIVE.ATR do vD0:
 	{
 		unsigned short i;
@@ -590,19 +592,22 @@ ST_IDLE:
 	return(0);
 } //main
 
+virtual_disk_t *vp = &vDisk[0];
+
 //interrupt routine, triggered by level change on command signal from Atari
 ISR(PCINT1_vect)
 {
 	if(CMD_PORT & (1<<CMD_PIN))	//do nothing on high
 		return;
 
-	//save actual vDisk pointer
-	virtual_disk_t *vp = FileInfo.vDisk;
+	FileInfo.vDisk = vp;		//restore vDisk pointer
 
-	cmd_buf.cmd = 0;	//clear cmd to allow read from atari
+	cmd_buf.cmd = 0;		//clear cmd to allow read from atari
 	process_command();
 	LED_GREEN_OFF(virtual_drive_number);  // LED OFF
-	FileInfo.vDisk = vp;	//restore vDisk pointer
+
+	vp = FileInfo.vDisk;		//save actual vDisk pointer
+	FileInfo.vDisk = &tmpvDisk;	//set vDisk pointer to tmp
 }
 
 //////process command frame
@@ -1059,7 +1064,7 @@ percom_prepared:
 		case 0x50:	//write
 		case 0x57:	//write (verify)
 		case 0x52:	//read
-			{
+		    {
 			unsigned short proceeded_bytes;
 			unsigned short atari_sector_size;
 			u32 n_data_offset;
@@ -1072,14 +1077,15 @@ percom_prepared:
 			n_sector = cmd_buf.aux;	//2,3
 
 			if(n_sector==0)
-				goto Send_ERR_and_Delay;
+				goto Send_ERR_and_DATA;;
 
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
 			{
                 if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
                 {
-                    atari_sector_size = loadAtxSector(n_sector);
-                    // TODO: if sector size is 0 (meaning ATX couldn't be loaded)?
+                    if (!loadAtxSector(n_sector, &atari_sector_size, &atari_sector_status)) {
+                        goto Send_ERR_and_DATA;
+                    }
                 }
                 else
                 {
@@ -1108,7 +1114,7 @@ percom_prepared:
                         proceeded_bytes = faccess_offset(FILE_ACCESS_READ,n_data_offset,atari_sector_size);
                         if(proceeded_bytes==0)
                         {
-                            goto Send_ERR_and_Delay;
+                            goto Send_ERR_and_DATA;;
                         }
                     }
                     else
@@ -1120,12 +1126,12 @@ percom_prepared:
                         }
 
                         //if ( get_readonly() )
-                        //	 goto Send_ERR_and_Delay; //READ ONLY
+                        //	 goto Send_ERR_and_DATA;; //READ ONLY
 
                         proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
                         if(proceeded_bytes==0)
                         {
-                            goto Send_ERR_and_Delay;
+                            goto Send_ERR_and_DATA;;
                         }
 
                         goto Send_CMPL_and_Delay;
@@ -1150,7 +1156,7 @@ percom_prepared:
 					}
 					//And return error
 					//because we can not write to XEX (beee, beee ... ;-)))
-					goto Send_ERR_and_Delay;
+					goto Send_ERR_and_DATA;
 				}
 
 				//clear buffer
@@ -1245,7 +1251,12 @@ set_number_of_sectors_to_buffer_1_2:
 			//Send either 128 or 256 (atr / xfd) or 128 (xex)
 			USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(atari_sector_size);
 
+			if (0) {	//on error we have to send data also
+					//because we have already acked!
+Send_ERR_and_DATA:
+				USART_Send_ERR_and_atari_sector_buffer_and_check_sum(atari_sector_size);
 			}
+		    }
 			break;
 
 		case 0x53:	//get status
@@ -2039,7 +2050,12 @@ Command_EC_F0_FF_found:
 						  atari_sector_buffer[10]=='S' ))
 					{
 						//XFD
+						faccess_offset(FILE_ACCESS_READ,0,4); //read header
+						if (memcmp_P(atari_sector_buffer,PSTR("FUJI"),4) == 0)	//check for FUJI header
+							goto Set_XEX;
+
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_XFDTYPE);
+
 						//if ( FileInfo.vDisk->Size == 92160 ) //normal XFD
 						if ( FileInfo.vDisk->size>IMSIZE1)
 						{
@@ -2066,7 +2082,7 @@ Command_EC_F0_FF_found:
                     }
 					else
 					{
-						// XEX
+Set_XEX:					// XEX
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 

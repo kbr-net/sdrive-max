@@ -84,6 +84,6 @@ struct atxExtendedSectorData {
 u16 loadAtxFile();
 
 // load data for a specific disk sector (returns number of data bytes read or 0 if sector not found)
-u16 loadAtxSector(u16 num);
+u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status);
 
 #endif //ATX_TEST_ATX_H

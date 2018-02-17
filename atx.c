@@ -28,10 +28,10 @@ struct atxTrackInfo {
 };
 
 extern unsigned char atari_sector_buffer[256];
-extern u08 atari_sector_status;
 
 u16 gBytesPerSector;                    // number of bytes per sector
 u08 gSectorsPerTrack;                   // number of sectors in each track
+u08 gPhantomFlip = 0;                   // "hack" to support phantom/duplicate sectors
 struct atxTrackInfo gTrackInfo[40];     // pre-calculated info for each track
 
 u16 loadAtxFile() {
@@ -71,7 +71,7 @@ u16 loadAtxFile() {
     return gBytesPerSector;
 }
 
-u16 loadAtxSector(u16 num) {
+u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     struct atxTrackHeader *trackHeader;
     struct atxSectorListHeader *slHeader;
     struct atxSectorHeader *sectorHeader;
@@ -96,21 +96,37 @@ u16 loadAtxSector(u16 num) {
 
     // iterate through all sector headers to find the requested one
     u16 i;
+    u08 retStatus = 0xF7; // status if no sector is found
+    u32 retOffset = 0;
     for (i=0; i < sectorCount; i++) {
         if (faccess_offset(FILE_ACCESS_READ, offset, sizeof(struct atxSectorHeader))) {
             sectorHeader = (struct atxSectorHeader*)atari_sector_buffer;
-
-            // TODO: for duplicate sectors, the sector that we return should be based on timing and not the first one that is found
+            // if the sector number matches the one we're looking for...
+            // TODO: this should be based on timing and sector angular position!!!
             if (sectorHeader->number == tgtSectorNumber) {
-                // set the aux2 drive status byte
-                atari_sector_status = (u08)0xE3 | (sectorHeader->status & (u08)0x1C);
-                // read the sector data
-                return faccess_offset(FILE_ACCESS_READ, gTrackInfo[tgtTrackNumber - 1].offset + sectorHeader->data, gBytesPerSector);
+                retStatus = ~(sectorHeader->status);
+                // if the sector status is valid, we should return data
+                if (sectorHeader->status <= 0) {
+                    retOffset = sectorHeader->data;
+                }
+                // if phantom flip is set, return the first sector found (note: this is a hack - see below)
+                if (!gPhantomFlip) {
+                    break;
+                }
             }
             offset += sizeof(struct atxSectorHeader);
         }
     }
 
-    return 0;
+    // set the global status
+    *status = retStatus;
+    *sectorSize = gBytesPerSector;
+
+    // for now, this is a lightweight hack to handle phantom/duplicate sectors - alternate between first/last
+    // duplicate sector on successive reads
+    gPhantomFlip = !gPhantomFlip;
+
+    // return the number of bytes read
+    return retOffset ? (u16)faccess_offset(FILE_ACCESS_READ, gTrackInfo[tgtTrackNumber - 1].offset + retOffset, gBytesPerSector) : (u16)0;
 }
 
