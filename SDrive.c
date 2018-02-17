@@ -2047,12 +2047,16 @@ Command_EC_F0_FF_found:
 						  atari_sector_buffer[10]=='D' )
 					  || ( atari_sector_buffer[8]=='C' &&
 						 atari_sector_buffer[9]=='A' &&
-						  atari_sector_buffer[10]=='S' ))
+						  atari_sector_buffer[10]=='S' )
+					  || ( atari_sector_buffer[8]=='B' &&
+						 atari_sector_buffer[9]=='I' &&
+						  atari_sector_buffer[10]=='N' ))
 					{
 						//XFD
 						faccess_offset(FILE_ACCESS_READ,0,4); //read header
-						if (memcmp_P(atari_sector_buffer,PSTR("FUJI"),4) == 0)	//check for FUJI header
-							goto Set_XEX;
+						if ( (memcmp_P(atari_sector_buffer,PSTR("FUJI"),4) == 0)	//check for FUJI header
+						   || (memcmp_P(atari_sector_buffer,PSTR("\xff\xff"),2) == 0) )	//or COM header
+							goto Set_XEX;	//thread them as XEX
 
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_XFDTYPE);
 
