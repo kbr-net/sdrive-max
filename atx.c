@@ -71,7 +71,7 @@ u16 loadAtxFile() {
     return gBytesPerSector;
 }
 
-u16 loadAtxSector(u16 num, u08 *status) {
+u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     struct atxTrackHeader *trackHeader;
     struct atxSectorListHeader *slHeader;
     struct atxSectorHeader *sectorHeader;
@@ -104,8 +104,11 @@ u16 loadAtxSector(u16 num, u08 *status) {
             // if the sector number matches the one we're looking for...
             // TODO: this should be based on timing and sector angular position!!!
             if (sectorHeader->number == tgtSectorNumber) {
-                retOffset = sectorHeader->data;
                 retStatus = ~(sectorHeader->status);
+                // if the sector status is valid, we should return data
+                if (sectorHeader->status <= 0) {
+                    retOffset = sectorHeader->data;
+                }
                 // if phantom flip is set, return the first sector found (note: this is a hack - see below)
                 if (!gPhantomFlip) {
                     break;
@@ -117,9 +120,10 @@ u16 loadAtxSector(u16 num, u08 *status) {
 
     // set the global status
     *status = retStatus;
+    *sectorSize = gBytesPerSector;
 
     // for now, this is a lightweight hack to handle phantom/duplicate sectors - alternate between first/last
-    // duplicate sectors on successive reads
+    // duplicate sector on successive reads
     gPhantomFlip = !gPhantomFlip;
 
     // return the number of bytes read
