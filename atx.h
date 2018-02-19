@@ -73,7 +73,7 @@ struct atxSectorHeader {
 struct atxExtendedSectorData {
     u32 size;
     u08 type;
-    u08 sectorNumber;
+    u08 sectorIndex;
     u16 data;
 };
 

@@ -19,6 +19,7 @@
 //
 //*****************************************************************************
 
+#include <stdlib.h>
 #include "avrlibtypes.h"
 #include "atx.h"
 #include "fat.h"
@@ -31,7 +32,7 @@ extern unsigned char atari_sector_buffer[256];
 
 u16 gBytesPerSector;                    // number of bytes per sector
 u08 gSectorsPerTrack;                   // number of sectors in each track
-u08 gPhantomFlip = 0;                   // "hack" to support phantom/duplicate sectors
+BOOL gPhantomFlip = FALSE;              // "hack" to support phantom/duplicate sectors
 struct atxTrackInfo gTrackInfo[40];     // pre-calculated info for each track
 
 u16 loadAtxFile() {
@@ -75,58 +76,100 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     struct atxTrackHeader *trackHeader;
     struct atxSectorListHeader *slHeader;
     struct atxSectorHeader *sectorHeader;
+    struct atxExtendedSectorData *extSectorData;
+
+    u16 i;
+    u16 tgtSectorIndex = 0;         // the index of the target sector within the sector list
+    u32 tgtSectorOffset = 0;        // the offset of the target sector data
+    BOOL hasError = (BOOL)FALSE;    // flag for drive status errors
+    BOOL sectorFound = (BOOL)FALSE; // flag used for duplicate/phantom sector handling
+
+    // local variables used for weak data handling
+    u08 extendedDataRecords = 0;
+    u32 maxSectorOffset = 0;
+    int weakOffset = -1;
 
     // calculate track and relative sector number from the absolute sector number
     u08 tgtTrackNumber = (num - 1) / gSectorsPerTrack + 1;
     u08 tgtSectorNumber = (num - 1) % gSectorsPerTrack + 1;
 
+    // set initial status (in case the target sector is not found)
+    *status = 0xF7;
+
     // read the track header
-    u32 offset = gTrackInfo[tgtTrackNumber - 1].offset;
-    faccess_offset(FILE_ACCESS_READ, offset, sizeof(struct atxTrackHeader));
+    u32 currentFileOffset = gTrackInfo[tgtTrackNumber - 1].offset;
+    faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackHeader));
     trackHeader = (struct atxTrackHeader*)atari_sector_buffer;
     u16 sectorCount = trackHeader->sectorCount;
 
     // read the sector list header
-    offset += trackHeader->headerSize;
-    faccess_offset(FILE_ACCESS_READ, offset, sizeof(struct atxSectorListHeader));
+    currentFileOffset += trackHeader->headerSize;
+    faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorListHeader));
     slHeader = (struct atxSectorListHeader*)atari_sector_buffer;
 
     // sector list header is variable length, so skip any extra header bytes that may be present
-    offset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
+    currentFileOffset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
 
-    // iterate through all sector headers to find the requested one
-    u16 i;
-    u08 retStatus = 0xF7; // status if no sector is found
-    u32 retOffset = 0;
+    // iterate through all sector headers to find the target sector
     for (i=0; i < sectorCount; i++) {
-        if (faccess_offset(FILE_ACCESS_READ, offset, sizeof(struct atxSectorHeader))) {
+        if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorHeader))) {
             sectorHeader = (struct atxSectorHeader*)atari_sector_buffer;
             // if the sector number matches the one we're looking for...
-            // TODO: this should be based on timing and sector angular position!!!
-            if (sectorHeader->number == tgtSectorNumber) {
-                retStatus = ~(sectorHeader->status);
-                // if the sector status is valid, we should return data
-                if (sectorHeader->status <= 0) {
-                    retOffset = sectorHeader->data;
+            // if phantom flip is set, return the last duplicate sector found (note: this is a hack - see below)
+            if (sectorHeader->number == tgtSectorNumber && (!sectorFound || (sectorFound && gPhantomFlip))) {
+                *status = ~(sectorHeader->status);
+                tgtSectorIndex = i;
+                tgtSectorOffset = sectorHeader->data;
+                maxSectorOffset = sectorHeader->data > maxSectorOffset ? sectorHeader->data : maxSectorOffset;
+                // if the sector status is not valid, flag it as an error
+                if (sectorHeader->status > 0) {
+                    hasError = (BOOL)TRUE;
                 }
-                // if phantom flip is set, return the first sector found (note: this is a hack - see below)
-                if (!gPhantomFlip) {
-                    break;
+                // if the extended data flag is set, increment extended record count for later reading
+                if (sectorHeader->status & 0x40) {
+                    extendedDataRecords++;
                 }
+                sectorFound = (BOOL)TRUE;
             }
-            offset += sizeof(struct atxSectorHeader);
+            currentFileOffset += sizeof(struct atxSectorHeader);
         }
     }
 
-    // set the global status
-    *status = retStatus;
+    // read through the extended data records if any were found
+    if (extendedDataRecords > 0) {
+        currentFileOffset = gTrackInfo[tgtTrackNumber - 1].offset + maxSectorOffset + gBytesPerSector;
+        for (i=0; i < extendedDataRecords; i++) {
+            if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxExtendedSectorData))) {
+                extSectorData = (struct atxExtendedSectorData *) atari_sector_buffer;
+                // if the target sector has a weak data flag, grab the start weak offset within the sector data
+                if (extSectorData->sectorIndex == tgtSectorIndex && extSectorData->type == 0x10) {
+                    weakOffset = extSectorData->type;
+                }
+            }
+            currentFileOffset += sizeof(struct atxExtendedSectorData);
+        }
+    }
+
+    // set the sector status and size
     *sectorSize = gBytesPerSector;
 
     // for now, this is a lightweight hack to handle phantom/duplicate sectors - alternate between first/last
     // duplicate sector on successive reads
-    gPhantomFlip = !gPhantomFlip;
+    // TODO: this should be based on timing and sector angular position!!!
+    gPhantomFlip = (BOOL)!gPhantomFlip;
+
+    // read the data (re-using tgtSectorIndex variable here to reduce stack consumption)
+    tgtSectorIndex = tgtSectorOffset ? (u16)faccess_offset(FILE_ACCESS_READ, gTrackInfo[tgtTrackNumber - 1].offset + tgtSectorOffset, gBytesPerSector) : (u16)0;
+    tgtSectorIndex = hasError ? (u16)0 : tgtSectorIndex;
+
+    // if a weak offset is defined, randomize the appropriate data
+    if (weakOffset > -1) {
+        for (i=(u16)weakOffset; i < gBytesPerSector; i++) {
+            atari_sector_buffer[i] = (unsigned char)(rand() % 256);
+        }
+    }
 
     // return the number of bytes read
-    return retOffset ? (u16)faccess_offset(FILE_ACCESS_READ, gTrackInfo[tgtTrackNumber - 1].offset + retOffset, gBytesPerSector) : (u16)0;
+    return tgtSectorIndex;
 }
 
