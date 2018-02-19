@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
 //CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2     -DF_CPU=14318180UL -Os -funsigned-char -fpack-struct
-CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2 -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct
+CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2 -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct -fstack-usage
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += -ffunction-sections -mrelax -mcall-prologues
 
@@ -118,7 +118,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) SDrive.elf dep/* SDrive.hex SDrive.eep* SDrive.lss *.map SDrive.bin eeprom_writer.*
+	-rm -rf $(OBJECTS) SDrive.elf dep/* SDrive.hex SDrive.eep* SDrive.lss *.map SDrive.bin eeprom_writer.* *.su
 
 
 ## Other dependencies
