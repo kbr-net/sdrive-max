@@ -1,6 +1,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
+#include "avrlibdefs.h"         // global AVRLIB defines
+#include "avrlibtypes.h"        // global AVRLIB types definitions
 #include "touchscreen.h"
 #include "tft.h"
 #include "display.h"

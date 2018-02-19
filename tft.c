@@ -6,6 +6,7 @@
 #include <string.h>
 #include "avrlibdefs.h"         // global AVRLIB defines
 #include "avrlibtypes.h"        // global AVRLIB types definitions
+#include "global.h"
 #include "display.h"
 #include "logos.h"
 #include "touchscreen.h"
@@ -15,6 +16,7 @@
 extern unsigned char debug;
 extern char atari_sector_buffer[];
 extern struct FileInfoStruct FileInfo;
+extern virtual_disk_t vDisk[];
 //extern struct GlobalSystemValues GS;
 
 #define	atari_bg 0x257b
@@ -35,7 +37,8 @@ unsigned int debug_page();
 
 struct display tft;
 
-char EEMEM cfg = 0xff;	//config byte on eeprom, initial value is all activated
+unsigned char EEMEM cfg = 0xff;	//config byte on eeprom, initial value is all activated
+struct file_save EEMEM image_store[DEVICESNUM-1];
 
 unsigned int action_b0 (struct button *b) {
 	b->selected = 1;
@@ -235,10 +238,23 @@ unsigned int action_change (struct button *b) {
 	return(0);
 }
 
-unsigned int action_save () {
+unsigned int action_save_cfg () {
 	tft.cfg.rot = tft.pages[actual_page].buttons[0].selected;
 	tft.cfg.scroll = tft.pages[actual_page].buttons[1].selected;
-	eeprom_write_byte(&cfg, *(char *)&tft.cfg);
+	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
+	if(tft.pages[actual_page].buttons[2].selected) {
+		unsigned char i;
+		//map D1-D4 0-indexed
+		for(i = 0; i < DEVICESNUM-1; i++) {
+			if(vDisk[i+1].flags & FLAGS_DRIVEON) {
+				eeprom_update_dword(&image_store[i].dir_cluster, vDisk[i+1].dir_cluster);
+				eeprom_update_word(&image_store[i].file_index, vDisk[i+1].file_index);
+			}
+			else {
+				eeprom_update_dword(&image_store[i].dir_cluster, 0xffffffff);
+			}
+		}
+	}
 	TFT_set_rotation(tft.cfg.rot);
 	action_cancel();
 	return(0);
@@ -274,6 +290,7 @@ struct button buttons_file[] = {
 struct button buttons_cfg[] = {
 	{"Rotate",15,45,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
 	{"Scroll",15,85,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
+	{"SaveIm",15,125,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
 /* all 8 needs too much RAM!!!
 	{"empty3",15,125,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
 	{"empty4",15,165,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
@@ -282,7 +299,7 @@ struct button buttons_cfg[] = {
 	{"empty7",115,125,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
 	{"empty8",115,165,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
 */
-	{"Save",164,125,60,30,Grey,Black,White,ROUND,1,0,action_save},
+	{"Save",164,125,60,30,Grey,Black,White,ROUND,1,0,action_save_cfg},
 	{"Exit",164,165,60,30,Grey,Black,White,ROUND,1,0,action_cancel}
 };
 
@@ -427,6 +444,7 @@ void config_page () {
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
 	tft.pages[actual_page].buttons[0].selected = tft.cfg.rot;
 	tft.pages[actual_page].buttons[1].selected = tft.cfg.scroll;
+	tft.pages[actual_page].buttons[2].selected = 0;
 	draw_Buttons();
 }
 

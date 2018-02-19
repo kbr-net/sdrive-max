@@ -118,6 +118,7 @@ struct FileInfoStruct FileInfo;			//< file information for last file accessed
 extern struct display tft;
 extern unsigned char actual_page;
 extern unsigned char file_selected;
+extern struct file_save EEMEM image_store[];
 
 //workaround to get version numbers converted to strings
 #define STR_A(x)	#x
@@ -167,7 +168,7 @@ uint8_t EEMEM system_percomtable[]= {
 	0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
 	};
 
-#define DEVICESNUM	5	//	//D0:-D4:
+//#define DEVICESNUM	5	//	//D0:-D4:
 virtual_disk_t vDisk[DEVICESNUM];
 
 virtual_disk_t tmpvDisk;
@@ -421,6 +422,25 @@ int main(void)
 		outbox((char*)atari_sector_buffer);
 		goto ST_IDLE;
 	}
+
+	//restore images from eeprom
+	{
+		unsigned char i;
+		actual_page = 9;	//fake, that we are not on main page
+					// to avoid each button redraw
+		//only D1-D4, but we must start 0-indexed for the eeprom-array
+		for(i = 0; i < DEVICESNUM-1; i++) {
+			tmpvDisk.dir_cluster = eeprom_read_dword(&image_store[i].dir_cluster);
+			cmd_buf.aux = eeprom_read_word(&image_store[i].file_index);
+			cmd_buf.cmd = (0xF0 | (i+1));	//set drive
+			cmd_buf.dev = 0x71;	//say we are a sdrive cmd
+			process_command();	//set image to drive
+		}
+		actual_page = 0;	//clear the fake
+		draw_Buttons();		//now redraw buttons
+	}
+	//start with root dir
+	tmpvDisk.dir_cluster=RootDirCluster;
 
 SET_SDRIVEATR_TO_D0:	//pro nastaveni SDRIVE.ATR do vD0: bez zmeny actual_drive_number !
 
@@ -2115,7 +2135,7 @@ Set_XEX:					// XEX
 				}
 
 				goto Send_CMPL_and_Delay;
-			}
+			} //if (ret)
 			else
 			{
 				goto Send_ERR_and_Delay;

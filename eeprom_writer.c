@@ -15,7 +15,7 @@ int main () {
 	for(i=0; i < SDrive_eep_bin_len; i++) {
 		Draw_H_Bar(10,229,50,10,(int) (i/(SDrive_eep_bin_len/219.0)),Yellow,Blue,Grey,1);
 		//eeprom_write_byte((unsigned char*)i, pgm_read_byte(&SDrive_eep_bin[i]));
-		eeprom_write_byte((unsigned char*)i, SDrive_eep_bin[i]);
+		eeprom_update_byte((unsigned char*)i, SDrive_eep_bin[i]);
 		//_delay_ms(10);
 	}
 	print_str(10,122,1,White,Black,"Verifying EEPROM...");

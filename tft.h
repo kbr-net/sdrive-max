@@ -1,4 +1,3 @@
-
 struct button {
 	//char name[16];	//now as pointer to save mem
 	char *name;
@@ -33,6 +32,12 @@ struct display {
 	//struct TSPoint *tp;	//unused
 };
 
+struct file_save {
+	u32 dir_cluster;
+	u16 file_index;
+};
+
+//functions for external use
 void pretty_name(char *b);
 
 void draw_Buttons ();
