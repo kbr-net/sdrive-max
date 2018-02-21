@@ -27,6 +27,7 @@ struct display {
 	struct {
 		unsigned char rot : 1;
 		unsigned char scroll : 1;
+		unsigned char boot_d1 : 1;
 	} cfg;
 	struct page *pages;
 	//struct TSPoint *tp;	//unused

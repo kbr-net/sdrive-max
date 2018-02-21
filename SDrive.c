@@ -370,6 +370,8 @@ int main(void)
 
 	tft_Setup();
 	tft.pages[0].draw();	//draw main page
+	if(tft.cfg.boot_d1)
+		actual_drive_number = 1;
 
 	USART_Init(ATARI_SPEED_STANDARD);
 
@@ -494,12 +496,14 @@ find_sdrive_atr_next_entry:
 
 		//nenasel SDRIVE.ATR
 		FileInfo.vDisk->flags=0; //ve vD0: neni aktivni disk
+/*
 		//takze nastavi jednotku dle cisla SDrive (1-4)
 		if (actual_drive_number==0)
 		{
 		 //actual_drive_number=(unsigned char)4-((unsigned char)(inb(PINB))&0x03);
 		 actual_drive_number=0;
 		}
+*/
 		outbox_P(PSTR("SDRIVE.ATR not found"));
 		//goto SD_CARD_EJECTED;
 	}

@@ -1,3 +1,7 @@
+v0.6:
+- added support for save and restore inserted drive images in EEPROM
+- config option to set first boot drive to D1:
+
 v0.5:
 - added support for CAS-Files(only raw binary, not such with FUJI header!)
 - fixed bug on file view function(sdrive control) after usage of display

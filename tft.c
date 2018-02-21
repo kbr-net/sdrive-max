@@ -37,7 +37,7 @@ unsigned int debug_page();
 
 struct display tft;
 
-unsigned char EEMEM cfg = 0xff;	//config byte on eeprom, initial value is all activated
+unsigned char EEMEM cfg = 0xdf;	//config byte on eeprom, initial value is all on except boot_d1
 struct file_save EEMEM image_store[DEVICESNUM-1];
 
 unsigned int action_b0 (struct button *b) {
@@ -241,8 +241,9 @@ unsigned int action_change (struct button *b) {
 unsigned int action_save_cfg () {
 	tft.cfg.rot = tft.pages[actual_page].buttons[0].selected;
 	tft.cfg.scroll = tft.pages[actual_page].buttons[1].selected;
+	tft.cfg.boot_d1 = tft.pages[actual_page].buttons[2].selected;
 	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
-	if(tft.pages[actual_page].buttons[2].selected) {
+	if(tft.pages[actual_page].buttons[3].selected) {
 		unsigned char i;
 		//map D1-D4 0-indexed
 		for(i = 0; i < DEVICESNUM-1; i++) {
@@ -290,7 +291,8 @@ struct button buttons_file[] = {
 struct button buttons_cfg[] = {
 	{"Rotate",15,45,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
 	{"Scroll",15,85,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
-	{"SaveIm",15,125,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
+	{"BootD1",15,125,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
+	{"SaveIm",15,165,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
 /* all 8 needs too much RAM!!!
 	{"empty3",15,125,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
 	{"empty4",15,165,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
@@ -444,7 +446,8 @@ void config_page () {
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
 	tft.pages[actual_page].buttons[0].selected = tft.cfg.rot;
 	tft.pages[actual_page].buttons[1].selected = tft.cfg.scroll;
-	tft.pages[actual_page].buttons[2].selected = 0;
+	tft.pages[actual_page].buttons[2].selected = tft.cfg.boot_d1;
+	tft.pages[actual_page].buttons[3].selected = 0;
 	draw_Buttons();
 }
 
