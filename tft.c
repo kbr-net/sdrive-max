@@ -28,7 +28,6 @@ unsigned int file_selected = -1;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
 struct TSPoint p;
-struct button *disk_button;
 
 void main_page();
 void file_page();
@@ -49,7 +48,6 @@ unsigned int action_b1_4 (struct button *b) {
 
 	if(p.x > 200) {	//file select page
 		actual_page = 1;
-		disk_button = b;	//save button for later select
 		sei();
 		tft.pages[actual_page].draw();
 	}
