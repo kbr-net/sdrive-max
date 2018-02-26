@@ -1,6 +1,7 @@
 v0.6:
 - added support for save and restore inserted drive images in EEPROM
 - config option to set first boot drive to D1:
+- internal button structures reorganized to save more RAM
 
 v0.5:
 - added support for CAS-Files(only raw binary, not such with FUJI header!)

@@ -1,5 +1,10 @@
+struct b_flags {
+	char type : 1;		//ROUND, SQUARE
+	char active : 1;
+	char selected : 1;
+};
+
 struct button {
-	//char name[16];	//now as pointer to save mem
 	char *name;
 	unsigned int x;
 	unsigned int y;
@@ -8,9 +13,7 @@ struct button {
 	unsigned int fg;	//foreground/fill color
 	unsigned int bg;	//background/edge color
 	unsigned int fc;	//Font color
-	char type : 1;		//ROUND, SQUARE
-	char active : 1;
-	char selected : 1;
+	struct b_flags *flags;
 	unsigned int (*pressed)(struct button *);
 };
 

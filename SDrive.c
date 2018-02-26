@@ -219,25 +219,30 @@ struct ATR_header {
 
 void drive_led(unsigned char drive, unsigned char on) {
 	unsigned int col = Grey;
+	unsigned int x,y;
 
 	if(actual_page != 0)
 		return;
 
 	struct button *b = &tft.pages[0].buttons[drive];
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
 
-	if(b->selected)
+	if(flags->selected)
 		col = Blue;
+
+	x = pgm_read_byte(&b->x);
+	y = pgm_read_byte(&b->y);
 
 	switch(on) {
 		default:
-			Draw_Circle(b->x+5,b->y+5,3,1,col);
+			Draw_Circle(x+5,y+5,3,1,col);
 			break;
 
 		case 1:
-			Draw_Circle(b->x+5,b->y+5,3,1,Green);
+			Draw_Circle(x+5,y+5,3,1,Green);
 			break;
 		case 2:
-			Draw_Circle(b->x+5,b->y+5,3,1,Red);
+			Draw_Circle(x+5,y+5,3,1,Red);
 	}
 }
 
@@ -245,37 +250,31 @@ void drive_led(unsigned char drive, unsigned char on) {
 
 void set_display(unsigned char n)
 {
+	struct button *b;
+	struct b_flags *flags;
+	char *name;
 	unsigned char i;
 
-	//clear all selections
-	for(i = 0; i < tft.pages[0].nbuttons; i++)
-		tft.pages[0].buttons[i].selected = 0;
+	for(i = 0; i < DEVICESNUM; i++) {	//only the first drive buttons
+		//get pointers to dynamic button data
+		b = &tft.pages[0].buttons[i];	//PGM PTR to button
+		flags = pgm_read_ptr(&b->flags);
+		name = pgm_read_ptr(&b->name);
 
-	tft.pages[0].buttons[n].selected = 1;
-	switch(n) {
-		default:
-			tft.pages[0].buttons[1].name[1] = '1';
-			tft.pages[0].buttons[2].name[1] = '2';
-			tft.pages[0].buttons[3].name[1] = '3';
-			tft.pages[0].buttons[4].name[1] = '4';
-			break;
-		case 2:
-			tft.pages[0].buttons[1].name[1] = '2';
-			tft.pages[0].buttons[2].name[1] = '1';
-			tft.pages[0].buttons[3].name[1] = '3';
-			tft.pages[0].buttons[4].name[1] = '4';
-			break;
-		case 3:
-			tft.pages[0].buttons[1].name[1] = '3';
-			tft.pages[0].buttons[2].name[1] = '2';
-			tft.pages[0].buttons[3].name[1] = '1';
-			tft.pages[0].buttons[4].name[1] = '4';
-			break;
-		case 4:
-			tft.pages[0].buttons[1].name[1] = '4';
-			tft.pages[0].buttons[2].name[1] = '2';
-			tft.pages[0].buttons[3].name[1] = '3';
-			tft.pages[0].buttons[4].name[1] = '1';
+		//clear selection
+		flags->selected = 0;
+		if(i == n)	//selected if equal
+			flags->selected = 1;
+
+		//select drive numbers
+		name[1] = i+0x30;	//default
+		if(n > 1) {		//switched
+			if(i == n)	//if equal, drive no. is 1
+				name[1] = '1';
+			else
+			if(i == 1)	//drive 1 is switched with n
+				name[1] = n+0x30;
+		}
 	}
 	//redraw display only, if we are on main page
 	if(actual_page == 0)
@@ -528,26 +527,35 @@ ST_IDLE:
 	while(1)
 	{
 		struct button *b;
+		struct b_flags *flags;
+		unsigned int (*b_func)(struct button *);
 		unsigned int de;
 		unsigned char drive_number;
+		char *name;
 
 		if (isTouching()) {
 			b = check_Buttons();
 			if (b) {
+				//get pointers
+				flags = pgm_read_ptr(&b->flags);
+				name = pgm_read_ptr(&b->name);
+
 				cli();	//no interrupts so long we work on vDisk struct
 				//display use tmp struct
 				FileInfo.vDisk = &tmpvDisk;
 				//remember witch D*-button on main page
 				// we have pressed
-				if(actual_page == 0 && b->name[0] == 'D')
+				if(actual_page == 0 && name[0] == 'D')
 					drive_number = b-tft.pages[0].buttons;
-				//call the buttons function
-				de = b->pressed(b);
+				//read and...
+				b_func = pgm_read_ptr(&b->pressed);
+				//...call the buttons function
+				de = b_func(b);
 				sei();
 				//check if actual_drive has changed
-				if (actual_drive_number != drive_number && b->selected) {
+				if (actual_drive_number != drive_number && flags->selected) {
 					actual_drive_number = drive_number;
-					//if(b->name[1] == '0')
+					//if(name[1] == '0')
 					if(drive_number == 0)
 						goto SET_SDRIVEATR_TO_D0;
 					set_display(actual_drive_number);
@@ -571,10 +579,12 @@ ST_IDLE:
 				}
 				//it was the N[ew]-Button? Create new file
 				//(reset is done in deactivate drive)
-				if(actual_page == 0 && b->name[0] == 'N' &&
+				if(actual_page == 0 && name[0] == 'N' &&
 				   actual_drive_number != 0) {
 					vDisk[actual_drive_number].flags |= (FLAGS_ATRNEW);	// | FLAGS_DRIVEON);
-					strncpy_P(&tft.pages[0].buttons[actual_drive_number].name[3], PSTR(">New<       "), 12);
+					b = &tft.pages[0].buttons[actual_drive_number];
+					name = pgm_read_ptr(&b->name);
+					strncpy_P(&name[3], PSTR(">New<       "), 12);
 					draw_Buttons();
 				}
 				sfp = atari_sector_buffer;
@@ -639,6 +649,8 @@ ISR(PCINT1_vect)
 void process_command ()
 {
 	u32 *asb32_p = (u32*) atari_sector_buffer;
+	struct button *bp;
+	char *name;
 
 	if(!cmd_buf.cmd)
 	{
@@ -1592,7 +1604,9 @@ Send_ERR_and_DATA:
 			//check for new flag and delete it
 			if (FileInfo.vDisk->flags & FLAGS_ATRNEW)
 				FileInfo.vDisk->flags &= ~FLAGS_ATRNEW;
-			strncpy_P(&tft.pages[0].buttons[cmd_buf.aux1].name[3], PSTR("<empty>     "), 12);
+			bp = &tft.pages[0].buttons[cmd_buf.aux1];
+			name = pgm_read_ptr(&bp->name);
+			strncpy_P(&name[3], PSTR("<empty>     "), 12);
 			set_display(actual_drive_number);
 			goto Send_CMPL_and_Delay;
 			break;
@@ -2125,7 +2139,9 @@ Set_XEX:					// XEX
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
-						strncpy(&tft.pages[0].buttons[cmd_buf.cmd&0xf].name[3], (char*)atari_sector_buffer, 12);
+						bp = &tft.pages[0].buttons[cmd_buf.cmd&0xf];
+						name = pgm_read_ptr(&bp->name);
+						strncpy(&name[3], (char*)atari_sector_buffer, 12);
 						//redraw display only, if we are on
 						//main page
 						if(actual_page == 0)
