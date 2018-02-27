@@ -37,7 +37,7 @@ unsigned int debug_page();
 struct display tft;
 
 unsigned char EEMEM cfg = 0xdf;	//config byte on eeprom, initial value is all on except boot_d1
-struct file_save EEMEM image_store[DEVICESNUM-1];
+struct file_save EEMEM image_store[DEVICESNUM-1] = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
 
 unsigned int action_b0 (struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
