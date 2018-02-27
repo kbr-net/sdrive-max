@@ -123,7 +123,7 @@ clean:
 ## Other dependencies
 -include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
 
-eeprom_writer.hex: ../eeprom_writer.c
+eeprom_writer.hex: ../eeprom_writer.c ../eeprom_writer.h
 	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o eeprom_writer.elf display.o $<
 	avr-objcopy -O ihex $(HEX_FLASH_FLAGS) eeprom_writer.elf $@
 
