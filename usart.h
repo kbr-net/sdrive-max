@@ -26,7 +26,7 @@
 unsigned char get_checksum(unsigned char* buffer, u16 len);
 
 //prototypes
-void USART_Init( u08 value );
+void USART_Init( u16 value );
 void USART_Transmit_Byte( unsigned char data );
 unsigned char USART_Receive_Byte( void );
 void USART_Send_Buffer(unsigned char *buff, u16 len);

@@ -331,6 +331,41 @@ void Clear_atari_sector_buffer_256()
 	Clear_atari_sector_buffer(256); //0 => maze 256 bytu
 }
 */
+#define block_len 128
+unsigned int send_tape_block (unsigned int offset) {
+	unsigned char *p = atari_sector_buffer+block_len-1;
+	unsigned char i,r;
+
+        if (offset < FileInfo.vDisk->size) {	//data record
+		sprintf_P((char*)atari_sector_buffer,PSTR("Block %u / %u "),offset/block_len+1,(FileInfo.vDisk->size-1)/block_len+1);
+		print_str(35,135,2,Yellow,Light_Grey, atari_sector_buffer);
+		//read block
+                r = faccess_offset(FILE_ACCESS_READ,offset,block_len);
+		//shift buffer 3 bytes right
+		for(i = 0; i < block_len; i++)
+			*(p+3) = *p--;
+		if(r < block_len) {	//no full record?
+			atari_sector_buffer[2] = 0xfa;	//mark partial record
+			atari_sector_buffer[130] = r;	//set size in last byte
+		}
+		else
+			atari_sector_buffer[2] = 0xfc;	//mark full record
+
+		offset += r;
+        }
+	else {	//this is the last/end record
+		print_str_P(35,135,2,Yellow,Light_Grey, PSTR("End Block"));
+		Clear_atari_sector_buffer(block_len+3);
+		atari_sector_buffer[2] = 0xfe;	//mark end record
+		offset = 0;
+	}
+	atari_sector_buffer[0] = 0x55;	//sync marker
+	atari_sector_buffer[1] = 0x55;
+	USART_Send_Buffer(atari_sector_buffer,block_len+3);
+	USART_Transmit_Byte(get_checksum(atari_sector_buffer,block_len+3));
+	_delay_ms(300);	//PRG(0-N) + PRWT(0.25s) delay
+	return(offset);
+}
 
 ////some more globals
 struct sio_cmd cmd_buf;
@@ -517,6 +552,8 @@ find_sdrive_atr_finished:
 	unsigned char *sfp;	//scrolling filename pointer
 ST_IDLE:
 	sfp = atari_sector_buffer;
+	unsigned char tape_run = 0;
+	unsigned int tape_offset = 0;
 
 	LED_GREEN_OFF(virtual_drive_number);	// LED OFF
 	sei();	//enable interrupts
@@ -587,6 +624,26 @@ ST_IDLE:
 					strncpy_P(&name[3], PSTR(">New<       "), 12);
 					draw_Buttons();
 				}
+				//tape mode?
+				if(actual_page == 3 && name[0] == 'S') {
+					if(tape_run) {
+						USART_Init(ATARI_SPEED_STANDARD);
+						tape_run = 0;
+						tape_offset = 0;
+						flags->selected = 0;
+						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Stopped...   "));
+						draw_Buttons();
+					}
+					else {
+						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
+						USART_Init(1666); //600 baud
+						tape_run = 1;
+						flags->selected = 1;
+						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Sync Wait..."));
+						draw_Buttons();
+						_delay_ms(10000);	//sync wait
+					}
+				}
 				sfp = atari_sector_buffer;
 				//if matched, wait for button release
 				while (isTouching());
@@ -594,6 +651,15 @@ ST_IDLE:
 			}
 		}
 
+		if(tape_run) {
+			tape_offset = send_tape_block(tape_offset);
+			if(tape_offset == 0) {
+				USART_Init(ATARI_SPEED_STANDARD);
+				tape_run = 0;
+				flags->selected = 0;
+				draw_Buttons();
+			}
+		}
 		//scrolling long filename
 		if (tft.cfg.scroll && actual_page == 1 && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
 			if (select_file_counter > 20000) {
@@ -684,7 +750,12 @@ change_sio_speed_by_fastsio_active:
 			 u08 as;
 			 as=ATARI_SPEED_STANDARD;	//default speed
 			 //if (fastsio_active) as=fastsio_pokeydiv+6;		//always about 6 vic
-			 if (fastsio_active) as=fastsio_pokeydiv+8;
+			 if (fastsio_active) {
+				if (fastsio_pokeydiv > 4)
+					as=fastsio_pokeydiv+8;
+				else
+					as=fastsio_pokeydiv+7;
+			 }
 
 			 USART_Init(as);
 			}

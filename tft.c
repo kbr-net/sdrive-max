@@ -22,6 +22,7 @@ extern virtual_disk_t vDisk[];
 #define	atari_bg 0x257b
 
 unsigned char actual_page = 0;
+unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
@@ -32,6 +33,7 @@ struct TSPoint p;
 void main_page();
 void file_page();
 void config_page();
+void tape_page();
 unsigned int debug_page();
 
 struct display tft;
@@ -62,14 +64,23 @@ unsigned int action_b1_4 (struct button *b) {
 	return(0);
 }
 
+unsigned int action_tape (struct button *b) {
+	actual_page = 1;
+	tape_mode = 1;
+	sei();
+	tft.pages[actual_page].draw();
+	return(0);
+}
+
 unsigned int action_cancel () {
 	//on file_page reset file index to same page
 	if (actual_page == 1)
 		next_file_idx -= 10;
 	//on debug_page deactivate them
-	else
+	else {
 		debug = 0;
-
+		tape_mode = 0;
+	}
 	//and reset to main_page
 	actual_page = 0;
 	tft.pages[actual_page].draw();
@@ -104,6 +115,7 @@ unsigned int list_files () {
 
 	set_text_pos(15,45);
 	for(i = next_file_idx; i < next_file_idx+10; i++) {
+		//print_I(0,45+(i*8*2),1,White,Black,i);
 		if(fatGetDirEntry(i,0)) {
 			if(FileInfo.Attr & ATTR_DIRECTORY)	//other color
 				col = 0x07ff;
@@ -221,6 +233,10 @@ was_root:	//outbox(path);
 unsigned int action_ok () {
 	actual_page = 0;
 	next_file_idx -= 10;
+	if(tape_mode) {
+		actual_page = 3;
+		file_selected = 0;
+	}
 	tft.pages[actual_page].draw();
 	return(file_selected);
 }
@@ -282,6 +298,7 @@ const struct button PROGMEM buttons_main[] = {
 	{"D2:<empty>     ",10,80,240-21,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_b1_4},
 	{"D3:<empty>     ",10,120,240-21,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_b1_4},
 	{"D4:<empty>     ",10,160,240-21,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_b1_4},
+	{"Tape:",80,200,80,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_tape},
 	{"New",240-61,200,50,30,Grey,Black,Green,&(struct b_flags){ROUND,1,0},press},
 	{"Cfg",240-61,240,50,30,Grey,Black,Blue,&(struct b_flags){ROUND,1,0},action_cfg},
 	{"Outbox",10,280,240-11,320-1,0,0,0,&(struct b_flags){0,0,0},debug_page}
@@ -316,6 +333,11 @@ const struct button PROGMEM buttons_cfg[] = {
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
 
+const struct button PROGMEM buttons_tape[] = {
+	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},press},
+	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
+};
+
 const struct button PROGMEM buttons_debug[] = {
 	{"Back",0,0,240,280,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_cancel}
 };
@@ -324,6 +346,7 @@ struct page pages[] = {
     {main_page, buttons_main, sizeof(buttons_main)/sizeof(struct button)},
     {file_page, buttons_file, sizeof(buttons_file)/sizeof(struct button)},
     {config_page, buttons_cfg, sizeof(buttons_cfg)/sizeof(struct button)},
+    {tape_page, buttons_tape, sizeof(buttons_tape)/sizeof(struct button)},
     {debug_page, buttons_debug, sizeof(buttons_debug)/sizeof(struct button)}
 };
 
@@ -473,6 +496,15 @@ void config_page () {
 	draw_Buttons();
 }
 
+void tape_page () {
+	Draw_Rectangle(10,100,tft.width-11,200,1,SQUARE,Light_Grey,Black);
+	Draw_Rectangle(10,100,tft.width-11,200,0,SQUARE,Grey,Black);
+	Draw_Rectangle(11,101,tft.width-12,199,0,SQUARE,Grey,Black);
+	print_str_P(70, 105, 2, Orange, Light_Grey, PSTR("Tape-Emu"));
+	Draw_H_Line(12,tft.width-13,122,Orange);
+	draw_Buttons();
+}
+
 unsigned int debug_page () {
 
 	TFT_fill(atari_bg);
@@ -486,7 +518,7 @@ unsigned int debug_page () {
 	print_char(10,18,1,White,atari_bg,0x80);
 
 	debug = 1;
-	actual_page = 3;
+	actual_page = 4;
 	return(0);
 }
 
