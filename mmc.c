@@ -78,7 +78,7 @@ void mmcInit(void)
 
 u08 mmcReset(void)
 {
-	u08 retry;
+	u16 retry;
 	u08 r1;
 	u08 i;
 	u08 *buffer=mmc_sector_buffer;
@@ -133,7 +133,7 @@ u08 mmcReset(void)
 	b = buffer;
 
 	// sundisk 64MB braucht 48 Zyklen
-	retry=0xff;	// give card time to init
+	retry=0x3ff;	// give card time to init
 	do
 	{
 		r1 = mmcSendCommand(MMC_APP_CMD, 0);	// CMD55(APP_CMD)

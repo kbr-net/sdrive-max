@@ -4,6 +4,7 @@ v0.6:
 - internal button structures reorganized to save more RAM
 - fixed wrong calculation of SIO highspeed rates
 - added tape emulation support for raw binary tape images
+- more retries for SD card init
 
 v0.5:
 - added support for CAS-Files(only raw binary, not such with FUJI header!)
