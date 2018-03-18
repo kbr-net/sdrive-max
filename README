@@ -56,12 +56,16 @@ Display usage:
 - press on the output window at bottom will open SIO debug mode. To close
   press anywhere on the screen
 - file select window should be self descripting
+- to save selected images on EEPROM, press the Cfg button, highlight
+  the SaveIm button, and press Save
+- if you want also to boot from drive 1 by default, highlight the BootD1
+  button too before pessing Save
 
 Tape operation:
 
 - point the actual boot drive (D1:) to an empty slot(some loader won't start,
   if a disk drive is active)
-- press TAPE: button and select an image of type FUJI or raw binary
+- press Tape: button and select an image of type FUJI or raw binary
 - hold down the START & OPTION keys on the atari and power on
 - press any key to start tape operation after the burp
 - and press the Start button on sdrive-max immediately

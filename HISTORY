@@ -5,6 +5,7 @@ v0.6:
 - fixed wrong calculation of SIO highspeed rates
 - added tape emulation support
 - more retries for SD card init
+- added weak bit handling for ATX files
 
 v0.5:
 - added support for CAS-Files(only raw binary, not such with FUJI header!)
