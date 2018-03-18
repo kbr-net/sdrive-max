@@ -25,10 +25,11 @@
 #include "touchscreen.h"
 #include "display.h"
 #include "atx.h"
+#include "tape.h"
 
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	0
-#define SWVERSIONMINOR	5
+#define SWVERSIONMINOR	6
 //#define DEVID		0x53444e47
 //#define DEVID		0x474e4453	// SDNG reverse!
 
@@ -118,6 +119,7 @@ struct FileInfoStruct FileInfo;			//< file information for last file accessed
 extern struct display tft;
 extern unsigned char actual_page;
 extern unsigned char file_selected;
+extern struct file_save EEMEM image_store[];
 
 //workaround to get version numbers converted to strings
 #define STR_A(x)	#x
@@ -167,7 +169,7 @@ uint8_t EEMEM system_percomtable[]= {
 	0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
 	};
 
-#define DEVICESNUM	5	//	//D0:-D4:
+//#define DEVICESNUM	5	//	//D0:-D4:
 virtual_disk_t vDisk[DEVICESNUM];
 
 virtual_disk_t tmpvDisk;
@@ -218,25 +220,30 @@ struct ATR_header {
 
 void drive_led(unsigned char drive, unsigned char on) {
 	unsigned int col = Grey;
+	unsigned int x,y;
 
 	if(actual_page != 0)
 		return;
 
 	struct button *b = &tft.pages[0].buttons[drive];
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
 
-	if(b->selected)
+	if(flags->selected)
 		col = Blue;
+
+	x = pgm_read_byte(&b->x);
+	y = pgm_read_byte(&b->y);
 
 	switch(on) {
 		default:
-			Draw_Circle(b->x+5,b->y+5,3,1,col);
+			Draw_Circle(x+5,y+5,3,1,col);
 			break;
 
 		case 1:
-			Draw_Circle(b->x+5,b->y+5,3,1,Green);
+			Draw_Circle(x+5,y+5,3,1,Green);
 			break;
 		case 2:
-			Draw_Circle(b->x+5,b->y+5,3,1,Red);
+			Draw_Circle(x+5,y+5,3,1,Red);
 	}
 }
 
@@ -244,37 +251,31 @@ void drive_led(unsigned char drive, unsigned char on) {
 
 void set_display(unsigned char n)
 {
+	struct button *b;
+	struct b_flags *flags;
+	char *name;
 	unsigned char i;
 
-	//clear all selections
-	for(i = 0; i < tft.pages[0].nbuttons; i++)
-		tft.pages[0].buttons[i].selected = 0;
+	for(i = 0; i < DEVICESNUM; i++) {	//only the first drive buttons
+		//get pointers to dynamic button data
+		b = &tft.pages[0].buttons[i];	//PGM PTR to button
+		flags = pgm_read_ptr(&b->flags);
+		name = pgm_read_ptr(&b->name);
 
-	tft.pages[0].buttons[n].selected = 1;
-	switch(n) {
-		default:
-			tft.pages[0].buttons[1].name[1] = '1';
-			tft.pages[0].buttons[2].name[1] = '2';
-			tft.pages[0].buttons[3].name[1] = '3';
-			tft.pages[0].buttons[4].name[1] = '4';
-			break;
-		case 2:
-			tft.pages[0].buttons[1].name[1] = '2';
-			tft.pages[0].buttons[2].name[1] = '1';
-			tft.pages[0].buttons[3].name[1] = '3';
-			tft.pages[0].buttons[4].name[1] = '4';
-			break;
-		case 3:
-			tft.pages[0].buttons[1].name[1] = '3';
-			tft.pages[0].buttons[2].name[1] = '2';
-			tft.pages[0].buttons[3].name[1] = '1';
-			tft.pages[0].buttons[4].name[1] = '4';
-			break;
-		case 4:
-			tft.pages[0].buttons[1].name[1] = '4';
-			tft.pages[0].buttons[2].name[1] = '2';
-			tft.pages[0].buttons[3].name[1] = '3';
-			tft.pages[0].buttons[4].name[1] = '1';
+		//clear selection
+		flags->selected = 0;
+		if(i == n)	//selected if equal
+			flags->selected = 1;
+
+		//select drive numbers
+		name[1] = i+0x30;	//default
+		if(n > 1) {		//switched
+			if(i == n)	//if equal, drive no. is 1
+				name[1] = '1';
+			else
+			if(i == 1)	//drive 1 is switched with n
+				name[1] = n+0x30;
+		}
 	}
 	//redraw display only, if we are on main page
 	if(actual_page == 0)
@@ -369,6 +370,8 @@ int main(void)
 
 	tft_Setup();
 	tft.pages[0].draw();	//draw main page
+	if(tft.cfg.boot_d1)
+		actual_drive_number = 1;
 
 	USART_Init(ATARI_SPEED_STANDARD);
 
@@ -422,6 +425,25 @@ int main(void)
 		goto ST_IDLE;
 	}
 
+	//restore images from eeprom
+	{
+		unsigned char i;
+		actual_page = 9;	//fake, that we are not on main page
+					// to avoid each button redraw
+		//only D1-D4, but we must start 0-indexed for the eeprom-array
+		for(i = 0; i < DEVICESNUM-1; i++) {
+			tmpvDisk.dir_cluster = eeprom_read_dword(&image_store[i].dir_cluster);
+			cmd_buf.aux = eeprom_read_word(&image_store[i].file_index);
+			cmd_buf.cmd = (0xF0 | (i+1));	//set drive
+			cmd_buf.dev = 0x71;	//say we are a sdrive cmd
+			process_command();	//set image to drive
+		}
+		actual_page = 0;	//clear the fake
+		draw_Buttons();		//now redraw buttons
+	}
+	//start with root dir
+	tmpvDisk.dir_cluster=RootDirCluster;
+
 SET_SDRIVEATR_TO_D0:	//pro nastaveni SDRIVE.ATR do vD0: bez zmeny actual_drive_number !
 
 	//set vDisk Ptr to drive D0:
@@ -474,12 +496,14 @@ find_sdrive_atr_next_entry:
 
 		//nenasel SDRIVE.ATR
 		FileInfo.vDisk->flags=0; //ve vD0: neni aktivni disk
+/*
 		//takze nastavi jednotku dle cisla SDrive (1-4)
 		if (actual_drive_number==0)
 		{
 		 //actual_drive_number=(unsigned char)4-((unsigned char)(inb(PINB))&0x03);
 		 actual_drive_number=0;
 		}
+*/
 		outbox_P(PSTR("SDRIVE.ATR not found"));
 		//goto SD_CARD_EJECTED;
 	}
@@ -494,6 +518,7 @@ find_sdrive_atr_finished:
 	unsigned char *sfp;	//scrolling filename pointer
 ST_IDLE:
 	sfp = atari_sector_buffer;
+	unsigned int tape_offset = 0;
 
 	LED_GREEN_OFF(virtual_drive_number);	// LED OFF
 	sei();	//enable interrupts
@@ -504,26 +529,35 @@ ST_IDLE:
 	while(1)
 	{
 		struct button *b;
+		struct b_flags *flags;
+		unsigned int (*b_func)(struct button *);
 		unsigned int de;
 		unsigned char drive_number;
+		char *name;
 
 		if (isTouching()) {
 			b = check_Buttons();
 			if (b) {
+				//get pointers
+				flags = pgm_read_ptr(&b->flags);
+				name = pgm_read_ptr(&b->name);
+
 				cli();	//no interrupts so long we work on vDisk struct
 				//display use tmp struct
 				FileInfo.vDisk = &tmpvDisk;
 				//remember witch D*-button on main page
 				// we have pressed
-				if(actual_page == 0 && b->name[0] == 'D')
+				if(actual_page == 0 && name[0] == 'D')
 					drive_number = b-tft.pages[0].buttons;
-				//call the buttons function
-				de = b->pressed(b);
+				//read and...
+				b_func = pgm_read_ptr(&b->pressed);
+				//...call the buttons function
+				de = b_func(b);
 				sei();
 				//check if actual_drive has changed
-				if (actual_drive_number != drive_number && b->selected) {
+				if (actual_drive_number != drive_number && flags->selected) {
 					actual_drive_number = drive_number;
-					//if(b->name[1] == '0')
+					//if(name[1] == '0')
 					if(drive_number == 0)
 						goto SET_SDRIVEATR_TO_D0;
 					set_display(actual_drive_number);
@@ -547,11 +581,37 @@ ST_IDLE:
 				}
 				//it was the N[ew]-Button? Create new file
 				//(reset is done in deactivate drive)
-				if(actual_page == 0 && b->name[0] == 'N' &&
+				if(actual_page == 0 && name[0] == 'N' &&
 				   actual_drive_number != 0) {
 					vDisk[actual_drive_number].flags |= (FLAGS_ATRNEW);	// | FLAGS_DRIVEON);
-					strncpy_P(&tft.pages[0].buttons[actual_drive_number].name[3], PSTR(">New<       "), 12);
+					b = &tft.pages[0].buttons[actual_drive_number];
+					name = pgm_read_ptr(&b->name);
+					strncpy_P(&name[3], PSTR(">New<       "), 12);
 					draw_Buttons();
+				}
+				//tape mode?
+				if(actual_page == 3 && name[0] == 'S') {
+					if(tape_flags.run) {	//Stop
+						USART_Init(ATARI_SPEED_STANDARD);
+						tape_flags.run = 0;
+						tape_offset = 0;
+						flags->selected = 0;
+						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Stopped...   "));
+						draw_Buttons();
+					}
+					else {		//Start
+						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
+						tape_offset = load_FUJI_file();
+						USART_Init(1666); //600 baud
+						tape_flags.run = 1;
+						flags->selected = 1;
+						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Sync Wait...   "));
+						draw_Buttons();
+						if(!tape_flags.FUJI)
+							_delay_ms(10000);	//sync wait
+						else
+							outbox_P(PSTR("FUJI"));
+					}
 				}
 				sfp = atari_sector_buffer;
 				//if matched, wait for button release
@@ -560,6 +620,20 @@ ST_IDLE:
 			}
 		}
 
+		if(tape_flags.run) {
+			cli();	//no interrupts during tape operation
+			if(tape_flags.FUJI)
+				tape_offset = send_FUJI_tape_block(tape_offset);
+			else
+				tape_offset = send_tape_block(tape_offset);
+			if(tape_offset == 0 || tape_flags.run == 0) {
+				USART_Init(ATARI_SPEED_STANDARD);
+				tape_flags.run = 0;
+				flags->selected = 0;
+				draw_Buttons();
+			}
+			sei();
+		}
 		//scrolling long filename
 		if (tft.cfg.scroll && actual_page == 1 && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
 			if (select_file_counter > 20000) {
@@ -615,6 +689,8 @@ ISR(PCINT1_vect)
 void process_command ()
 {
 	u32 *asb32_p = (u32*) atari_sector_buffer;
+	struct button *bp;
+	char *name;
 
 	if(!cmd_buf.cmd)
 	{
@@ -648,7 +724,12 @@ change_sio_speed_by_fastsio_active:
 			 u08 as;
 			 as=ATARI_SPEED_STANDARD;	//default speed
 			 //if (fastsio_active) as=fastsio_pokeydiv+6;		//always about 6 vic
-			 if (fastsio_active) as=fastsio_pokeydiv+8;
+			 if (fastsio_active) {
+				if (fastsio_pokeydiv > 4)
+					as=fastsio_pokeydiv+8;
+				else
+					as=fastsio_pokeydiv+7;
+			 }
 
 			 USART_Init(as);
 			}
@@ -1568,7 +1649,9 @@ Send_ERR_and_DATA:
 			//check for new flag and delete it
 			if (FileInfo.vDisk->flags & FLAGS_ATRNEW)
 				FileInfo.vDisk->flags &= ~FLAGS_ATRNEW;
-			strncpy_P(&tft.pages[0].buttons[cmd_buf.aux1].name[3], PSTR("<empty>     "), 12);
+			bp = &tft.pages[0].buttons[cmd_buf.aux1];
+			name = pgm_read_ptr(&bp->name);
+			strncpy_P(&name[3], PSTR("<empty>     "), 12);
 			set_display(actual_drive_number);
 			goto Send_CMPL_and_Delay;
 			break;
@@ -2054,8 +2137,15 @@ Command_EC_F0_FF_found:
 					{
 						//XFD
 						faccess_offset(FILE_ACCESS_READ,0,4); //read header
-						if ( (memcmp_P(atari_sector_buffer,PSTR("FUJI"),4) == 0)	//check for FUJI header
-						   || (memcmp_P(atari_sector_buffer,PSTR("\xff\xff"),2) == 0) )	//or COM header
+						//check for FUJI or COM header
+						if(
+						 (atari_sector_buffer[0]=='F' &&
+						  atari_sector_buffer[1]=='U' &&
+						  atari_sector_buffer[2]=='J' &&
+						  atari_sector_buffer[3]=='I')
+						 ||
+						 (atari_sector_buffer[0]==0xff &&
+						  atari_sector_buffer[1]==0xff))
 							goto Set_XEX;	//thread them as XEX
 
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_XFDTYPE);
@@ -2094,7 +2184,9 @@ Set_XEX:					// XEX
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
-						strncpy(&tft.pages[0].buttons[cmd_buf.cmd&0xf].name[3], (char*)atari_sector_buffer, 12);
+						bp = &tft.pages[0].buttons[cmd_buf.cmd&0xf];
+						name = pgm_read_ptr(&bp->name);
+						strncpy(&name[3], (char*)atari_sector_buffer, 12);
 						//redraw display only, if we are on
 						//main page
 						if(actual_page == 0)
@@ -2108,7 +2200,7 @@ Set_XEX:					// XEX
 				}
 
 				goto Send_CMPL_and_Delay;
-			}
+			} //if (ret)
 			else
 			{
 				goto Send_ERR_and_Delay;

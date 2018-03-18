@@ -54,6 +54,7 @@ CFLAGS += $(CDEFS) -DHX8347G
 ## Objects that must be built in order to link
 #OBJECTS = SDrive.o spi.o mmc.o fat.o delay100us.o timer.o
 OBJECTS = SDrive.o spi.o mmc.o fat.o usart.o tft.o display.o touchscreen.o atx.o
+OBJECTS += tape.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -92,6 +93,9 @@ touchscreen.o: ../touchscreen.c
 atx.o: ../atx.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
+tape.o: ../tape.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
 ##Link
 $(TARGET): $(OBJECTS)
 	 $(CC) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)
@@ -123,7 +127,7 @@ clean:
 ## Other dependencies
 -include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
 
-eeprom_writer.hex: ../eeprom_writer.c
+eeprom_writer.hex: ../eeprom_writer.c ../eeprom_writer.h
 	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o eeprom_writer.elf display.o $<
 	avr-objcopy -O ihex $(HEX_FLASH_FLAGS) eeprom_writer.elf $@
 

@@ -1,10 +1,10 @@
 SDrive-MAX
 ==========
 
-SDrive-MAX is a new disk drive emulator for Atari 8bit computers based on
-sdrive-ng ported to arduino and enhanced with a touchscreen display for
-controlling. So it can work without sdrive software on the Atari, but could
-be used anyway. Changing disk images during live operation is one of the
+SDrive-MAX is a new disk drive and tape emulator for Atari 8bit computers
+based on sdrive-ng ported to arduino and enhanced with a touchscreen display
+for controlling. So it can work without sdrive software on the Atari, but
+could be used anyway. Changing disk images during live operation is one of the
 most important features, i think.
 
 What do you need?
@@ -40,7 +40,7 @@ Wirering Arduino <-> Atari-SIO:
 Firmware programming:
 
 First use the eeprom-writer.hex to set the correct values to the EEPROM!
-Then programm the SDrive.hex into the flash.
+Wait until the writer has done, then programm the SDrive.hex into the flash.
 That's it!
 
 Display usage:
@@ -56,5 +56,20 @@ Display usage:
 - press on the output window at bottom will open SIO debug mode. To close
   press anywhere on the screen
 - file select window should be self descripting
+
+Tape operation:
+
+- point the actual boot drive (D1:) to an empty slot(some loader won't start,
+  if a disk drive is active)
+- press TAPE: button and select an image of type FUJI or raw binary
+- hold down the START & OPTION keys on the atari and power on
+- press any key to start tape operation after the burp
+- and press the Start button on sdrive-max immediately
+- if a multi stage loader requires a key press to go on, then do this quick,
+  because the tape does not hold! (we have no motor signal connected)
+- to stop hold down the Start button until the next block loading
+- the tape is automatically rewind, so you could start again from beginning
+  at this point
+- exit ends the tape emulation
 
 (by KBr from forum64.de)

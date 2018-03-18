@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
 //CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2     -DF_CPU=14318180UL -Os -funsigned-char -fpack-struct
-CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2 -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct
+CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2 -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct -fstack-usage
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += -ffunction-sections -mrelax -mcall-prologues
 
@@ -55,6 +55,7 @@ CFLAGS += $(CDEFS)
 ## Objects that must be built in order to link
 #OBJECTS = SDrive.o spi.o mmc.o fat.o delay100us.o timer.o
 OBJECTS = SDrive.o spi.o mmc.o fat.o usart.o tft.o display.o touchscreen.o atx.o
+OBJECTS += tape.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -93,6 +94,9 @@ touchscreen.o: ../touchscreen.c
 atx.o: ../atx.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
+tape.o: ../tape.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
 ##Link
 $(TARGET): $(OBJECTS)
 	 $(CC) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)
@@ -118,13 +122,13 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) SDrive.elf dep/* SDrive.hex SDrive.eep* SDrive.lss *.map SDrive.bin eeprom_writer.*
+	-rm -rf $(OBJECTS) SDrive.elf dep/* SDrive.hex SDrive.eep* SDrive.lss *.map SDrive.bin eeprom_writer.* *.su
 
 
 ## Other dependencies
 -include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
 
-eeprom_writer.hex: ../eeprom_writer.c
+eeprom_writer.hex: ../eeprom_writer.c ../eeprom_writer.h
 	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o eeprom_writer.elf display.o $<
 	avr-objcopy -O ihex $(HEX_FLASH_FLAGS) eeprom_writer.elf $@
 

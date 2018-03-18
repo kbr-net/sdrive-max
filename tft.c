@@ -6,6 +6,7 @@
 #include <string.h>
 #include "avrlibdefs.h"         // global AVRLIB defines
 #include "avrlibtypes.h"        // global AVRLIB types definitions
+#include "global.h"
 #include "display.h"
 #include "logos.h"
 #include "touchscreen.h"
@@ -15,30 +16,34 @@
 extern unsigned char debug;
 extern char atari_sector_buffer[];
 extern struct FileInfoStruct FileInfo;
+extern virtual_disk_t vDisk[];
 //extern struct GlobalSystemValues GS;
 
 #define	atari_bg 0x257b
 
 unsigned char actual_page = 0;
+unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
 struct TSPoint p;
-struct button *disk_button;
 
 void main_page();
 void file_page();
 void config_page();
+void tape_page();
 unsigned int debug_page();
 
 struct display tft;
 
-char EEMEM cfg = 0xff;	//config byte on eeprom, initial value is all activated
+unsigned char EEMEM cfg = 0xfb;	//config byte on eeprom, initial value is all on except boot_d1
+struct file_save EEMEM image_store[DEVICESNUM-1] = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
 
 unsigned int action_b0 (struct button *b) {
-	b->selected = 1;
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
+	flags->selected = 1;
 	return(0);
 }
 
@@ -46,7 +51,6 @@ unsigned int action_b1_4 (struct button *b) {
 
 	if(p.x > 200) {	//file select page
 		actual_page = 1;
-		disk_button = b;	//save button for later select
 		sei();
 		tft.pages[actual_page].draw();
 	}
@@ -54,8 +58,17 @@ unsigned int action_b1_4 (struct button *b) {
 		return(-1);
 	}
 	else {	//set actual drive to
-		b->selected = 1;
+		struct b_flags *flags = pgm_read_ptr(&b->flags);
+		flags->selected = 1;
 	}
+	return(0);
+}
+
+unsigned int action_tape (struct button *b) {
+	actual_page = 1;
+	tape_mode = 1;
+	sei();
+	tft.pages[actual_page].draw();
 	return(0);
 }
 
@@ -64,9 +77,10 @@ unsigned int action_cancel () {
 	if (actual_page == 1)
 		next_file_idx -= 10;
 	//on debug_page deactivate them
-	else
+	else {
 		debug = 0;
-
+		tape_mode = 0;
+	}
 	//and reset to main_page
 	actual_page = 0;
 	tft.pages[actual_page].draw();
@@ -101,6 +115,7 @@ unsigned int list_files () {
 
 	set_text_pos(15,45);
 	for(i = next_file_idx; i < next_file_idx+10; i++) {
+		//print_I(0,45+(i*8*2),1,White,Black,i);
 		if(fatGetDirEntry(i,0)) {
 			if(FileInfo.Attr & ATTR_DIRECTORY)	//other color
 				col = 0x07ff;
@@ -218,6 +233,10 @@ was_root:	//outbox(path);
 unsigned int action_ok () {
 	actual_page = 0;
 	next_file_idx -= 10;
+	if(tape_mode) {
+		actual_page = 3;
+		file_selected = 0;
+	}
 	tft.pages[actual_page].draw();
 	return(file_selected);
 }
@@ -229,16 +248,39 @@ unsigned int action_cfg () {
 }
 
 unsigned int action_change (struct button *b) {
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	//invert selection
-	b->selected = ~b->selected;
+	flags->selected = ~flags->selected;
 	draw_Buttons();
 	return(0);
 }
 
-unsigned int action_save () {
-	tft.cfg.rot = tft.pages[actual_page].buttons[0].selected;
-	tft.cfg.scroll = tft.pages[actual_page].buttons[1].selected;
-	eeprom_write_byte(&cfg, *(char *)&tft.cfg);
+unsigned int action_save_cfg () {
+	struct button *b;
+	struct b_flags *flags;
+	unsigned char i;
+
+	*(char*)&tft.cfg = 0;	//clear first
+	for(i = 0; i < 4; i++) {
+		b = &tft.pages[actual_page].buttons[i];
+		flags = pgm_read_ptr(&b->flags);
+		if(i < 3)	//not save last(SaveIm) button, only load ptr
+			*(char*)&tft.cfg |= flags->selected << i;
+	}
+	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
+	//check for SaveIm Button
+	if(flags->selected) {
+		//map D1-D4 0-indexed
+		for(i = 0; i < DEVICESNUM-1; i++) {
+			if(vDisk[i+1].flags & FLAGS_DRIVEON) {
+				eeprom_update_dword(&image_store[i].dir_cluster, vDisk[i+1].dir_cluster);
+				eeprom_update_word(&image_store[i].file_index, vDisk[i+1].file_index);
+			}
+			else {
+				eeprom_update_dword(&image_store[i].dir_cluster, 0xffffffff);
+			}
+		}
+	}
 	TFT_set_rotation(tft.cfg.rot);
 	action_cancel();
 	return(0);
@@ -248,70 +290,86 @@ unsigned int press () {	//for buttons with no action here
 	return(0);
 }
 
-struct button buttons_main[] = {
+const struct button PROGMEM buttons_main[] = {
 	//name, x, y, width, heigth, fg-col, bg-col, font-col, type, act, sel
-	{"D0:",10,200,50,30,Grey,Black,Black,ROUND,1,1,action_b0},
+	{"D0:",10,200,50,30,Grey,Black,Black,&(struct b_flags){ROUND,1,1},action_b0},
 	//D1:FILENAME.ATR must fit!
-	{"D1:<empty>     ",10,40,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D2:<empty>     ",10,80,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D3:<empty>     ",10,120,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"D4:<empty>     ",10,160,240-21,30,Grey,Black,Black,ROUND,1,0,action_b1_4},
-	{"New",240-61,200,50,30,Grey,Black,Green,ROUND,1,0,press},
-	{"Cfg",240-61,240,50,30,Grey,Black,Blue,ROUND,1,0,action_cfg},
-	{"Outbox",10,280,240-11,320-1,0,0,0,0,0,0,debug_page}
+	{"D1:<empty>     ",10,40,240-21,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_b1_4},
+	{"D2:<empty>     ",10,80,240-21,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_b1_4},
+	{"D3:<empty>     ",10,120,240-21,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_b1_4},
+	{"D4:<empty>     ",10,160,240-21,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_b1_4},
+	{"Tape:",80,200,80,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_tape},
+	{"New",240-61,200,50,30,Grey,Black,Green,&(struct b_flags){ROUND,1,0},press},
+	{"Cfg",240-61,240,50,30,Grey,Black,Blue,&(struct b_flags){ROUND,1,0},action_cfg},
+	{"Outbox",10,280,240-11,320-1,0,0,0,&(struct b_flags){0,0,0},debug_page}
 };
 
-struct button buttons_file[] = {
-	{"Top",164,45,60,30,Grey,Black,White,ROUND,1,0,list_files_top},
-	{"Prev",164,85,60,30,Grey,Black,White,ROUND,1,0,list_files_rev},
-	{"OK",164,125,60,30,Grey,Black,White,ROUND,1,0,action_ok},
-	{"Exit",164,165,60,30,Grey,Black,White,ROUND,1,0,action_cancel},
-	{"Next",164,205,60,30,Grey,Black,White,ROUND,1,0,list_files},
-	{"Last",164,245,60,30,Grey,Black,White,ROUND,1,0,list_files_last},
-	{"File",15,45,80,240,Grey,Black,White,ROUND,0,0,action_select}
+const struct button PROGMEM buttons_file[] = {
+	{"Top",164,45,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files_top},
+	{"Prev",164,85,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files_rev},
+	{"OK",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_ok},
+	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel},
+	{"Next",164,205,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files},
+	{"Last",164,245,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files_last},
+	{"File",15,45,80,240,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_select}
 };
 
-struct button buttons_cfg[] = {
-	{"Rotate",15,45,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
-	{"Scroll",15,85,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
+//keep the order analog to struct tft.cfg, otherwise read/write function
+//wouldn't work correctly!!!
+const struct button PROGMEM buttons_cfg[] = {
+	{"Rotate",15,45,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"Scroll",15,85,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"BootD1",15,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"SaveIm",15,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 /* all 8 needs too much RAM!!!
-	{"empty3",15,125,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
-	{"empty4",15,165,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
-	{"empty5",15,205,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
-	{"empty6",15,245,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
-	{"empty7",115,125,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
-	{"empty8",115,165,90,30,Grey,Black,Light_Blue,ROUND,1,0,action_change},
+	{"empty3",15,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"empty4",15,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"empty5",15,205,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"empty6",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"empty7",115,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"empty8",115,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 */
-	{"Save",164,125,60,30,Grey,Black,White,ROUND,1,0,action_save},
-	{"Exit",164,165,60,30,Grey,Black,White,ROUND,1,0,action_cancel}
+	{"Save",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_save_cfg},
+	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
 
-struct button buttons_debug[] = {
-	{"Back",0,0,240,280,Grey,Black,White,ROUND,0,0,action_cancel}
+const struct button PROGMEM buttons_tape[] = {
+	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},press},
+	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
+};
+
+const struct button PROGMEM buttons_debug[] = {
+	{"Back",0,0,240,280,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_cancel}
 };
 
 struct page pages[] = {
     {main_page, buttons_main, sizeof(buttons_main)/sizeof(struct button)},
     {file_page, buttons_file, sizeof(buttons_file)/sizeof(struct button)},
     {config_page, buttons_cfg, sizeof(buttons_cfg)/sizeof(struct button)},
+    {tape_page, buttons_tape, sizeof(buttons_tape)/sizeof(struct button)},
     {debug_page, buttons_debug, sizeof(buttons_debug)/sizeof(struct button)}
 };
 
 struct display tft = {240, 320, {PORTRAIT_2, 0}, pages};
 
 void draw_Buttons () {
-	struct button b;
-	unsigned char i;
+	struct button b,*bp;
+	unsigned char i,j;
 
 	for(i = 0; i < tft.pages[actual_page].nbuttons; i++) {
-		b = tft.pages[actual_page].buttons[i];
-		if(!b.active)
+		bp = &tft.pages[actual_page].buttons[i];
+		//read the whole button data from pgm to struct
+		for(j = 0; j < sizeof(struct button); j++) {
+			*((char*)&b+j) = pgm_read_byte((char*)bp+j);
+		}
+		if(!b.flags->active)
 			continue;
-		if(b.selected) {
+		if(b.flags->selected) {
 			b.fg = Blue;
 			b.fc = Yellow;
 		}
-		Draw_Rectangle(b.x,b.y,b.x+b.width,b.y+b.heigth,1,b.type,b.fg,b.bg);
+		Draw_Rectangle(b.x,b.y,b.x+b.width,b.y+b.heigth,1,b.flags->type,b.fg,b.bg);
+
 /*		//3D Effekt Test
 		print_I(120,262,1,White,atari_bg,b.fg);
 		print_I(150,262,1,White,atari_bg,b.fg>>1);
@@ -394,7 +452,7 @@ void main_page () {
 
 	//Header
 	print_str_P(20, 10, 2, Orange, Black, PSTR("SDrive-MAX"));
-	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.5"));
+	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.6"));
 	Draw_H_Line(0,tft.width,30,Orange);
 
 	draw_Buttons();
@@ -420,13 +478,30 @@ void file_page () {
 }
 
 void config_page () {
+	struct button *b;
+	struct b_flags *flags;
+	unsigned int i;
 
 	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,Light_Grey,Black);
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
-	tft.pages[actual_page].buttons[0].selected = tft.cfg.rot;
-	tft.pages[actual_page].buttons[1].selected = tft.cfg.scroll;
+	for(i = 0; i < 4; i++) {
+		b = &tft.pages[actual_page].buttons[i];
+		flags = pgm_read_ptr(&b->flags);
+		flags->selected = (*(char*)&tft.cfg >> i) & 1;
+		if(i == 3)
+			flags->selected = 0;
+	}
+	draw_Buttons();
+}
+
+void tape_page () {
+	Draw_Rectangle(10,100,tft.width-11,200,1,SQUARE,Light_Grey,Black);
+	Draw_Rectangle(10,100,tft.width-11,200,0,SQUARE,Grey,Black);
+	Draw_Rectangle(11,101,tft.width-12,199,0,SQUARE,Grey,Black);
+	print_str_P(70, 105, 2, Orange, Light_Grey, PSTR("Tape-Emu"));
+	Draw_H_Line(12,tft.width-13,122,Orange);
 	draw_Buttons();
 }
 
@@ -443,7 +518,7 @@ unsigned int debug_page () {
 	print_char(10,18,1,White,atari_bg,0x80);
 
 	debug = 1;
-	actual_page = 3;
+	actual_page = 4;
 	return(0);
 }
 
@@ -462,14 +537,19 @@ void tft_Setup() {
 struct button * check_Buttons() {
 	struct button *b;
 	unsigned char i;
+	unsigned int x,y,width,heigth;
 
 	p = getPoint();
 	//print_I(30,292,1,White,atari_bg,p.x);
 	//print_I(60,292,1,White,atari_bg,p.y);
 	for(i = 0; i < tft.pages[actual_page].nbuttons; i++) {
 		b = &tft.pages[actual_page].buttons[i];
-		if(p.x > b->x && p.x < b->x+b->width &&
-		   p.y > b->y && p.y < b->y+b->heigth)
+		x = pgm_read_word(&b->x);
+		y = pgm_read_word(&b->y);
+		width = pgm_read_word(&b->width);
+		heigth = pgm_read_word(&b->heigth);
+		if(p.x > x && p.x < x+width &&
+		   p.y > y && p.y < y+heigth)
 			return(b);
 	}
 	return(0);
