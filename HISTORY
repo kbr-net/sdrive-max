@@ -3,7 +3,7 @@ v0.6:
 - config option to set first boot drive to D1:
 - internal button structures reorganized to save more RAM
 - fixed wrong calculation of SIO highspeed rates
-- added tape emulation support for raw binary tape images
+- added tape emulation support
 - more retries for SD card init
 
 v0.5:
