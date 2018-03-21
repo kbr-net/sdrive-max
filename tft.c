@@ -452,7 +452,7 @@ void main_page () {
 
 	//Header
 	print_str_P(20, 10, 2, Orange, Black, PSTR("SDrive-MAX"));
-	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.6"));
+	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.7b"));
 	Draw_H_Line(0,tft.width,30,Orange);
 
 	draw_Buttons();
