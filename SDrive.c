@@ -222,10 +222,10 @@ void drive_led(unsigned char drive, unsigned char on) {
 	unsigned int col = Grey;
 	unsigned int x,y;
 
-	if(actual_page != 0)
+	if(actual_page != PAGE_MAIN)
 		return;
 
-	struct button *b = &tft.pages[0].buttons[drive];
+	struct button *b = &tft.pages[PAGE_MAIN].buttons[drive];
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 
 	if(flags->selected)
@@ -258,7 +258,7 @@ void set_display(unsigned char n)
 
 	for(i = 0; i < DEVICESNUM; i++) {	//only the first drive buttons
 		//get pointers to dynamic button data
-		b = &tft.pages[0].buttons[i];	//PGM PTR to button
+		b = &tft.pages[PAGE_MAIN].buttons[i];	//PGM PTR to button
 		flags = pgm_read_ptr(&b->flags);
 		name = pgm_read_ptr(&b->name);
 
@@ -278,7 +278,7 @@ void set_display(unsigned char n)
 		}
 	}
 	//redraw display only, if we are on main page
-	if(actual_page == 0)
+	if(actual_page == PAGE_MAIN)
 		draw_Buttons();
 }
 
@@ -369,7 +369,7 @@ int main(void)
 	fastsio_pokeydiv=eeprom_read_byte(&system_fastsio_pokeydiv_default); //definovano v EEPROM
 
 	tft_Setup();
-	tft.pages[0].draw();	//draw main page
+	tft.pages[PAGE_MAIN].draw();	//draw main page
 	if(tft.cfg.boot_d1)
 		actual_drive_number = 1;
 
@@ -438,7 +438,7 @@ int main(void)
 			cmd_buf.dev = 0x71;	//say we are a sdrive cmd
 			process_command();	//set image to drive
 		}
-		actual_page = 0;	//clear the fake
+		actual_page = PAGE_MAIN;	//clear the fake
 		draw_Buttons();		//now redraw buttons
 	}
 	//start with root dir
@@ -547,8 +547,8 @@ ST_IDLE:
 				FileInfo.vDisk = &tmpvDisk;
 				//remember witch D*-button on main page
 				// we have pressed
-				if(actual_page == 0 && name[0] == 'D')
-					drive_number = b-tft.pages[0].buttons;
+				if(actual_page == PAGE_MAIN && name[0] == 'D')
+					drive_number = b-tft.pages[PAGE_MAIN].buttons;
 				//read and...
 				b_func = pgm_read_ptr(&b->pressed);
 				//...call the buttons function
@@ -581,16 +581,16 @@ ST_IDLE:
 				}
 				//it was the N[ew]-Button? Create new file
 				//(reset is done in deactivate drive)
-				if(actual_page == 0 && name[0] == 'N' &&
+				if(actual_page == PAGE_MAIN && name[0] == 'N' &&
 				   actual_drive_number != 0) {
 					vDisk[actual_drive_number].flags |= (FLAGS_ATRNEW);	// | FLAGS_DRIVEON);
-					b = &tft.pages[0].buttons[actual_drive_number];
+					b = &tft.pages[PAGE_MAIN].buttons[actual_drive_number];
 					name = pgm_read_ptr(&b->name);
 					strncpy_P(&name[3], PSTR(">New<       "), 12);
 					draw_Buttons();
 				}
 				//tape mode?
-				if(actual_page == 3 && name[0] == 'S') {
+				if(actual_page == PAGE_TAPE && name[0] == 'S') {
 					if(tape_flags.run) {	//Stop
 						USART_Init(ATARI_SPEED_STANDARD);
 						tape_flags.run = 0;
@@ -635,7 +635,7 @@ ST_IDLE:
 			sei();
 		}
 		//scrolling long filename
-		if (tft.cfg.scroll && actual_page == 1 && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
+		if (tft.cfg.scroll && actual_page == PAGE_FILE && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
 			if (select_file_counter > 20000) {
 				sfp++;
 				Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
@@ -1649,7 +1649,7 @@ Send_ERR_and_DATA:
 			//check for new flag and delete it
 			if (FileInfo.vDisk->flags & FLAGS_ATRNEW)
 				FileInfo.vDisk->flags &= ~FLAGS_ATRNEW;
-			bp = &tft.pages[0].buttons[cmd_buf.aux1];
+			bp = &tft.pages[PAGE_MAIN].buttons[cmd_buf.aux1];
 			name = pgm_read_ptr(&bp->name);
 			strncpy_P(&name[3], PSTR("<empty>     "), 12);
 			set_display(actual_drive_number);
@@ -2184,12 +2184,12 @@ Set_XEX:					// XEX
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
-						bp = &tft.pages[0].buttons[cmd_buf.cmd&0xf];
+						bp = &tft.pages[PAGE_MAIN].buttons[cmd_buf.cmd&0xf];
 						name = pgm_read_ptr(&bp->name);
 						strncpy(&name[3], (char*)atari_sector_buffer, 12);
 						//redraw display only, if we are on
 						//main page
-						if(actual_page == 0)
+						if(actual_page == PAGE_MAIN)
 							draw_Buttons();
 					}
 

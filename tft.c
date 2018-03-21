@@ -21,7 +21,7 @@ extern virtual_disk_t vDisk[];
 
 #define	atari_bg 0x257b
 
-unsigned char actual_page = 0;
+unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
@@ -50,7 +50,7 @@ unsigned int action_b0 (struct button *b) {
 unsigned int action_b1_4 (struct button *b) {
 
 	if(p.x > 200) {	//file select page
-		actual_page = 1;
+		actual_page = PAGE_FILE;
 		sei();
 		tft.pages[actual_page].draw();
 	}
@@ -65,7 +65,7 @@ unsigned int action_b1_4 (struct button *b) {
 }
 
 unsigned int action_tape (struct button *b) {
-	actual_page = 1;
+	actual_page = PAGE_FILE;
 	tape_mode = 1;
 	sei();
 	tft.pages[actual_page].draw();
@@ -74,7 +74,7 @@ unsigned int action_tape (struct button *b) {
 
 unsigned int action_cancel () {
 	//on file_page reset file index to same page
-	if (actual_page == 1)
+	if (actual_page == PAGE_FILE)
 		next_file_idx -= 10;
 	//on debug_page deactivate them
 	else {
@@ -82,7 +82,7 @@ unsigned int action_cancel () {
 		tape_mode = 0;
 	}
 	//and reset to main_page
-	actual_page = 0;
+	actual_page = PAGE_MAIN;
 	tft.pages[actual_page].draw();
 	return(0);
 }
@@ -231,10 +231,10 @@ was_root:	//outbox(path);
 }
 
 unsigned int action_ok () {
-	actual_page = 0;
+	actual_page = PAGE_MAIN;
 	next_file_idx -= 10;
 	if(tape_mode) {
-		actual_page = 3;
+		actual_page = PAGE_TAPE;
 		file_selected = 0;
 	}
 	tft.pages[actual_page].draw();
@@ -242,7 +242,7 @@ unsigned int action_ok () {
 }
 
 unsigned int action_cfg () {
-	actual_page = 2;
+	actual_page = PAGE_CONFIG;
 	tft.pages[actual_page].draw();
 	return(0);
 }
@@ -423,7 +423,7 @@ void _outbox(char *txt, char P) {
 	outy += 8;
 	if (scroll) {
 		if (outy > tft.heigth-8) {
-			if (actual_page == 3)
+			if (actual_page == PAGE_DEBUG)
 				outy = 10;
 			else
 				outy = 284;
@@ -518,7 +518,7 @@ unsigned int debug_page () {
 	print_char(10,18,1,White,atari_bg,0x80);
 
 	debug = 1;
-	actual_page = 4;
+	actual_page = PAGE_DEBUG;
 	return(0);
 }
 
