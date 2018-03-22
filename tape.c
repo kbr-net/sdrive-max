@@ -84,12 +84,13 @@ unsigned int load_FUJI_file () {
 
 unsigned int send_FUJI_tape_block (unsigned int offset) {
 	unsigned char r;
-	unsigned int gap;
+	unsigned int gap, len;
 	struct tape_FUJI_hdr *hdr = (struct tape_FUJI_hdr *)atari_sector_buffer;
 
 	//read header
 	faccess_offset(FILE_ACCESS_READ,offset,sizeof(struct tape_FUJI_hdr));
 	gap = hdr->irg_length;	//save GAP
+	len = hdr->chunk_length;
 
 	while(gap--)
 		_delay_ms(1);	//wait GAP
@@ -99,10 +100,10 @@ unsigned int send_FUJI_tape_block (unsigned int offset) {
 		print_str(35,135,2,Yellow,Light_Grey, atari_sector_buffer);
 		//read block
 		offset += sizeof(struct tape_FUJI_hdr);	//skip chunk hdr
-                r = faccess_offset(FILE_ACCESS_READ,offset,block_len+4);
+                r = faccess_offset(FILE_ACCESS_READ,offset,len);
 		offset += r;
 		block++;
-		USART_Send_Buffer(atari_sector_buffer,block_len+4);
+		USART_Send_Buffer(atari_sector_buffer,len);
 		if(atari_sector_buffer[2] == 0xfe) {
 			//most multi stage loaders starting over by self
 			// so do not stop here!
