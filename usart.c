@@ -61,8 +61,8 @@ void USART_Init ( u16 value ) {
 #endif
 
 	/* Set double speed flag */
-	//	UCSRA = (1<<UDRE)|(1<<U2X); //double speed
-	UCSRA = (1<<UDRE);
+	UCSRA = (1<<UDRE)|(1<<U2X); //double speed
+	//UCSRA = (1<<UDRE);
 
 	/* Enable Receiver and Transmitter */
 	UCSRB = (1<<RXEN)|(1<<TXEN);

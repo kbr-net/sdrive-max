@@ -50,58 +50,28 @@
 
 #define US_POKEY_DIV_STANDARD	0x28		//#40  => 19040 bps
 						//=> 19231 bps #51
-#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+11)	//#51 (o sest vic)
+//#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+11)	//#51 (o sest vic)
+#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+12)*2	//#104 U2X=1
 //#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+6)	//#46 (o sest vic)
 
 #define US_POKEY_DIV_DEFAULT	0x06		//#6   => 68838 bps
 
 #define US_POKEY_DIV_MAX		(255-6)		//pokeydiv 249 => avrspeed 255 (vic nemuze)
 
-/*
-#define SIOSPEED_MODES	9	//pocet fastsio_mode=0..8
-#define US_POKEY_DIV_DEFAULT	US_POKEY_DIV_7
-#define ATARI_SPEED_DEFAULT		ATARI_SPEED_7
-
-//sio 1x standard
-#define US_POKEY_DIV_STANDARD	0x28			//=> 19040 bps
-#define ATARI_SPEED_STANDARD	46				// normal speed
-//=46 => F_CPU/16/(46+1) = 19040
-
-//sio2x
-#define US_POKEY_DIV_2		0x10			//=> 38908 bps
-#define ATARI_SPEED_2		22				// sio2x speed
-//=22 => F_CPU/16/(22+1) = 38908
-
-//Happy
-#define US_POKEY_DIV_3		0x0a			//=> 52641 bps
-#define ATARI_SPEED_3		16				// happy
-//=16 => F_CPU/16/(16+1) = 52640
-
-//Speedy
-#define US_POKEY_DIV_4		0x09			//=> 55931 bps
-#define ATARI_SPEED_4		15				// speedy TOTO FUNGUJE
-//=15 => F_CPU/16/(15+1) = 55930
-
-//sio3x
-#define US_POKEY_DIV_5		0x08			//=> 59660 bps
-#define ATARI_SPEED_5		14				// sio3x speed
-//=14 => F_CPU/16/(14+1) = 59659
-
-//sio 64000
-#define US_POKEY_DIV_6		0x07			//=> 63921 bps
-#define ATARI_SPEED_6		13				// sio3x speed
-//=13 => F_CPU/16/(13+1) = 63920
-
-// works great!
-#define US_POKEY_DIV_7		0x06			//=> 68838 bps
-#define ATARI_SPEED_7		12				// ULTRA speed - closest match for both systems (AVR,ATARI)
-//=12 => F_CPU/16/(12+1) = 68837
-
-//sio 75000
-#define US_POKEY_DIV_8		0x05			//=> 74575 bps
-#define ATARI_SPEED_8		11				// sio4x speed
-//=11 => F_CPU/16/(11+1) = 74574
-*/
+const char PROGMEM atari_speed_table[][2] = {
+	{16, 50},	//38908, 39216
+	{10, 37},	//52641, 52632
+	{9, 35},	//55931, 55556
+	{8, 33},	//59660, 58824
+	{7, 30},	//63921, 64516
+	{6, 28},	//68838, 68966
+	{5, 26},	//74575, 74074
+	{4, 24},	//81354, 80000
+	{3, 21},	//89490, 90909
+	{2, 19},	//99433, 100000
+	{1, 17},	//111862, 111111
+	{0, 15},	//127842, 125000
+};
 
 unsigned char debug = 0;
 unsigned char mmc_sector_buffer[512];	// one SD sector
@@ -602,7 +572,9 @@ ST_IDLE:
 					else {		//Start
 						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
 						tape_offset = load_FUJI_file();
-						USART_Init(1666); //600 baud
+						//USART_Init(1666); //600 baud
+						//USART_Init(1999); //1000 baud
+						USART_Init(3332); //600 baud
 						tape_flags.run = 1;
 						flags->selected = 1;
 						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Sync Wait...   "));
@@ -722,13 +694,15 @@ void process_command ()
 change_sio_speed_by_fastsio_active:
 			{
 			 u08 as;
+			 u08 i,d;
 			 as=ATARI_SPEED_STANDARD;	//default speed
 			 //if (fastsio_active) as=fastsio_pokeydiv+6;		//always about 6 vic
 			 if (fastsio_active) {
-				if (fastsio_pokeydiv > 4)
-					as=fastsio_pokeydiv+8;
-				else
-					as=fastsio_pokeydiv+7;
+				for(i=0; i<sizeof(atari_speed_table)/2;i++) {
+					d = pgm_read_byte(&atari_speed_table[i][0]);
+					if(d == fastsio_pokeydiv)
+						as = pgm_read_byte(&atari_speed_table[i][1]);
+				}
 			 }
 
 			 USART_Init(as);
