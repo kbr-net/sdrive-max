@@ -58,19 +58,20 @@
 
 #define US_POKEY_DIV_MAX		(255-6)		//pokeydiv 249 => avrspeed 255 (vic nemuze)
 
-const char PROGMEM atari_speed_table[][2] = {
-	{16, 50},	//38908, 39216
-	{10, 37},	//52641, 52632
-	{9, 35},	//55931, 55556
-	{8, 33},	//59660, 58824
-	{7, 30},	//63921, 64516
-	{6, 28},	//68838, 68966
-	{5, 26},	//74575, 74074
-	{4, 24},	//81354, 80000
-	{3, 21},	//89490, 90909
-	{2, 19},	//99433, 100000
-	{1, 17},	//111862, 111111
-	{0, 15},	//127842, 125000
+const unsigned char PROGMEM atari_speed_table[] = {
+	//avr-UBRR	//pokeydiv: Baud Atari, AVR
+	15,		//0: 127842, 125000
+	17,		//1: 111862, 111111
+	19,		//2: 99433, 100000
+	21,		//3: 89490, 90909
+	24,		//4: 81354, 80000
+	26,		//5: 74575, 74074
+	28,		//6: 68838, 68966
+	30,		//7: 63921, 64516
+	33,		//8: 59660, 58824
+	35,		//9: 55931, 55556
+	37,		//10: 52641, 52632
+	50,		//16(index 11): 38908, 39216
 };
 
 unsigned char debug = 0;
@@ -694,15 +695,15 @@ void process_command ()
 change_sio_speed_by_fastsio_active:
 			{
 			 u08 as;
-			 u08 i,d;
 			 as=ATARI_SPEED_STANDARD;	//default speed
 			 //if (fastsio_active) as=fastsio_pokeydiv+6;		//always about 6 vic
 			 if (fastsio_active) {
-				for(i=0; i<sizeof(atari_speed_table)/2;i++) {
-					d = pgm_read_byte(&atari_speed_table[i][0]);
-					if(d == fastsio_pokeydiv)
-						as = pgm_read_byte(&atari_speed_table[i][1]);
-				}
+					//for pokeydiv 16(a. o.) use index 11
+					if(fastsio_pokeydiv > 10)
+						as = pgm_read_byte(&atari_speed_table[11]);
+					//all others are linear
+					else
+						as = pgm_read_byte(&atari_speed_table[fastsio_pokeydiv]);
 			 }
 
 			 USART_Init(as);
