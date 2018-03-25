@@ -81,7 +81,10 @@ unsigned char n_actual_mmc_sector_needswrite;
 unsigned char atari_sector_buffer[256];
 u08 atari_sector_status = 0xff;
 
-#define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
+////does not work correctly any more, don't know why?
+////But we have enaugh RAM free yet
+//#define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
+char FileFindBuffer[11];
 char DebugBuffer[14];
 
 struct GlobalSystemValues GS;
