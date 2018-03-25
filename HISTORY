@@ -1,3 +1,9 @@
+v0.7:
+- fixed error in FileFind function
+- fixed scrolling issue on tape- and debug page
+- more sio highpeed fixes
+- support variable block length on FUJI tape files
+
 v0.6:
 - added support for save and restore inserted drive images in EEPROM
 - config option to set first boot drive to D1:
