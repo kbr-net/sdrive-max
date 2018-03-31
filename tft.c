@@ -12,6 +12,7 @@
 #include "touchscreen.h"
 #include "tft.h"
 #include "fat.h"
+#include "tape.h"
 
 extern unsigned char debug;
 extern char atari_sector_buffer[];
@@ -67,8 +68,17 @@ unsigned int action_b1_4 (struct button *b) {
 unsigned int action_tape (struct button *b) {
 	actual_page = PAGE_FILE;
 	tape_mode = 1;
+	tape_flags.turbo = 0;	//start with no turbo
 	sei();
 	tft.pages[actual_page].draw();
+	return(0);
+}
+
+unsigned int action_tape_turbo (struct button *b) {
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
+	flags->selected = ~flags->selected;
+	tape_flags.turbo = ~tape_flags.turbo;
+	draw_Buttons();
 	return(0);
 }
 
@@ -335,6 +345,7 @@ const struct button PROGMEM buttons_cfg[] = {
 
 const struct button PROGMEM buttons_tape[] = {
 	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},press},
+	{"Tur",105,165,50,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_turbo},
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
 

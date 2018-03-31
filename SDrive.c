@@ -576,9 +576,11 @@ ST_IDLE:
 					else {		//Start
 						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
 						tape_offset = load_FUJI_file();
-						//USART_Init(1666); //600 baud
-						//USART_Init(1999); //1000 baud
-						USART_Init(3332); //600 baud
+						//USART_Init(1666); //600 baud (U2X==0)
+						if(tape_flags.turbo)
+							USART_Init(1999); //1000 baud
+						else
+							USART_Init(3332); //600 baud
 						tape_flags.run = 1;
 						flags->selected = 1;
 						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Sync Wait...   "));

@@ -10,6 +10,7 @@ struct tape_FUJI_hdr {
 struct t_flags {
 	unsigned char run : 1;
 	unsigned char FUJI : 1;
+	unsigned char turbo : 1;
 } tape_flags;
 
 unsigned int send_tape_block (unsigned int offset);
