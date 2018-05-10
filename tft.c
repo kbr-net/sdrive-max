@@ -29,6 +29,7 @@ unsigned int nfiles = 0;
 unsigned int file_selected = -1;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
+const char PROGMEM known_extensions[][3] = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
 struct TSPoint p;
 
 void main_page();
@@ -111,6 +112,7 @@ void pretty_name(char *b) {	//insert dot in filename.ext
 unsigned int list_files () {
 	unsigned int i;
 	unsigned int col;
+	unsigned char e;
 
 	if(!nfiles)
 		while (fatGetDirEntry(nfiles,0)) nfiles++;
@@ -129,8 +131,19 @@ unsigned int list_files () {
 		if(fatGetDirEntry(i,0)) {
 			if(FileInfo.Attr & ATTR_DIRECTORY)	//other color
 				col = 0x07ff;
-			else
-				col = Green;
+			else {
+				col = Green - 0x1863;
+				for(e=0; e < (sizeof(known_extensions)/3); e++)
+				{
+					if(atari_sector_buffer[8] == pgm_read_byte(&known_extensions[e][0]) &&
+					   atari_sector_buffer[9] == pgm_read_byte(&known_extensions[e][1]) &&
+					   atari_sector_buffer[10] == pgm_read_byte(&known_extensions[e][2]) )
+					{
+					    col = Green;
+					    break;	//one match is enaugh
+					}
+				}
+			}
 			//if extension, insert dot
 			if(atari_sector_buffer[8] != ' ')
 				pretty_name(atari_sector_buffer);

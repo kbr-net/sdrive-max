@@ -4,6 +4,7 @@ v0.7:
 - more sio highpeed fixes
 - support variable block length on FUJI tape files
 - added turbo tape function with 1000 baud
+- show files with unknown extension darker
 
 v0.6:
 - added support for save and restore inserted drive images in EEPROM
