@@ -357,13 +357,14 @@ unsigned int action_cal () {
 	y2 = (y2 + p.y) / 2;	//middle
 	//print_I(tft.width-60,tft.heigth-50,1,White,Black,p.x);
 	//print_I(tft.width-30,tft.heigth-50,1,White,Black,p.y);
-/*
-	print_I(20,tft.heigth/2,1,White,Black,x1);
-	print_I(50,tft.heigth/2,1,White,Black,x2);
-	print_I(80,tft.heigth/2,1,White,Black,y1);
-	print_I(110,tft.heigth/2,1,White,Black,y2);
+	while(isTouching());
+
+/*	//print raw values, for debug only
+	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), x1, x2, y1, y2);
+	print_str(20, tft.heigth/2-20, 1, White, Black, atari_sector_buffer);
 */
-	if(x1 > x2) {
+	//strech values to whole screen size
+	if(x1 > x2) {	//exchange values if x1 is greater than x2
 		diff = x1;
 		x1 = x2;
 		x2 = diff;
@@ -373,6 +374,7 @@ unsigned int action_cal () {
         diff /= 2;
 	x1 -= diff;
 	x2 += diff;
+	//same thing for Y
 	if(y1 > y2) {
 		diff = y1;
 		y1 = y2;
@@ -383,18 +385,19 @@ unsigned int action_cal () {
         diff /= 2;
 	y1 -= diff;
 	y2 += diff;
-/*
-	print_I(20,tft.heigth/2+12,1,White,Black,x1);
-	print_I(50,tft.heigth/2+12,1,White,Black,x2);
-	print_I(80,tft.heigth/2+12,1,White,Black,y1);
-	print_I(110,tft.heigth/2+12,1,White,Black,y2);
-*/
+
+	//print results
+	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), x1, x2, y1, y2);
+	print_str(20, tft.heigth/2, 1, White, Black, atari_sector_buffer);
+
+	//write it to EEPROM
 	eeprom_update_word(&MINX, x1);
 	eeprom_update_word(&MAXX, x2);
 	eeprom_update_word(&MINY, y1);
 	eeprom_update_word(&MAXY, y2);
 
-	while(isTouching());
+	//wait for one more touch to continue
+	while(!isTouching());
 	return(0);
 }
 
