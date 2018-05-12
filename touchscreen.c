@@ -1,11 +1,22 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/eeprom.h>
 #include <util/delay.h>
 #include "avrlibdefs.h"         // global AVRLIB defines
 #include "avrlibtypes.h"        // global AVRLIB types definitions
 #include "touchscreen.h"
 #include "tft.h"
 #include "display.h"
+
+u16 EEMEM MINX = 0xffff;
+u16 EEMEM MINY = 0xffff;
+u16 EEMEM MAXX = 0xffff;
+u16 EEMEM MAXY = 0xffff;
+
+#define TS_MINX eeprom_read_word(&MINX)
+#define TS_MINY eeprom_read_word(&MINY)
+#define TS_MAXX eeprom_read_word(&MAXX)
+#define TS_MAXY eeprom_read_word(&MAXY)
 
 extern unsigned int MAX_X;
 extern unsigned int MAX_Y;
@@ -104,4 +115,16 @@ struct TSPoint getPoint () {
   restorePorts();
   sei();
   return(p);
+}
+
+struct TSPoint getRawPoint () {
+	cli();
+	setIdling();
+
+	p.x = readTouch(0);
+	p.y = readTouch(1);
+
+	restorePorts();
+	sei();
+	return(p);
 }

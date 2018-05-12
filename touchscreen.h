@@ -11,11 +11,13 @@
 
 #if ! defined(ILI9329) && ! defined(HX8347G)
 //Touch For New ILI9341 TP
+/* no more needed, will be calibrated now
 #define TS_MINX 120
 #define TS_MAXX 900
 
 #define TS_MINY 75
-#define TS_MAXY 920
+#define TS_MAXY 880
+*/
 
 #define XP	PC2		//must be an analog port
 #define XP_PORT	PORTC
@@ -36,6 +38,7 @@
 
 #else
 //Touch For ILI9329 or HX8347G
+/*
 #ifdef HX8347G
 #define TS_MINX 100
 #define TS_MAXX 850
@@ -49,6 +52,7 @@
 #define TS_MINY 110
 #define TS_MAXY 940
 #endif
+*/
 
 #define XP	PC1		//must be an analog port
 #define XP_PORT	PORTC
@@ -77,3 +81,4 @@ struct TSPoint {
 char isTouching();
 //uint16_t readTouch(uint8_t b);
 struct TSPoint getPoint();
+struct TSPoint getRawPoint();
