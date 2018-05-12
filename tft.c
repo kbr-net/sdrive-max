@@ -423,7 +423,7 @@ const struct button PROGMEM buttons_file[] = {
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel},
 	{"Next",164,205,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files},
 	{"Last",164,245,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files_last},
-	{"File",15,45,80,240,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_select}
+	{"File",15,45,150,240,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_select}
 };
 
 //keep the order analog to struct tft.cfg, otherwise read/write function
