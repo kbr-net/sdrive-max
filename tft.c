@@ -42,6 +42,11 @@ struct display tft;
 
 unsigned char EEMEM cfg = 0xfb;	//config byte on eeprom, initial value is all on except boot_d1
 struct file_save EEMEM image_store[DEVICESNUM-1] = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
+extern u16 EEMEM MINX;
+extern u16 EEMEM MINY;
+extern u16 EEMEM MAXX;
+extern u16 EEMEM MAXY;
+
 
 unsigned int action_b0 (struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
@@ -309,6 +314,90 @@ unsigned int action_save_cfg () {
 	return(0);
 }
 
+unsigned int action_cal () {
+	unsigned int x1,x2,y1,y2,diff;
+	TFT_fill(Black);
+
+	Draw_H_Line(10,30,20,White);
+	Draw_V_Line(20,10,30,White);
+	while(isTouching());	//wait for release
+	while(!isTouching());
+	p = getRawPoint();
+	x1 = p.x;
+	y1 = p.y;
+	//print_I(10,50,1,White,Black,p.x);
+	//print_I(40,50,1,White,Black,p.y);
+	while(isTouching());
+
+	Draw_H_Line(tft.width-10,tft.width-30,20,White);
+	Draw_V_Line(tft.width-20,10,30,White);
+	while(!isTouching());
+	p = getRawPoint();
+	x2 = p.x;
+	y1 = (y1 + p.y) / 2;	//middle
+	//print_I(tft.width-60,50,1,White,Black,p.x);
+	//print_I(tft.width-30,50,1,White,Black,p.y);
+	while(isTouching());
+
+	Draw_H_Line(10,30,tft.heigth-20,White);
+	Draw_V_Line(20,tft.heigth-10,tft.heigth-30,White);
+	while(!isTouching());
+	p = getRawPoint();
+	x1 = (x1 + p.x) / 2;	//middle
+	y2 = p.y;
+	//print_I(10,tft.heigth-50,1,White,Black,p.x);
+	//print_I(40,tft.heigth-50,1,White,Black,p.y);
+	while(isTouching());
+
+	Draw_H_Line(tft.width-10,tft.width-30,tft.heigth-20,White);
+	Draw_V_Line(tft.width-20,tft.heigth-10,tft.heigth-30,White);
+	while(!isTouching());
+	p = getRawPoint();
+	x2 = (x2 + p.x) / 2;	//middle
+	y2 = (y2 + p.y) / 2;	//middle
+	//print_I(tft.width-60,tft.heigth-50,1,White,Black,p.x);
+	//print_I(tft.width-30,tft.heigth-50,1,White,Black,p.y);
+/*
+	print_I(20,tft.heigth/2,1,White,Black,x1);
+	print_I(50,tft.heigth/2,1,White,Black,x2);
+	print_I(80,tft.heigth/2,1,White,Black,y1);
+	print_I(110,tft.heigth/2,1,White,Black,y2);
+*/
+	if(x1 > x2) {
+		diff = x1;
+		x1 = x2;
+		x2 = diff;
+	}
+        diff = (x2 - x1)/(tft.width-40.0)*tft.width;
+        diff -= (x2 - x1);
+        diff /= 2;
+	x1 -= diff;
+	x2 += diff;
+	if(y1 > y2) {
+		diff = y1;
+		y1 = y2;
+		y2 = diff;
+	}
+        diff = (y2 - y1)/(tft.heigth-40.0)*tft.heigth;
+        diff -= (y2 - y1);
+        diff /= 2;
+	y1 -= diff;
+	y2 += diff;
+/*
+	print_I(20,tft.heigth/2+12,1,White,Black,x1);
+	print_I(50,tft.heigth/2+12,1,White,Black,x2);
+	print_I(80,tft.heigth/2+12,1,White,Black,y1);
+	print_I(110,tft.heigth/2+12,1,White,Black,y2);
+*/
+	eeprom_update_word(&MINX, x1);
+	eeprom_update_word(&MAXX, x2);
+	eeprom_update_word(&MINY, y1);
+	eeprom_update_word(&MAXY, y2);
+
+	while(isTouching());
+	return(0);
+}
+
 unsigned int press () {	//for buttons with no action here
 	return(0);
 }
@@ -556,6 +645,11 @@ void tft_Setup() {
 	sprintf_P(atari_sector_buffer, PSTR("TFT-ID: %.04x"), id);
 	//outbox(atari_sector_buffer);
 	print_str(20, 290, 2, White, Black, atari_sector_buffer);
+	//check if touchscreen needs calibration
+	if(eeprom_read_word(&MINX) == 0xffff || isTouching() ) {
+		TFT_on();
+		action_cal();
+	}
 }
 
 struct button * check_Buttons() {
