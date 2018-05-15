@@ -20,8 +20,6 @@ extern struct FileInfoStruct FileInfo;
 extern virtual_disk_t vDisk[];
 //extern struct GlobalSystemValues GS;
 
-#define	atari_bg 0x257b
-
 unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
@@ -158,12 +156,12 @@ unsigned int list_files () {
 				atari_sector_buffer[12] = 0;
 			}
 			if(i == file_selected)
-				print_ln(2,0xfff0,Light_Grey,atari_sector_buffer);
+				print_ln(2,0xfff0,window_bg,atari_sector_buffer);
 			else
-				print_ln(2,col,Light_Grey,atari_sector_buffer);
+				print_ln(2,col,window_bg,atari_sector_buffer);
 		}
 		else
-			print_ln_P(2,Green,Light_Grey,PSTR("            "));
+			print_ln_P(2,Green,window_bg,PSTR("            "));
 	}
 	next_file_idx = i;
 	return(0);
@@ -584,7 +582,7 @@ void main_page () {
 
 void file_page () {
 
-	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,Light_Grey,Black);
+	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
@@ -598,7 +596,7 @@ void config_page () {
 	struct b_flags *flags;
 	unsigned int i;
 
-	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,Light_Grey,Black);
+	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
@@ -613,10 +611,10 @@ void config_page () {
 }
 
 void tape_page () {
-	Draw_Rectangle(10,100,tft.width-11,200,1,SQUARE,Light_Grey,Black);
+	Draw_Rectangle(10,100,tft.width-11,200,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,100,tft.width-11,200,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,101,tft.width-12,199,0,SQUARE,Grey,Black);
-	print_str_P(70, 105, 2, Orange, Light_Grey, PSTR("Tape-Emu"));
+	print_str_P(70, 105, 2, Orange, window_bg, PSTR("Tape-Emu"));
 	Draw_H_Line(12,tft.width-13,122,Orange);
 	draw_Buttons();
 }

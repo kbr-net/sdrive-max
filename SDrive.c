@@ -570,7 +570,7 @@ ST_IDLE:
 						tape_flags.run = 0;
 						tape_offset = 0;
 						flags->selected = 0;
-						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Stopped...   "));
+						print_str_P(35,135,2,Yellow,window_bg, PSTR("Stopped...   "));
 						draw_Buttons();
 					}
 					else {		//Start
@@ -583,7 +583,7 @@ ST_IDLE:
 							USART_Init(3332); //600 baud
 						tape_flags.run = 1;
 						flags->selected = 1;
-						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Sync Wait...   "));
+						print_str_P(35,135,2,Yellow,window_bg, PSTR("Sync Wait...   "));
 						draw_Buttons();
 						if(!tape_flags.FUJI)
 							_delay_ms(10000);	//sync wait
