@@ -29,7 +29,8 @@
 
 #define White                                                                            0xFFFF
 #define Black                                                                            0x0000
-#define Grey                                                                             0xF7DE
+//#define Grey                                                                             0xF7DE
+#define Grey                                                                             0xCE59
 #define Grey2                                                                            0x8430
 #define Light_Grey                                                                       0xC618
 #define Dark_Grey                                                                        0x8410
