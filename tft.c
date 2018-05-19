@@ -313,86 +313,85 @@ unsigned int action_save_cfg () {
 }
 
 unsigned int action_cal () {
-	unsigned int x1,x2,y1,y2,diff;
+	unsigned int px1,px2,py1,py2,diff;
+	const unsigned int b = 20;	//offset from border
+	unsigned int x = b;
+	unsigned int y = b;
+	unsigned char i;
+
 	TFT_fill(Black);
 
-	Draw_H_Line(10,30,20,White);
-	Draw_V_Line(20,10,30,White);
-	while(isTouching());	//wait for release
-	while(!isTouching());
-	p = getRawPoint();
-	x1 = p.x;
-	y1 = p.y;
-	//print_I(10,50,1,White,Black,p.x);
-	//print_I(40,50,1,White,Black,p.y);
-	while(isTouching());
+	for(i = 0; i < 4; i++) {
+		Draw_H_Line(x-10,x+10,y,White);
+		Draw_V_Line(x,y-10,y+10,White);
+		while(isTouching());	//wait for release
+		while(!isTouching());
+		p = getRawPoint();
+		switch (i) {
+			case 0:
+				px1 = p.x;
+				py1 = p.y;
+				x = tft.width-b;
+				break;
+			;;
+			case 1:
+				px2 = p.x;
+				py1 = (py1 + p.y) / 2;	//middle
+				y = tft.heigth-b;
+				break;
+			;;
+			case 2:
+				px2 = (px2 + p.x) / 2;	//middle
+				py2 = p.y;
+				x = b;
+				break;
+			;;
+			case 3:
+				px1 = (px1 + p.x) / 2;	//middle
+				py2 = (py2 + p.y) / 2;	//middle
+		}
+		//print_I(10,50,1,White,Black,p.x);
+		//print_I(40,50,1,White,Black,p.y);
+	}
 
-	Draw_H_Line(tft.width-10,tft.width-30,20,White);
-	Draw_V_Line(tft.width-20,10,30,White);
-	while(!isTouching());
-	p = getRawPoint();
-	x2 = p.x;
-	y1 = (y1 + p.y) / 2;	//middle
-	//print_I(tft.width-60,50,1,White,Black,p.x);
-	//print_I(tft.width-30,50,1,White,Black,p.y);
-	while(isTouching());
-
-	Draw_H_Line(10,30,tft.heigth-20,White);
-	Draw_V_Line(20,tft.heigth-10,tft.heigth-30,White);
-	while(!isTouching());
-	p = getRawPoint();
-	x1 = (x1 + p.x) / 2;	//middle
-	y2 = p.y;
-	//print_I(10,tft.heigth-50,1,White,Black,p.x);
-	//print_I(40,tft.heigth-50,1,White,Black,p.y);
-	while(isTouching());
-
-	Draw_H_Line(tft.width-10,tft.width-30,tft.heigth-20,White);
-	Draw_V_Line(tft.width-20,tft.heigth-10,tft.heigth-30,White);
-	while(!isTouching());
-	p = getRawPoint();
-	x2 = (x2 + p.x) / 2;	//middle
-	y2 = (y2 + p.y) / 2;	//middle
-	//print_I(tft.width-60,tft.heigth-50,1,White,Black,p.x);
-	//print_I(tft.width-30,tft.heigth-50,1,White,Black,p.y);
 	while(isTouching());
 
 /*	//print raw values, for debug only
-	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), x1, x2, y1, y2);
+	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);
 	print_str(20, tft.heigth/2-20, 1, White, Black, atari_sector_buffer);
 */
 	//strech values to whole screen size
-	if(x1 > x2) {	//exchange values if x1 is greater than x2
-		diff = x1;
-		x1 = x2;
-		x2 = diff;
+	if(px1 > px2) {	//exchange values if px1 is greater than px2
+		diff = px1;
+		px1 = px2;
+		px2 = diff;
 	}
-        diff = (x2 - x1)/(tft.width-40.0)*tft.width;
-        diff -= (x2 - x1);
+        diff = (px2 - px1)/(tft.width-b*2.0)*tft.width;
+        diff -= (px2 - px1);
         diff /= 2;
-	x1 -= diff;
-	x2 += diff;
+	px1 -= diff;
+	px2 += diff;
 	//same thing for Y
-	if(y1 > y2) {
-		diff = y1;
-		y1 = y2;
-		y2 = diff;
+	if(py1 > py2) {
+		diff = py1;
+		py1 = py2;
+		py2 = diff;
 	}
-        diff = (y2 - y1)/(tft.heigth-40.0)*tft.heigth;
-        diff -= (y2 - y1);
+        diff = (py2 - py1)/(tft.heigth-b*2.0)*tft.heigth;
+        diff -= (py2 - py1);
         diff /= 2;
-	y1 -= diff;
-	y2 += diff;
+	py1 -= diff;
+	py2 += diff;
 
 	//print results
-	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), x1, x2, y1, y2);
+	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);
 	print_str(20, tft.heigth/2, 1, White, Black, atari_sector_buffer);
 
 	//write it to EEPROM
-	eeprom_update_word(&MINX, x1);
-	eeprom_update_word(&MAXX, x2);
-	eeprom_update_word(&MINY, y1);
-	eeprom_update_word(&MAXY, y2);
+	eeprom_update_word(&MINX, px1);
+	eeprom_update_word(&MAXX, px2);
+	eeprom_update_word(&MINY, py1);
+	eeprom_update_word(&MAXY, py2);
 
 	//wait for one more touch to continue
 	while(!isTouching());
