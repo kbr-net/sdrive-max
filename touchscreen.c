@@ -121,8 +121,13 @@ struct TSPoint getRawPoint () {
 	cli();
 	setIdling();
 
+#if defined(HX8347G)
+	p.x = readTouch(1);
+	p.y = readTouch(0);
+#else
 	p.x = readTouch(0);
 	p.y = readTouch(1);
+#endif
 
 	restorePorts();
 	sei();
