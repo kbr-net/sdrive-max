@@ -85,32 +85,11 @@ struct TSPoint getPoint () {
   cli();	//disable interrupts
   setIdling();
 #if defined(HX8347G)
-  if(tft.cfg.rot == PORTRAIT_2) {
-    p.x = map(readTouch(1), TS_MINX, TS_MAXX, MAX_X, 0);
-    p.y = map(readTouch(0), TS_MINY, TS_MAXY, 0, MAX_Y);
-  }
-  else {
     p.x = map(readTouch(1), TS_MINX, TS_MAXX, 0, MAX_X);
-    p.y = map(readTouch(0), TS_MINY, TS_MAXY, MAX_Y, 0);
-  }
-#elif defined(ILI9329)
-  if(tft.cfg.rot == PORTRAIT_2) {
-    p.x = map(readTouch(0), TS_MINX, TS_MAXX, MAX_X, 0);
-    p.y = map(readTouch(1), TS_MINY, TS_MAXY, 0, MAX_Y);
-  }
-  else {
-    p.x = map(readTouch(0), TS_MINX, TS_MAXX, 0, MAX_X);
-    p.y = map(readTouch(1), TS_MINY, TS_MAXY, MAX_Y, 0);
-  }
+    p.y = map(readTouch(0), TS_MINY, TS_MAXY, 0, MAX_Y);
 #else
-  if(tft.cfg.rot == PORTRAIT_2) {
     p.x = map(readTouch(0), TS_MINX, TS_MAXX, 0, MAX_X);
-    p.y = map(readTouch(1), TS_MINY, TS_MAXY, MAX_Y, 0);
-  }
-  else {
-    p.x = map(readTouch(0), TS_MINX, TS_MAXX, MAX_X, 0);
     p.y = map(readTouch(1), TS_MINY, TS_MAXY, 0, MAX_Y);
-  }
 #endif
   restorePorts();
   sei();
