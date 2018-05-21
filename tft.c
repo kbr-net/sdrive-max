@@ -285,6 +285,7 @@ unsigned int action_save_cfg () {
 	struct button *b;
 	struct b_flags *flags;
 	unsigned char i;
+	unsigned char rot = tft.cfg.rot;
 
 	*(char*)&tft.cfg = 0;	//clear first
 	for(i = 0; i < 4; i++) {
@@ -307,13 +308,16 @@ unsigned int action_save_cfg () {
 			}
 		}
 	}
-	TFT_set_rotation(tft.cfg.rot);
+	if(rot != tft.cfg.rot) {	//rotation has changed? Then...
+		eeprom_update_word(&MINX, 0xffff);	//force new calibration
+		tft_Setup();
+	}
 	action_cancel();
 	return(0);
 }
 
 unsigned int action_cal () {
-	unsigned int px1,px2,py1,py2,diff;
+	int px1,px2,py1,py2,diff;
 	const unsigned int b = 20;	//offset from border
 	unsigned int x = b;
 	unsigned int y = b;
@@ -361,22 +365,13 @@ unsigned int action_cal () {
 	print_str(20, tft.heigth/2-20, 1, White, Black, atari_sector_buffer);
 */
 	//strech values to whole screen size
-	if(px1 > px2) {	//exchange values if px1 is greater than px2
-		diff = px1;
-		px1 = px2;
-		px2 = diff;
-	}
         diff = (px2 - px1)/(tft.width-b*2.0)*tft.width;
         diff -= (px2 - px1);
         diff /= 2;
 	px1 -= diff;
 	px2 += diff;
+
 	//same thing for Y
-	if(py1 > py2) {
-		diff = py1;
-		py1 = py2;
-		py2 = diff;
-	}
         diff = (py2 - py1)/(tft.heigth-b*2.0)*tft.heigth;
         diff -= (py2 - py1);
         diff /= 2;
