@@ -29,7 +29,7 @@
 
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	0
-#define SWVERSIONMINOR	6
+#define SWVERSIONMINOR	7
 //#define DEVID		0x53444e47
 //#define DEVID		0x474e4453	// SDNG reverse!
 
@@ -50,58 +50,29 @@
 
 #define US_POKEY_DIV_STANDARD	0x28		//#40  => 19040 bps
 						//=> 19231 bps #51
-#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+11)	//#51 (o sest vic)
+//#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+11)	//#51 (o sest vic)
+#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+12)*2	//#104 U2X=1
 //#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+6)	//#46 (o sest vic)
 
 #define US_POKEY_DIV_DEFAULT	0x06		//#6   => 68838 bps
 
 #define US_POKEY_DIV_MAX		(255-6)		//pokeydiv 249 => avrspeed 255 (vic nemuze)
 
-/*
-#define SIOSPEED_MODES	9	//pocet fastsio_mode=0..8
-#define US_POKEY_DIV_DEFAULT	US_POKEY_DIV_7
-#define ATARI_SPEED_DEFAULT		ATARI_SPEED_7
-
-//sio 1x standard
-#define US_POKEY_DIV_STANDARD	0x28			//=> 19040 bps
-#define ATARI_SPEED_STANDARD	46				// normal speed
-//=46 => F_CPU/16/(46+1) = 19040
-
-//sio2x
-#define US_POKEY_DIV_2		0x10			//=> 38908 bps
-#define ATARI_SPEED_2		22				// sio2x speed
-//=22 => F_CPU/16/(22+1) = 38908
-
-//Happy
-#define US_POKEY_DIV_3		0x0a			//=> 52641 bps
-#define ATARI_SPEED_3		16				// happy
-//=16 => F_CPU/16/(16+1) = 52640
-
-//Speedy
-#define US_POKEY_DIV_4		0x09			//=> 55931 bps
-#define ATARI_SPEED_4		15				// speedy TOTO FUNGUJE
-//=15 => F_CPU/16/(15+1) = 55930
-
-//sio3x
-#define US_POKEY_DIV_5		0x08			//=> 59660 bps
-#define ATARI_SPEED_5		14				// sio3x speed
-//=14 => F_CPU/16/(14+1) = 59659
-
-//sio 64000
-#define US_POKEY_DIV_6		0x07			//=> 63921 bps
-#define ATARI_SPEED_6		13				// sio3x speed
-//=13 => F_CPU/16/(13+1) = 63920
-
-// works great!
-#define US_POKEY_DIV_7		0x06			//=> 68838 bps
-#define ATARI_SPEED_7		12				// ULTRA speed - closest match for both systems (AVR,ATARI)
-//=12 => F_CPU/16/(12+1) = 68837
-
-//sio 75000
-#define US_POKEY_DIV_8		0x05			//=> 74575 bps
-#define ATARI_SPEED_8		11				// sio4x speed
-//=11 => F_CPU/16/(11+1) = 74574
-*/
+const unsigned char PROGMEM atari_speed_table[] = {
+	//avr-UBRR	//pokeydiv: Baud Atari, AVR
+	15,		//0: 127842, 125000
+	17,		//1: 111862, 111111
+	19,		//2: 99433, 100000
+	21,		//3: 89490, 90909
+	24,		//4: 81354, 80000
+	26,		//5: 74575, 74074
+	28,		//6: 68838, 68966
+	30,		//7: 63921, 64516
+	33,		//8: 59660, 58824
+	35,		//9: 55931, 55556
+	37,		//10: 52641, 52632
+	50,		//16(index 11): 38908, 39216
+};
 
 unsigned char debug = 0;
 unsigned char mmc_sector_buffer[512];	// one SD sector
@@ -110,7 +81,10 @@ unsigned char n_actual_mmc_sector_needswrite;
 unsigned char atari_sector_buffer[256];
 u08 atari_sector_status = 0xff;
 
-#define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
+////does not work correctly any more, don't know why?
+////But we have enaugh RAM free yet
+//#define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
+char FileFindBuffer[11];
 char DebugBuffer[14];
 
 struct GlobalSystemValues GS;
@@ -222,10 +196,10 @@ void drive_led(unsigned char drive, unsigned char on) {
 	unsigned int col = Grey;
 	unsigned int x,y;
 
-	if(actual_page != 0)
+	if(actual_page != PAGE_MAIN)
 		return;
 
-	struct button *b = &tft.pages[0].buttons[drive];
+	struct button *b = &tft.pages[PAGE_MAIN].buttons[drive];
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 
 	if(flags->selected)
@@ -258,7 +232,7 @@ void set_display(unsigned char n)
 
 	for(i = 0; i < DEVICESNUM; i++) {	//only the first drive buttons
 		//get pointers to dynamic button data
-		b = &tft.pages[0].buttons[i];	//PGM PTR to button
+		b = &tft.pages[PAGE_MAIN].buttons[i];	//PGM PTR to button
 		flags = pgm_read_ptr(&b->flags);
 		name = pgm_read_ptr(&b->name);
 
@@ -278,7 +252,7 @@ void set_display(unsigned char n)
 		}
 	}
 	//redraw display only, if we are on main page
-	if(actual_page == 0)
+	if(actual_page == PAGE_MAIN)
 		draw_Buttons();
 }
 
@@ -369,7 +343,7 @@ int main(void)
 	fastsio_pokeydiv=eeprom_read_byte(&system_fastsio_pokeydiv_default); //definovano v EEPROM
 
 	tft_Setup();
-	tft.pages[0].draw();	//draw main page
+	tft.pages[PAGE_MAIN].draw();	//draw main page
 	if(tft.cfg.boot_d1)
 		actual_drive_number = 1;
 
@@ -438,7 +412,7 @@ int main(void)
 			cmd_buf.dev = 0x71;	//say we are a sdrive cmd
 			process_command();	//set image to drive
 		}
-		actual_page = 0;	//clear the fake
+		actual_page = PAGE_MAIN;	//clear the fake
 		draw_Buttons();		//now redraw buttons
 	}
 	//start with root dir
@@ -547,8 +521,8 @@ ST_IDLE:
 				FileInfo.vDisk = &tmpvDisk;
 				//remember witch D*-button on main page
 				// we have pressed
-				if(actual_page == 0 && name[0] == 'D')
-					drive_number = b-tft.pages[0].buttons;
+				if(actual_page == PAGE_MAIN && name[0] == 'D')
+					drive_number = b-tft.pages[PAGE_MAIN].buttons;
 				//read and...
 				b_func = pgm_read_ptr(&b->pressed);
 				//...call the buttons function
@@ -581,31 +555,35 @@ ST_IDLE:
 				}
 				//it was the N[ew]-Button? Create new file
 				//(reset is done in deactivate drive)
-				if(actual_page == 0 && name[0] == 'N' &&
+				if(actual_page == PAGE_MAIN && name[0] == 'N' &&
 				   actual_drive_number != 0) {
 					vDisk[actual_drive_number].flags |= (FLAGS_ATRNEW);	// | FLAGS_DRIVEON);
-					b = &tft.pages[0].buttons[actual_drive_number];
+					b = &tft.pages[PAGE_MAIN].buttons[actual_drive_number];
 					name = pgm_read_ptr(&b->name);
 					strncpy_P(&name[3], PSTR(">New<       "), 12);
 					draw_Buttons();
 				}
 				//tape mode?
-				if(actual_page == 3 && name[0] == 'S') {
+				if(actual_page == PAGE_TAPE && name[0] == 'S') {
 					if(tape_flags.run) {	//Stop
 						USART_Init(ATARI_SPEED_STANDARD);
 						tape_flags.run = 0;
 						tape_offset = 0;
 						flags->selected = 0;
-						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Stopped...   "));
+						print_str_P(35,135,2,Yellow,window_bg, PSTR("Stopped...   "));
 						draw_Buttons();
 					}
 					else {		//Start
 						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
 						tape_offset = load_FUJI_file();
-						USART_Init(1666); //600 baud
+						//USART_Init(1666); //600 baud (U2X==0)
+						if(tape_flags.turbo)
+							USART_Init(1999); //1000 baud
+						else
+							USART_Init(3332); //600 baud
 						tape_flags.run = 1;
 						flags->selected = 1;
-						print_str_P(35,135,2,Yellow,Light_Grey, PSTR("Sync Wait...   "));
+						print_str_P(35,135,2,Yellow,window_bg, PSTR("Sync Wait...   "));
 						draw_Buttons();
 						if(!tape_flags.FUJI)
 							_delay_ms(10000);	//sync wait
@@ -635,7 +613,7 @@ ST_IDLE:
 			sei();
 		}
 		//scrolling long filename
-		if (tft.cfg.scroll && actual_page == 1 && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
+		if (tft.cfg.scroll && actual_page == PAGE_FILE && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
 			if (select_file_counter > 20000) {
 				sfp++;
 				Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
@@ -725,10 +703,12 @@ change_sio_speed_by_fastsio_active:
 			 as=ATARI_SPEED_STANDARD;	//default speed
 			 //if (fastsio_active) as=fastsio_pokeydiv+6;		//always about 6 vic
 			 if (fastsio_active) {
-				if (fastsio_pokeydiv > 4)
-					as=fastsio_pokeydiv+8;
-				else
-					as=fastsio_pokeydiv+7;
+					//for pokeydiv 16(a. o.) use index 11
+					if(fastsio_pokeydiv > 10)
+						as = pgm_read_byte(&atari_speed_table[11]);
+					//all others are linear
+					else
+						as = pgm_read_byte(&atari_speed_table[fastsio_pokeydiv]);
 			 }
 
 			 USART_Init(as);
@@ -1649,7 +1629,7 @@ Send_ERR_and_DATA:
 			//check for new flag and delete it
 			if (FileInfo.vDisk->flags & FLAGS_ATRNEW)
 				FileInfo.vDisk->flags &= ~FLAGS_ATRNEW;
-			bp = &tft.pages[0].buttons[cmd_buf.aux1];
+			bp = &tft.pages[PAGE_MAIN].buttons[cmd_buf.aux1];
 			name = pgm_read_ptr(&bp->name);
 			strncpy_P(&name[3], PSTR("<empty>     "), 12);
 			set_display(actual_drive_number);
@@ -2184,12 +2164,12 @@ Set_XEX:					// XEX
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
-						bp = &tft.pages[0].buttons[cmd_buf.cmd&0xf];
+						bp = &tft.pages[PAGE_MAIN].buttons[cmd_buf.cmd&0xf];
 						name = pgm_read_ptr(&bp->name);
 						strncpy(&name[3], (char*)atari_sector_buffer, 12);
 						//redraw display only, if we are on
 						//main page
-						if(actual_page == 0)
+						if(actual_page == PAGE_MAIN)
 							draw_Buttons();
 					}
 

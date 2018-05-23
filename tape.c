@@ -20,7 +20,7 @@ unsigned int send_tape_block (unsigned int offset) {
 
         if (offset < FileInfo.vDisk->size) {	//data record
 		sprintf_P((char*)atari_sector_buffer,PSTR("Block %u / %u "),offset/block_len+1,(FileInfo.vDisk->size-1)/block_len+1);
-		print_str(35,135,2,Yellow,Light_Grey, atari_sector_buffer);
+		print_str(35,135,2,Yellow,window_bg, atari_sector_buffer);
 		//read block
                 r = faccess_offset(FILE_ACCESS_READ,offset,block_len);
 		//shift buffer 3 bytes right
@@ -84,25 +84,26 @@ unsigned int load_FUJI_file () {
 
 unsigned int send_FUJI_tape_block (unsigned int offset) {
 	unsigned char r;
-	unsigned int gap;
+	unsigned int gap, len;
 	struct tape_FUJI_hdr *hdr = (struct tape_FUJI_hdr *)atari_sector_buffer;
 
 	//read header
 	faccess_offset(FILE_ACCESS_READ,offset,sizeof(struct tape_FUJI_hdr));
 	gap = hdr->irg_length;	//save GAP
+	len = hdr->chunk_length;
 
 	while(gap--)
 		_delay_ms(1);	//wait GAP
 
         if (offset < FileInfo.vDisk->size) {	//data record
 		sprintf_P((char*)atari_sector_buffer,PSTR("Block %u     "),block);
-		print_str(35,135,2,Yellow,Light_Grey, atari_sector_buffer);
+		print_str(35,135,2,Yellow,window_bg, atari_sector_buffer);
 		//read block
 		offset += sizeof(struct tape_FUJI_hdr);	//skip chunk hdr
-                r = faccess_offset(FILE_ACCESS_READ,offset,block_len+4);
+                r = faccess_offset(FILE_ACCESS_READ,offset,len);
 		offset += r;
 		block++;
-		USART_Send_Buffer(atari_sector_buffer,block_len+4);
+		USART_Send_Buffer(atari_sector_buffer,len);
 		if(atari_sector_buffer[2] == 0xfe) {
 			//most multi stage loaders starting over by self
 			// so do not stop here!

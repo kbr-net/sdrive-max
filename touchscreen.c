@@ -1,11 +1,22 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/eeprom.h>
 #include <util/delay.h>
 #include "avrlibdefs.h"         // global AVRLIB defines
 #include "avrlibtypes.h"        // global AVRLIB types definitions
 #include "touchscreen.h"
 #include "tft.h"
 #include "display.h"
+
+u16 EEMEM MINX = 0xffff;
+u16 EEMEM MINY = 0xffff;
+u16 EEMEM MAXX = 0xffff;
+u16 EEMEM MAXY = 0xffff;
+
+#define TS_MINX eeprom_read_word(&MINX)
+#define TS_MINY eeprom_read_word(&MINY)
+#define TS_MAXX eeprom_read_word(&MAXX)
+#define TS_MAXY eeprom_read_word(&MAXY)
 
 extern unsigned int MAX_X;
 extern unsigned int MAX_Y;
@@ -74,34 +85,30 @@ struct TSPoint getPoint () {
   cli();	//disable interrupts
   setIdling();
 #if defined(HX8347G)
-  if(tft.cfg.rot == PORTRAIT_2) {
-    p.x = map(readTouch(1), TS_MINX, TS_MAXX, MAX_X, 0);
-    p.y = map(readTouch(0), TS_MINY, TS_MAXY, 0, MAX_Y);
-  }
-  else {
     p.x = map(readTouch(1), TS_MINX, TS_MAXX, 0, MAX_X);
-    p.y = map(readTouch(0), TS_MINY, TS_MAXY, MAX_Y, 0);
-  }
-#elif defined(ILI9329)
-  if(tft.cfg.rot == PORTRAIT_2) {
-    p.x = map(readTouch(0), TS_MINX, TS_MAXX, MAX_X, 0);
-    p.y = map(readTouch(1), TS_MINY, TS_MAXY, 0, MAX_Y);
-  }
-  else {
-    p.x = map(readTouch(0), TS_MINX, TS_MAXX, 0, MAX_X);
-    p.y = map(readTouch(1), TS_MINY, TS_MAXY, MAX_Y, 0);
-  }
+    p.y = map(readTouch(0), TS_MINY, TS_MAXY, 0, MAX_Y);
 #else
-  if(tft.cfg.rot == PORTRAIT_2) {
     p.x = map(readTouch(0), TS_MINX, TS_MAXX, 0, MAX_X);
-    p.y = map(readTouch(1), TS_MINY, TS_MAXY, MAX_Y, 0);
-  }
-  else {
-    p.x = map(readTouch(0), TS_MINX, TS_MAXX, MAX_X, 0);
     p.y = map(readTouch(1), TS_MINY, TS_MAXY, 0, MAX_Y);
-  }
 #endif
   restorePorts();
   sei();
   return(p);
+}
+
+struct TSPoint getRawPoint () {
+	cli();
+	setIdling();
+
+#if defined(HX8347G)
+	p.x = readTouch(1);
+	p.y = readTouch(0);
+#else
+	p.x = readTouch(0);
+	p.y = readTouch(1);
+#endif
+
+	restorePorts();
+	sei();
+	return(p);
 }

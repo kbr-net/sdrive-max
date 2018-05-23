@@ -27,9 +27,14 @@
 #define TFT_WR_pin_dir                                                                   PINC1
 #define TFT_RS_pin_dir                                                                   PINC2
 
+//color definitions
+#define atari_bg 0x257b
+#define window_bg 0x528a
+
 #define White                                                                            0xFFFF
 #define Black                                                                            0x0000
-#define Grey                                                                             0xF7DE
+//#define Grey                                                                             0xF7DE
+#define Grey                                                                             0xCE59
 #define Grey2                                                                            0x8430
 #define Light_Grey                                                                       0xC618
 #define Dark_Grey                                                                        0x8410

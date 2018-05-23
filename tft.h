@@ -1,3 +1,9 @@
+#define PAGE_MAIN	0
+#define PAGE_FILE	1
+#define PAGE_CONFIG	2
+#define PAGE_TAPE	3
+#define PAGE_DEBUG	4
+
 struct b_flags {
 	char type : 1;		//ROUND, SQUARE
 	char active : 1;

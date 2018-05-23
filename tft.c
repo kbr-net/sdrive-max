@@ -12,6 +12,7 @@
 #include "touchscreen.h"
 #include "tft.h"
 #include "fat.h"
+#include "tape.h"
 
 extern unsigned char debug;
 extern char atari_sector_buffer[];
@@ -19,15 +20,14 @@ extern struct FileInfoStruct FileInfo;
 extern virtual_disk_t vDisk[];
 //extern struct GlobalSystemValues GS;
 
-#define	atari_bg 0x257b
-
-unsigned char actual_page = 0;
+unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
+const char PROGMEM known_extensions[][3] = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
 struct TSPoint p;
 
 void main_page();
@@ -40,6 +40,11 @@ struct display tft;
 
 unsigned char EEMEM cfg = 0xfb;	//config byte on eeprom, initial value is all on except boot_d1
 struct file_save EEMEM image_store[DEVICESNUM-1] = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
+extern u16 EEMEM MINX;
+extern u16 EEMEM MINY;
+extern u16 EEMEM MAXX;
+extern u16 EEMEM MAXY;
+
 
 unsigned int action_b0 (struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
@@ -50,7 +55,7 @@ unsigned int action_b0 (struct button *b) {
 unsigned int action_b1_4 (struct button *b) {
 
 	if(p.x > 200) {	//file select page
-		actual_page = 1;
+		actual_page = PAGE_FILE;
 		sei();
 		tft.pages[actual_page].draw();
 	}
@@ -65,16 +70,25 @@ unsigned int action_b1_4 (struct button *b) {
 }
 
 unsigned int action_tape (struct button *b) {
-	actual_page = 1;
+	actual_page = PAGE_FILE;
 	tape_mode = 1;
+	tape_flags.turbo = 0;	//start with no turbo
 	sei();
 	tft.pages[actual_page].draw();
 	return(0);
 }
 
+unsigned int action_tape_turbo (struct button *b) {
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
+	flags->selected = ~flags->selected;
+	tape_flags.turbo = ~tape_flags.turbo;
+	draw_Buttons();
+	return(0);
+}
+
 unsigned int action_cancel () {
 	//on file_page reset file index to same page
-	if (actual_page == 1)
+	if (actual_page == PAGE_FILE)
 		next_file_idx -= 10;
 	//on debug_page deactivate them
 	else {
@@ -82,7 +96,7 @@ unsigned int action_cancel () {
 		tape_mode = 0;
 	}
 	//and reset to main_page
-	actual_page = 0;
+	actual_page = PAGE_MAIN;
 	tft.pages[actual_page].draw();
 	return(0);
 }
@@ -101,6 +115,7 @@ void pretty_name(char *b) {	//insert dot in filename.ext
 unsigned int list_files () {
 	unsigned int i;
 	unsigned int col;
+	unsigned char e;
 
 	if(!nfiles)
 		while (fatGetDirEntry(nfiles,0)) nfiles++;
@@ -119,8 +134,19 @@ unsigned int list_files () {
 		if(fatGetDirEntry(i,0)) {
 			if(FileInfo.Attr & ATTR_DIRECTORY)	//other color
 				col = 0x07ff;
-			else
-				col = Green;
+			else {
+				col = Green - 0x1863;
+				for(e=0; e < (sizeof(known_extensions)/3); e++)
+				{
+					if(atari_sector_buffer[8] == pgm_read_byte(&known_extensions[e][0]) &&
+					   atari_sector_buffer[9] == pgm_read_byte(&known_extensions[e][1]) &&
+					   atari_sector_buffer[10] == pgm_read_byte(&known_extensions[e][2]) )
+					{
+					    col = Green;
+					    break;	//one match is enaugh
+					}
+				}
+			}
 			//if extension, insert dot
 			if(atari_sector_buffer[8] != ' ')
 				pretty_name(atari_sector_buffer);
@@ -130,12 +156,12 @@ unsigned int list_files () {
 				atari_sector_buffer[12] = 0;
 			}
 			if(i == file_selected)
-				print_ln(2,0xfff0,Light_Grey,atari_sector_buffer);
+				print_ln(2,0xfff0,window_bg,atari_sector_buffer);
 			else
-				print_ln(2,col,Light_Grey,atari_sector_buffer);
+				print_ln(2,col,window_bg,atari_sector_buffer);
 		}
 		else
-			print_ln_P(2,Green,Light_Grey,PSTR("            "));
+			print_ln_P(2,Green,window_bg,PSTR("            "));
 	}
 	next_file_idx = i;
 	return(0);
@@ -231,10 +257,10 @@ was_root:	//outbox(path);
 }
 
 unsigned int action_ok () {
-	actual_page = 0;
+	actual_page = PAGE_MAIN;
 	next_file_idx -= 10;
 	if(tape_mode) {
-		actual_page = 3;
+		actual_page = PAGE_TAPE;
 		file_selected = 0;
 	}
 	tft.pages[actual_page].draw();
@@ -242,7 +268,7 @@ unsigned int action_ok () {
 }
 
 unsigned int action_cfg () {
-	actual_page = 2;
+	actual_page = PAGE_CONFIG;
 	tft.pages[actual_page].draw();
 	return(0);
 }
@@ -259,6 +285,7 @@ unsigned int action_save_cfg () {
 	struct button *b;
 	struct b_flags *flags;
 	unsigned char i;
+	unsigned char rot = tft.cfg.rot;
 
 	*(char*)&tft.cfg = 0;	//clear first
 	for(i = 0; i < 4; i++) {
@@ -281,8 +308,88 @@ unsigned int action_save_cfg () {
 			}
 		}
 	}
-	TFT_set_rotation(tft.cfg.rot);
+	if(rot != tft.cfg.rot) {	//rotation has changed? Then...
+		eeprom_update_word(&MINX, 0xffff);	//force new calibration
+		tft_Setup();
+	}
 	action_cancel();
+	return(0);
+}
+
+unsigned int action_cal () {
+	int px1,px2,py1,py2,diff;
+	const unsigned int b = 20;	//offset from border
+	unsigned int x = b;
+	unsigned int y = b;
+	unsigned char i;
+
+	TFT_fill(Black);
+
+	for(i = 0; i < 4; i++) {
+		Draw_H_Line(x-10,x+10,y,White);
+		Draw_V_Line(x,y-10,y+10,White);
+		while(isTouching());	//wait for release
+		while(!isTouching());
+		p = getRawPoint();
+		switch (i) {
+			case 0:
+				px1 = p.x;
+				py1 = p.y;
+				x = tft.width-b;
+				break;
+			;;
+			case 1:
+				px2 = p.x;
+				py1 = (py1 + p.y) / 2;	//middle
+				y = tft.heigth-b;
+				break;
+			;;
+			case 2:
+				px2 = (px2 + p.x) / 2;	//middle
+				py2 = p.y;
+				x = b;
+				break;
+			;;
+			case 3:
+				px1 = (px1 + p.x) / 2;	//middle
+				py2 = (py2 + p.y) / 2;	//middle
+		}
+		//print_I(10,50,1,White,Black,p.x);
+		//print_I(40,50,1,White,Black,p.y);
+	}
+
+	while(isTouching());
+
+/*	//print raw values, for debug only
+	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);
+	print_str(20, tft.heigth/2-20, 1, White, Black, atari_sector_buffer);
+*/
+	//strech values to whole screen size
+        diff = (px2 - px1)/(tft.width-b*2.0)*tft.width;
+        diff -= (px2 - px1);
+        diff /= 2;
+	px1 -= diff;
+	px2 += diff;
+
+	//same thing for Y
+        diff = (py2 - py1)/(tft.heigth-b*2.0)*tft.heigth;
+        diff -= (py2 - py1);
+        diff /= 2;
+	py1 -= diff;
+	py2 += diff;
+
+	//print results
+	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);
+	print_str(20, tft.heigth/2, 1, White, Black, atari_sector_buffer);
+
+	//write it to EEPROM
+	eeprom_update_word(&MINX, px1);
+	eeprom_update_word(&MAXX, px2);
+	eeprom_update_word(&MINY, py1);
+	eeprom_update_word(&MAXY, py2);
+
+	//wait for one more touch to continue
+	while(!isTouching());
 	return(0);
 }
 
@@ -311,7 +418,7 @@ const struct button PROGMEM buttons_file[] = {
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel},
 	{"Next",164,205,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files},
 	{"Last",164,245,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files_last},
-	{"File",15,45,80,240,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_select}
+	{"File",15,45,150,240,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_select}
 };
 
 //keep the order analog to struct tft.cfg, otherwise read/write function
@@ -335,6 +442,7 @@ const struct button PROGMEM buttons_cfg[] = {
 
 const struct button PROGMEM buttons_tape[] = {
 	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},press},
+	{"Tur",105,165,50,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_turbo},
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
 
@@ -423,7 +531,7 @@ void _outbox(char *txt, char P) {
 	outy += 8;
 	if (scroll) {
 		if (outy > tft.heigth-8) {
-			if (actual_page == 3)
+			if (actual_page == PAGE_DEBUG)
 				outy = 10;
 			else
 				outy = 284;
@@ -452,7 +560,7 @@ void main_page () {
 
 	//Header
 	print_str_P(20, 10, 2, Orange, Black, PSTR("SDrive-MAX"));
-	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.6"));
+	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.7"));
 	Draw_H_Line(0,tft.width,30,Orange);
 
 	draw_Buttons();
@@ -468,7 +576,7 @@ void main_page () {
 
 void file_page () {
 
-	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,Light_Grey,Black);
+	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
@@ -482,7 +590,7 @@ void config_page () {
 	struct b_flags *flags;
 	unsigned int i;
 
-	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,Light_Grey,Black);
+	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
@@ -497,10 +605,10 @@ void config_page () {
 }
 
 void tape_page () {
-	Draw_Rectangle(10,100,tft.width-11,200,1,SQUARE,Light_Grey,Black);
+	Draw_Rectangle(10,100,tft.width-11,200,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,100,tft.width-11,200,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,101,tft.width-12,199,0,SQUARE,Grey,Black);
-	print_str_P(70, 105, 2, Orange, Light_Grey, PSTR("Tape-Emu"));
+	print_str_P(70, 105, 2, Orange, window_bg, PSTR("Tape-Emu"));
 	Draw_H_Line(12,tft.width-13,122,Orange);
 	draw_Buttons();
 }
@@ -518,7 +626,7 @@ unsigned int debug_page () {
 	print_char(10,18,1,White,atari_bg,0x80);
 
 	debug = 1;
-	actual_page = 4;
+	actual_page = PAGE_DEBUG;
 	return(0);
 }
 
@@ -532,6 +640,11 @@ void tft_Setup() {
 	sprintf_P(atari_sector_buffer, PSTR("TFT-ID: %.04x"), id);
 	//outbox(atari_sector_buffer);
 	print_str(20, 290, 2, White, Black, atari_sector_buffer);
+	//check if touchscreen needs calibration
+	if(eeprom_read_word(&MINX) == 0xffff || isTouching() ) {
+		TFT_on();
+		action_cal();
+	}
 }
 
 struct button * check_Buttons() {
