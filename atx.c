@@ -177,7 +177,7 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
                 extSectorData = (struct atxExtendedSectorData *) atari_sector_buffer;
                 // if the target sector has a weak data flag, grab the start weak offset within the sector data
                 if (extSectorData->sectorIndex == tgtSectorIndex && extSectorData->type == 0x10) {
-                    weakOffset = extSectorData->type;
+                    weakOffset = extSectorData->data;
                 }
             }
             currentFileOffset += sizeof(struct atxExtendedSectorData);
