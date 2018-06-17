@@ -165,7 +165,7 @@ void USART_Send_atari_sector_buffer_and_check_sum(unsigned short len, unsigned c
 	//	Delay300us();	//po ACKu pred CMPL pauza 250us - 255sec
 	//Kdyz bylo jen 300us tak nefungovalo
 	//_delay_us(800);	//t5
-	if (debug) {
+	if (debug) {		//takes about 13ms!
 		if (status)
 			sio_debug('E');
 		else
