@@ -34,11 +34,12 @@ extern unsigned char atari_sector_buffer[256];
 
 u16 gBytesPerSector;                    // number of bytes per sector
 u08 gSectorsPerTrack;                   // number of sectors in each track
-struct atxTrackInfo gTrackInfo[40];     // pre-calculated info for each track
+struct atxTrackInfo gTrackInfo[2][40];	// pre-calculated info for each track and drive
+					// support slot D1 and D2 only because of to less RAM!
 u16 gLastAngle;
 u08 gLastTrack = 0;
 
-u16 loadAtxFile() {
+u16 loadAtxFile(u08 drive) {
     struct atxFileHeader *fileHeader;
     struct atxTrackHeader *trackHeader;
 
@@ -68,14 +69,14 @@ u16 loadAtxFile() {
             break;
         }
         trackHeader = (struct atxTrackHeader*)atari_sector_buffer;
-        gTrackInfo[trackHeader->trackNumber].offset = startOffset;
+        gTrackInfo[drive][trackHeader->trackNumber].offset = startOffset;
         startOffset += trackHeader->size;
     }
 
     return gBytesPerSector;
 }
 
-u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
+u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     struct atxTrackHeader *trackHeader;
     struct atxSectorListHeader *slHeader;
     struct atxSectorHeader *sectorHeader;
@@ -102,7 +103,7 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 	return 0;
 
     // read the track header
-    u32 currentFileOffset = gTrackInfo[tgtTrackNumber - 1].offset;
+    u32 currentFileOffset = gTrackInfo[drive][tgtTrackNumber - 1].offset;
     faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackHeader));
     trackHeader = (struct atxTrackHeader*)atari_sector_buffer;
     u16 sectorCount = trackHeader->sectorCount;
@@ -171,7 +172,7 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 
     // read through the extended data records if any were found
     if (extendedDataRecords > 0) {
-        currentFileOffset = gTrackInfo[tgtTrackNumber - 1].offset + maxSectorOffset + gBytesPerSector;
+        currentFileOffset = gTrackInfo[drive][tgtTrackNumber - 1].offset + maxSectorOffset + gBytesPerSector;
         for (i=0; i < extendedDataRecords; i++) {
             if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxExtendedSectorData))) {
                 extSectorData = (struct atxExtendedSectorData *) atari_sector_buffer;
@@ -188,7 +189,7 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     *sectorSize = gBytesPerSector;
 
     // read the data (re-using tgtSectorIndex variable here to reduce stack consumption)
-    tgtSectorIndex = tgtSectorOffset ? (u16)faccess_offset(FILE_ACCESS_READ, gTrackInfo[tgtTrackNumber - 1].offset + tgtSectorOffset, gBytesPerSector) : (u16)0;
+    tgtSectorIndex = tgtSectorOffset ? (u16)faccess_offset(FILE_ACCESS_READ, gTrackInfo[drive][tgtTrackNumber - 1].offset + tgtSectorOffset, gBytesPerSector) : (u16)0;
     tgtSectorIndex = hasError ? (u16)0 : tgtSectorIndex;
 
     // if a weak offset is defined, randomize the appropriate data

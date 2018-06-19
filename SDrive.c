@@ -1179,7 +1179,7 @@ percom_prepared:
 			{
                 if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
                 {
-                    if (!loadAtxSector(n_sector, &atari_sector_size, &atari_sector_status)) {
+                    if (!loadAtxSector(virtual_drive_number, n_sector, &atari_sector_size, &atari_sector_status)) {
                         goto Send_ERR_and_DATA;
                     }
                 }
@@ -2091,11 +2091,12 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 		case 0xFF:  // set actual directory
 			{
 			unsigned char ret;
+			unsigned char drive = cmd_buf.cmd & 0xf;
 
-			if ( (cmd_buf.cmd&0xf) < DEVICESNUM )
+			if ( drive < DEVICESNUM )
 			{
 				//set pointer to corresponding drive
-				FileInfo.vDisk = &vDisk[cmd_buf.cmd&0xf];
+				FileInfo.vDisk = &vDisk[drive];
 				//copy dir_cluster from tmp Struct
 				FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 			}
@@ -2186,7 +2187,11 @@ Command_EC_F0_FF_found:
                           atari_sector_buffer[10] == 'X' )
                     {
                         //ATX
-                        loadAtxFile(); // TODO: check return value
+			if (drive > 2) {	// support first 2 drives only because of to less RAM!
+				outbox_P(PSTR("only 2 drives!"));
+				break;
+			}
+                        loadAtxFile(drive);	// TODO: check return value
                         FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
                     }
 					else
@@ -2195,11 +2200,11 @@ Set_XEX:					// XEX
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 
-					if((cmd_buf.cmd&0xf) != 0 && ((cmd_buf.cmd&0xf) < DEVICESNUM)) {
+					if(drive != 0 && drive < DEVICESNUM) {
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
-						bp = &tft.pages[PAGE_MAIN].buttons[cmd_buf.cmd&0xf];
+						bp = &tft.pages[PAGE_MAIN].buttons[drive];
 						name = pgm_read_ptr(&bp->name);
 						strncpy(&name[3], (char*)atari_sector_buffer, 12);
 						//redraw display only, if we are on
