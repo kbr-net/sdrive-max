@@ -9,7 +9,7 @@
 //#pragma once
 //#include <stdint.h>
 
-#if ! defined(ILI9329) && ! defined(HX8347G)
+#if ! defined(ILI9329) && ! defined(HX8347G) && ! defined(ILI9340)
 //Touch For New ILI9341 TP
 /* no more needed, will be calibrated now
 #define TS_MINX 120

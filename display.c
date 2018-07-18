@@ -17,6 +17,10 @@ void TFT_init()
 //    TFT_write_cmd(ILI9341_RESET);
 //    TFT_write_cmd(ILI9341_DISPLAY_INVERSION_ON);
 //    TFT_write(0x00);
+#elif ILI9340
+	delay_ms(200);
+    TFT_write_cmd(ILI9341_DISPLAY_INVERSION_ON);
+//    TFT_write(0x00);
 #else
     delay_ms(60);
 #endif
@@ -76,14 +80,14 @@ void TFT_GPIO_init()
 {
     TFT_port_config_low |= 0x03;
     TFT_port_config_high |= 0xFC;
-    
+
     //output
     TFT_ctrl_ddr |= 1 << TFT_RST_pin_dir;
     TFT_ctrl_ddr |= 1 << TFT_CS_pin_dir;
     TFT_ctrl_ddr |= 1 << TFT_RD_pin_dir;
     TFT_ctrl_ddr |= 1 << TFT_WR_pin_dir;
     TFT_ctrl_ddr |= 1 << TFT_RS_pin_dir;
-    //RD/WR initial high 
+    //RD/WR initial high
     TFT_ctrl_port |= (1 << TFT_CS_pin);
     TFT_ctrl_port |= (1 << TFT_RD_pin);
     TFT_ctrl_port |= (1 << TFT_WR_pin);
@@ -1028,7 +1032,7 @@ void print_D(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, un
 
     ch[0] = 0x2E;
     ch[1] = ((value / 1000) + 0x30);
-    
+
     if(points > 1)
     {
         ch[2] = (((value % 1000) / 100) + 0x30);
@@ -1036,7 +1040,7 @@ void print_D(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, un
         if(points > 2)
         {
             ch[3] = (((value % 100) / 10) + 0x30);
-            
+
             if(points > 3)
             {
                 ch[4] = ((value % 10) + 0x30);
