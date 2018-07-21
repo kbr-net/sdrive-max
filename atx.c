@@ -28,12 +28,14 @@
 
 // number of angular units in a full disk rotation
 #define AU_FULL_ROTATION         26042
+// number of angular units to read one sector
+#define AU_ONE_SECTOR_READ       1208
 // number of ms for each angular unit
 #define MS_ANGULAR_UNIT_VAL      0.007999897601
 // number of milliseconds drive takes to process a request
 #define MS_DRIVE_REQUEST_DELAY   3.22
-// number of angular units drive takes to read sector & calculate CRC
-#define AU_SECTOR_READ_PLUS_CRC  1500.0
+// number of milliseconds to calculate CRC
+#define MS_CRC_CALCULATION       2
 // number of milliseconds drive takes to step 1 track
 #define MS_TRACK_STEP            5.3
 // number of milliseconds drive head takes to settle after track stepping
@@ -230,9 +232,11 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
         rotationDelay = (AU_FULL_ROTATION - headPosition + gLastAngle);
     }
 
-    // delay for rotational delay, sector read and CRC calculation
-    // can the SD card read take more time than the amount the disk would have rotated?
-    waitForAngularPosition(incAngularDisplacement(incAngularDisplacement(headPosition, rotationDelay), AU_SECTOR_READ_PLUS_CRC));
+    // delay for rotational delay and sector read (can the SD card read take more time than the amount the disk would have rotated?)
+    waitForAngularPosition(incAngularDisplacement(incAngularDisplacement(headPosition, rotationDelay), AU_ONE_SECTOR_READ));
+
+    // delay for CRC calculation
+    _delay_ms(MS_CRC_CALCULATION);
 
     // return the number of bytes read
     return tgtSectorIndex;
