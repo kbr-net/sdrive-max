@@ -86,4 +86,6 @@ u16 loadAtxFile(u08 drive);
 // load data for a specific disk sector (returns number of data bytes read or 0 if sector not found)
 u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status);
 
+u16 getCurrentHeadPosition();
+
 #endif //ATX_TEST_ATX_H

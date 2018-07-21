@@ -80,6 +80,7 @@ u32 n_actual_mmc_sector;
 unsigned char n_actual_mmc_sector_needswrite;
 unsigned char atari_sector_buffer[256];
 u08 atari_sector_status = 0xff;
+u16 last_angle_returned;
 
 ////does not work correctly any more, don't know why?
 ////But we have enaugh RAM free yet
@@ -318,7 +319,7 @@ void process_command();	//define, because it's after main!
 
 void sio_debug (char status) {
 	//print the last cmd
-	sprintf_P(DebugBuffer, PSTR("%.2x %.2x %.2x %.2x %c"), cmd_buf.dev, cmd_buf.cmd, cmd_buf.aux1, cmd_buf.aux2, status);
+	sprintf_P(DebugBuffer, PSTR("%.2x %.2x %.2x %.2x %c %u"), cmd_buf.dev, cmd_buf.cmd, cmd_buf.aux1, cmd_buf.aux2, status, last_angle_returned);
 	outbox(DebugBuffer);
 }
 
