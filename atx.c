@@ -27,17 +27,17 @@
 #include "fat.h"
 
 // number of angular units in a full disk rotation
-#define AU_FULL_ROTATION        26042
+#define AU_FULL_ROTATION         26042
 // number of ms for each angular unit
-#define MS_ANGULAR_UNIT_VAL     0.007999897601
+#define MS_ANGULAR_UNIT_VAL      0.007999897601
 // number of milliseconds drive takes to process a request
-#define MS_DRIVE_REQUEST_DELAY  2.4
-// number of milliseconds drive takes to read sector & calculate CRC
-#define MS_SECTOR_READ_PLUS_CRC 11
+#define MS_DRIVE_REQUEST_DELAY   3.22
+// number of angular units drive takes to read sector & calculate CRC
+#define AU_SECTOR_READ_PLUS_CRC  1500.0
 // number of milliseconds drive takes to step 1 track
-#define MS_TRACK_STEP           5.3
+#define MS_TRACK_STEP            5.3
 // number of milliseconds drive head takes to settle after track stepping
-#define MS_HEAD_SETTLE          10
+#define MS_HEAD_SETTLE           10
 
 struct atxTrackInfo {
     u32 offset;   // absolute position within file for start of track header
@@ -223,21 +223,37 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     t2 = getCurrentHeadPosition();
 
     // calculate rotational delay of sector seek
-    double rotationDelay;
+    u16 rotationDelay;
     if (gLastAngle > headPosition) {
-        rotationDelay = (gLastAngle - headPosition) * MS_ANGULAR_UNIT_VAL;
+        rotationDelay = (gLastAngle - headPosition);
     } else {
-        rotationDelay = (AU_FULL_ROTATION - headPosition + gLastAngle) * MS_ANGULAR_UNIT_VAL;
+        rotationDelay = (AU_FULL_ROTATION - headPosition + gLastAngle);
     }
 
-    // delay for rotational delay, sector read and CRC calculation (minus the actual time it took to read from SD card)
-    double delayMs = rotationDelay + MS_SECTOR_READ_PLUS_CRC - ((t2 - headPosition) * MS_ANGULAR_UNIT_VAL);
-    for (i=0; i < delayMs; i++) {
-        _delay_ms(1);
-    }
+    // delay for rotational delay, sector read and CRC calculation
+    // can the SD card read take more time than the amount the disk would have rotated?
+    waitForAngularPosition(incAngularDisplacement(incAngularDisplacement(headPosition, rotationDelay), AU_SECTOR_READ_PLUS_CRC));
 
     // return the number of bytes read
     return tgtSectorIndex;
+}
+
+u16 incAngularDisplacement(u16 start, u16 delta) {
+    u16 ret = start + delta;
+    if (ret > AU_FULL_ROTATION) {
+        ret -= AU_FULL_ROTATION;
+    }
+    return ret;
+}
+
+void waitForAngularPosition(u16 pos) {
+    // if the position is less than the current counter, we need to wait for a rollover to occur
+    if (pos < TCNT1 / 2) {
+        TIFR1 |= _BV(OCF1A);
+        while (!(TIFR1 & _BV(OCF1A)));
+    }
+    // wait for the counter to reach that target position
+    while (TCNT1 / 2 < pos);
 }
 
 u16 getCurrentHeadPosition() {
