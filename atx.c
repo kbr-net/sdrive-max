@@ -98,7 +98,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     struct atxSectorHeader *sectorHeader;
     struct atxExtendedSectorData *extSectorData;
 
-    u16 i, t2;
+    u16 i;
     u16 tgtSectorIndex = 0;         // the index of the target sector within the sector list
     u32 tgtSectorOffset = 0;        // the offset of the target sector data
     BOOL hasError = (BOOL) FALSE;   // flag for drive status errors
@@ -220,9 +220,6 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
             atari_sector_buffer[i] = (unsigned char) (rand() % 256);
         }
     }
-
-    // get time after read from SD card
-    t2 = getCurrentHeadPosition();
 
     // calculate rotational delay of sector seek
     u16 rotationDelay;
