@@ -243,6 +243,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
 }
 
 u16 incAngularDisplacement(u16 start, u16 delta) {
+    // increment an angular position by a delta taking a full rotation into consideration
     u16 ret = start + delta;
     if (ret > AU_FULL_ROTATION) {
         ret -= AU_FULL_ROTATION;
@@ -251,15 +252,21 @@ u16 incAngularDisplacement(u16 start, u16 delta) {
 }
 
 void waitForAngularPosition(u16 pos) {
-    // if the position is less than the current counter, we need to wait for a rollover to occur
+    // if the position is less than the current timer, we need to wait for a rollover 
+    // to occur
     if (pos < TCNT1 / 2) {
         TIFR1 |= _BV(OCF1A);
         while (!(TIFR1 & _BV(OCF1A)));
     }
-    // wait for the counter to reach that target position
+    // wait for the timer to reach the target position
     while (TCNT1 / 2 < pos);
 }
 
 u16 getCurrentHeadPosition() {
+    // TCNT1 is a variable driven by an Atmel timer that ticks every 4 microseconds. A full 
+    // rotation of the disk is represented in an ATX file by an angular positional value 
+    // between 1-26042 (or 8 microseconds based on 288 rpms). So, TCNT1 / 2 always gives the 
+    // current angular position of the drive head on the track any given time assuming the 
+    // disk is spinning continously.
     return TCNT1 / 2;
 }
