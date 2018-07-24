@@ -86,7 +86,7 @@ u16 last_angle_returned;
 ////But we have enaugh RAM free yet
 //#define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
 char FileFindBuffer[11];
-char DebugBuffer[14];
+char DebugBuffer[20];
 
 struct GlobalSystemValues GS;
 struct FileInfoStruct FileInfo;			//< file information for last file accessed
