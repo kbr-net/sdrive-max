@@ -229,7 +229,9 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
         rotationDelay = (AU_FULL_ROTATION - headPosition + gLastAngle);
     }
 
-    // delay for rotational delay and sector read (can the SD card read take more time than the amount the disk would have rotated?)
+    // determine the angular position we need to wait for by summing the head position, rotational delay and the number 
+    // of rotational units for a sector read. Then wait for the head to reach that position.
+    // (Concern: can the SD card read take more time than the amount the disk would have rotated?)
     waitForAngularPosition(incAngularDisplacement(incAngularDisplacement(headPosition, rotationDelay), AU_ONE_SECTOR_READ));
 
     // delay for CRC calculation
