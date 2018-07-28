@@ -39,7 +39,7 @@
 // number of milliseconds drive takes to step 1 track
 #define MS_TRACK_STEP            5.3
 // number of milliseconds drive head takes to settle after track stepping
-#define MS_HEAD_SETTLE           10
+#define MS_HEAD_SETTLE           0
 
 struct atxTrackInfo {
     u32 offset;   // absolute position within file for start of track header
@@ -53,7 +53,7 @@ u08 gSectorsPerTrack;                   // number of sectors in each track
 struct atxTrackInfo gTrackInfo[2][40];  // pre-calculated info for each track and drive
                                         // support slot D1 and D2 only because of insufficient RAM!
 u16 gLastAngle = 0;
-u08 gCurrentHeadTrack = 0;
+u08 gCurrentHeadTrack = 1;
 
 u16 loadAtxFile(u08 drive) {
     struct atxFileHeader *fileHeader;
