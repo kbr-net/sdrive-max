@@ -1,9 +1,5 @@
-atmega328-hx8347g/
-!atmega328-hx8347g/Makefile
-atmega328-ili9329/
-!atmega328-ili9329/Makefile
-atmega328-ili9341/
-!atmega328-ili9341/Makefile
-!atmega328-ili9341/README
-sdrive-ctrl/
+atmega328-*/
+!atmega328-*/Makefile
+!atmega328-*/README
+sdrive-ctrl/*.com
 .idea/
