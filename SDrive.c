@@ -56,7 +56,12 @@
 
 #define US_POKEY_DIV_DEFAULT	0x06		//#6   => 68838 bps
 
-#define US_POKEY_DIV_MAX		(255-6)		//pokeydiv 249 => avrspeed 255 (vic nemuze)
+//#define US_POKEY_DIV_MAX		(255-6)		//pokeydiv 249 => avrspeed 255 (vic nemuze)
+// Hias: bit-banging serial code limits maximum divisor to 119:
+// avrspeed = divisor + 6 = 125
+// bit-bang-delay = 2*avrspeed = 250
+// start-bit-delay = bit-bang-delay + 5 = 255
+#define US_POKEY_DIV_MAX		119
 
 const unsigned char PROGMEM atari_speed_table[] = {
 	//avr-UBRR	//pokeydiv: Baud Atari, AVR
@@ -349,6 +354,9 @@ int main(void)
 	// command-pin
 	CMD_PORTREG |= 1 << CMD_PIN;	// with pullup
 	CMD_DDR &= ~(1 << CMD_PIN);	// to input
+
+	sbi(DDRD,1); // Bit-Banging TxD output
+	sbi(PORTD,1); // set high/idle
 
 	//interrupts
 	PCICR = (1<<PCIE1);

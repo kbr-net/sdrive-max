@@ -55,7 +55,7 @@ CFLAGS += $(CDEFS)
 ## Objects that must be built in order to link
 #OBJECTS = SDrive.o spi.o mmc.o fat.o delay100us.o timer.o
 OBJECTS = SDrive.o spi.o mmc.o fat.o usart.o tft.o display.o touchscreen.o atx.o
-OBJECTS += tape.o
+OBJECTS += tape.o bitbang.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -80,6 +80,9 @@ fat.o: ../fat.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 usart.o: ../usart.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+bitbang.o: ../bitbang.S
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 tft.o: ../tft.c

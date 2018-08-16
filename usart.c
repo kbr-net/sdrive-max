@@ -34,6 +34,9 @@ extern void sio_debug(char status);
 
 extern unsigned char atari_sector_buffer[256];
 //extern unsigned char last_key;
+// tx_checksum is automatically updated by the bit-banging
+// USART_Transmit_Byte routine
+unsigned char tx_checksum;
 
 unsigned char get_checksum (unsigned char* buffer, u16 len) {
 	u16 i;
@@ -60,12 +63,28 @@ void USART_Init ( u16 value ) {
 	UBRRL = value & 0xff;
 #endif
 
+/* parameters for bit-banging serial transmission: */
+/* total bit duration is 17+bit_delay*8 Atmel cycles */
+/* value is pokey divisor plus 6, so we have to multiply it */
+/* by 2 to get the correct delay: */
+	//bit_delay = 2*value;
+/* stretch start bit by 5 Atari cycles (40 Atmel cycles) */
+/* to account for awkward pokey sampling (shifted by 5 cycles) */
+	//start_bit_delay = bit_delay + 5;
+
 	/* Set double speed flag */
 	UCSRA = (1<<UDRE)|(1<<U2X); //double speed
 	//UCSRA = (1<<UDRE);
 
 	/* Enable Receiver and Transmitter */
-	UCSRB = (1<<RXEN)|(1<<TXEN);
+	//UCSRB = (1<<RXEN)|(1<<TXEN);
+
+	/* Enable Receiver */
+	UCSRB = (1<<RXEN);
+
+	/* set TxD high (idle) */
+	sbi(PORTD, PIND1);
+
 	/* Set frame format: 8data, 1stop bit */
 	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0);
 	{
@@ -74,13 +93,8 @@ void USART_Init ( u16 value ) {
 	}
 }
 
-void USART_Transmit_Byte( unsigned char data ) {
-	/* Wait for empty transmit buffer */
-	while ( !( UCSRA & (1<<UDRE)) )	;
-
-	/* Put data into buffer, sends the data */
-	UDR = data;
-}
+/* use bit-banging implementation */
+extern void USART_Transmit_Byte( unsigned char data );
 
 unsigned char USART_Receive_Byte( void ) {
 	/* Wait for data to be received */
@@ -160,7 +174,7 @@ u08 USART_Get_buffer_and_check_and_send_ACK_or_NACK(unsigned char *buff, u16 len
 }
 
 void USART_Send_atari_sector_buffer_and_check_sum(unsigned short len, unsigned char status) {
-	u08 check_sum;
+	//u08 check_sum;
 
 	//	Delay300us();	//po ACKu pred CMPL pauza 250us - 255sec
 	//Kdyz bylo jen 300us tak nefungovalo
@@ -184,7 +198,13 @@ void USART_Send_atari_sector_buffer_and_check_sum(unsigned short len, unsigned c
 	//Delay800us();	//t6
 	_delay_us(200);	//<--pouziva se i u commandu 3F
 
+	tx_checksum = 0;
 	USART_Send_Buffer(atari_sector_buffer,len);
+/*
 	check_sum = get_checksum(atari_sector_buffer,len);
 	USART_Transmit_Byte(check_sum);
+*/
+	// tx_checksum is updated by bit-banging USART_Transmit_Byte,
+	// so we can skip separate calculation
+	USART_Transmit_Byte(tx_checksum);
 }
