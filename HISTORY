@@ -1,3 +1,9 @@
+v0.8:
+- drive motor simulation
+- support for timing based sector access on ATX files
+- some more fixes in ATX file handling
+- added support for ILI9340 display
+
 v0.7:
 - fixed error in FileFind function
 - fixed scrolling issue on tape- and debug page
