@@ -29,7 +29,7 @@
 
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	0
-#define SWVERSIONMINOR	7
+#define SWVERSIONMINOR	8
 //#define DEVID		0x53444e47
 //#define DEVID		0x474e4453	// SDNG reverse!
 
@@ -80,12 +80,13 @@ u32 n_actual_mmc_sector;
 unsigned char n_actual_mmc_sector_needswrite;
 unsigned char atari_sector_buffer[256];
 u08 atari_sector_status = 0xff;
+u16 last_angle_returned;
 
 ////does not work correctly any more, don't know why?
 ////But we have enaugh RAM free yet
 //#define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
 char FileFindBuffer[11];
-char DebugBuffer[14];
+char DebugBuffer[20];
 
 struct GlobalSystemValues GS;
 struct FileInfoStruct FileInfo;			//< file information for last file accessed
@@ -310,6 +311,7 @@ void Clear_atari_sector_buffer_256()
 ////some more globals
 struct sio_cmd cmd_buf;
 unsigned char virtual_drive_number;
+unsigned char motor = 0;
 //Parameters
 struct SDriveParameters sdrparams;
 
@@ -317,8 +319,28 @@ void process_command();	//define, because it's after main!
 
 void sio_debug (char status) {
 	//print the last cmd
-	sprintf_P(DebugBuffer, PSTR("%.2x %.2x %.2x %.2x %c"), cmd_buf.dev, cmd_buf.cmd, cmd_buf.aux1, cmd_buf.aux2, status);
+	sprintf_P(DebugBuffer, PSTR("%.2x %.2x %.2x %.2x %c %u"), cmd_buf.dev, cmd_buf.cmd, cmd_buf.aux1, cmd_buf.aux2, status, last_angle_returned);
 	outbox(DebugBuffer);
+}
+
+void motor_on () {
+	TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
+							// 16MHz/64 = 250KHz(4µs)
+	motor = 1;
+	Draw_Circle(5,5,3,1,Green);
+}
+
+void motor_off () {
+	TCCR1B = 0;	// Timer 1 stop
+	motor = 0;
+	Draw_Circle(5,5,3,1,Black);
+}
+
+ISR(TIMER1_COMPA_vect) {
+	if (motor)
+		motor++;
+	if (motor > 20)
+		motor_off();
 }
 
 //----- Begin Code ------------------------------------------------------------
@@ -331,6 +353,17 @@ int main(void)
 	//interrupts
 	PCICR = (1<<PCIE1);
 	PCMSK1 = (1<<PCINT13);		// for CMD_PIN
+
+	//Analog comperator 
+	ACSR |= _BV(ACIC) | _BV(ACD);	// set input capture to AC, and disable it
+					// (ICP pin has conflict with touchscreen otherwise, and saves power)
+	DIDR0 = 0b11111;		// disable digital input on analog pins(PC0-PC5), saves also power
+					// (are only used as output, btw. PC5 as interrupt)
+
+	//init timer
+	GTCCR |= _BV(PSRSYNC);          // Prescaler reset
+	OCR1A = 26042U * 2;             // max count
+	TIMSK1 |= _BV(OCIE1A);		// enable interrupt on compare match(overflow)
 
 //SD_CARD_EJECTED:
 
@@ -778,6 +811,7 @@ disk_operations_direct_d0_d4:
 				u08 err;
 				send_ACK();
 				LED_RED_ON(virtual_drive_number); // LED on
+				motor_on();
 				if (FileInfo.percomstate == 2)	//XXX: Could not work until image exists!
 					err = newFile(IMSIZE3);
 				else
@@ -888,6 +922,7 @@ format_medium:
 			if (FileInfo.vDisk->flags & FLAGS_ATRNEW) {	//create new image
 				send_ACK();
 				LED_RED_ON(virtual_drive_number); // LED on
+				motor_on();
 				if(newFile(IMSIZE2))
 					goto Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE;
 				else {
@@ -1140,11 +1175,12 @@ percom_prepared:
 			if(n_sector==0)
 				goto Send_ERR_and_DATA;;
 
+			motor_on();
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
 			{
                 if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
                 {
-                    if (!loadAtxSector(n_sector, &atari_sector_size, &atari_sector_status)) {
+                    if (!loadAtxSector(virtual_drive_number, n_sector, &atari_sector_size, &atari_sector_status)) {
                         goto Send_ERR_and_DATA;
                     }
                 }
@@ -1324,7 +1360,7 @@ Send_ERR_and_DATA:
 
 			FileInfo.percomstate=0;
 
-			atari_sector_buffer[0] = 0x10;	//0x00 motor off	0x10 motor on
+			atari_sector_buffer[0] = motor ? 0 : 0x10;	//0x00 motor off	0x10 motor on
 			//(FileInfo.vDisk->atr_medium_size);	// medium/single
 			if (FileInfo.vDisk->flags & FLAGS_ATRMEDIUMSIZE) atari_sector_buffer[0]|=0x80;
 			//((FileInfo.vDisk->atr_sector_size==256)?0x20:0x00); //	double/normal sector size
@@ -2056,11 +2092,12 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 		case 0xFF:  // set actual directory
 			{
 			unsigned char ret;
+			unsigned char drive = cmd_buf.cmd & 0xf;
 
-			if ( (cmd_buf.cmd&0xf) < DEVICESNUM )
+			if ( drive < DEVICESNUM )
 			{
 				//set pointer to corresponding drive
-				FileInfo.vDisk = &vDisk[cmd_buf.cmd&0xf];
+				FileInfo.vDisk = &vDisk[drive];
 				//copy dir_cluster from tmp Struct
 				FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 			}
@@ -2151,7 +2188,11 @@ Command_EC_F0_FF_found:
                           atari_sector_buffer[10] == 'X' )
                     {
                         //ATX
-                        loadAtxFile(); // TODO: check return value
+			if (drive > 2) {	// support first 2 drives only because of to less RAM!
+				outbox_P(PSTR("only 2 drives!"));
+				break;
+			}
+                        loadAtxFile(drive);	// TODO: check return value
                         FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
                     }
 					else
@@ -2160,11 +2201,11 @@ Set_XEX:					// XEX
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 
-					if((cmd_buf.cmd&0xf) != 0 && ((cmd_buf.cmd&0xf) < DEVICESNUM)) {
+					if(drive != 0 && drive < DEVICESNUM) {
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
-						bp = &tft.pages[PAGE_MAIN].buttons[cmd_buf.cmd&0xf];
+						bp = &tft.pages[PAGE_MAIN].buttons[drive];
 						name = pgm_read_ptr(&bp->name);
 						strncpy(&name[3], (char*)atari_sector_buffer, 12);
 						//redraw display only, if we are on
