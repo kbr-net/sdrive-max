@@ -113,7 +113,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     u08 tgtSectorNumber = (num - 1) % gSectorsPerTrack + 1;
 
     // set initial status (in case the target sector is not found)
-    *status = 0xF7;
+    *status = 0xEF;
 
     // immediately fail on track read > 40
     if (tgtTrackNumber > 40) {
