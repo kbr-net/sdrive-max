@@ -40,6 +40,8 @@
 #define MS_TRACK_STEP            5.3
 // number of milliseconds drive head takes to settle after track stepping
 #define MS_HEAD_SETTLE           0
+// mask for checking FDC status "data lost" bit
+#define MASK_FDC_DLOST           0x04
 
 struct atxTrackInfo {
     u32 offset;   // absolute position within file for start of track header
@@ -174,6 +176,11 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
                     pTT = tt;
                     gLastAngle = sectorHeader->timev;
                     *status = ~(sectorHeader->status);
+                    // ATX images don't normally set the DRQ status bit. If we're dealing with a long sector (the lost data
+                    // bit will be set active low), than the DRQ bit should be manually set to active low as well
+                    if (!(*status & MASK_FDC_DLOST)) {
+                        *status &= 0xFD;
+                    }
                     tgtSectorIndex = i;
                     tgtSectorOffset = sectorHeader->data;
                     maxSectorOffset = sectorHeader->data > maxSectorOffset ? sectorHeader->data : maxSectorOffset;
