@@ -37,6 +37,7 @@ extern unsigned char atari_sector_buffer[256];
 // tx_checksum is automatically updated by the bit-banging
 // USART_Transmit_Byte routine
 unsigned char tx_checksum;
+unsigned short send_baud_div;
 
 unsigned char get_checksum (unsigned char* buffer, u16 len) {
 	u16 i;
@@ -62,6 +63,8 @@ void USART_Init ( u16 value ) {
 	UBRRH = value >> 8;
 	UBRRL = value & 0xff;
 #endif
+	/* for bitbang */
+	send_baud_div = value * 8 / 9;
 
 /* parameters for bit-banging serial transmission: */
 /* total bit duration is 17+bit_delay*8 Atmel cycles */

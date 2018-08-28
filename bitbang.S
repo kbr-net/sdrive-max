@@ -18,6 +18,8 @@
 
 #include <avr/io.h>
 
+.extern send_baud_div
+
 .global USART_Transmit_Byte
 
 .global DelayAtariX
@@ -54,7 +56,8 @@ USART_Transmit_Byte:
 
 ; read current baudrate register
 	;in r25, _SFR_IO_ADDR(UBRRL)	; 1
-	lds r25, UBRR0L			; 2
+	;lds r25, UBRR0L			; 2
+	lds r25, send_baud_div			; 2
 
 ; calculate delay value:
 ; baudrate is clock_frequency / 16 / (UBRR+1) * 2
@@ -104,6 +107,7 @@ bitlp:	sec				; 1
 bit0:					; 4 cycles since bitlp
 	cbi _SFR_IO_ADDR(PORTD), PIND1 	; 2
 	nop				; 1
+	nop				; 1 +1
 
 bitdel:					; 7 cycles per bit so far
 
@@ -131,7 +135,7 @@ bitdel2:
 
 .func DelayAtariX
 
-; delay for r24 Atari clock cycles (8*r24 Atmel cycles)
+; delay for r24 Atari clock cycles (9*r24 Atmel cycles)
 ; note: r24 must be >=2
 DelayAtariX:				; 3 cycles for "rcall DelayAtariX"
 		dec r24			; 1
@@ -140,9 +144,11 @@ delata1:	nop			; 1
 		nop			; 1
 		nop			; 1
 		nop			; 1
+		nop			; 1	+1
 		dec r24			; 1
 		brne delata1		; 1/2
 		nop			; 1
+		nop			; 1	+1
 		ret			; 4
 
 .endfunc
