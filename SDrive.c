@@ -600,11 +600,15 @@ ST_IDLE:
 				}
 				//tape mode?
 				if(actual_page == PAGE_TAPE && name[0] == 'S') {
-					if(tape_flags.run) {	//Stop
+					struct button *pb = &tft.pages[actual_page].buttons[1];
+					struct b_flags *pause = pgm_read_ptr(&pb->flags);
+					if(tape_flags.run || pause->selected) {	//Stop
 						USART_Init(ATARI_SPEED_STANDARD);
 						tape_flags.run = 0;
 						tape_offset = 0;
 						flags->selected = 0;
+						//clear also the Pause Button
+						pause->selected = 0;
 						print_str_P(35,135,2,Yellow,window_bg, PSTR("Stopped...   "));
 						draw_Buttons();
 					}
