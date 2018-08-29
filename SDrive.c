@@ -702,6 +702,7 @@ void process_command ()
 	u32 *asb32_p = (u32*) atari_sector_buffer;
 	struct button *bp;
 	char *name;
+	unsigned char drive;
 
 	if(!cmd_buf.cmd)
 	{
@@ -751,6 +752,8 @@ change_sio_speed_by_fastsio_active:
 	}
 
 /////////////////////////////// disk commands
+
+	drive = cmd_buf.cmd & 0xf;
 
 	if( cmd_buf.dev>=0x31 && cmd_buf.dev<(0x30+DEVICESNUM) ) //D1: to D4: (yes, from D1: !!!)
 	{
@@ -1941,6 +1944,7 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 
 			//zmeni command na 0xf0-0xff (pro nastaveni nalezeneho souboru/adresare)				
 			cmd_buf.cmd=(0xf0|cmd_buf.aux1);
+			drive = cmd_buf.aux1;
 			cmd_buf.aux1=cmd_buf.aux2=0; //vyhledavat od indexu 0
 			//a pokracuje dal...
 			//commandem ED...
@@ -1955,8 +1959,8 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 				i=cmd_buf.aux;  //zacne hledat od tohoto indexu
 
 				//if we come from cmd 0xEC, set vDisk to drive
-				if (cmd_buf.cmd>=0xf0 && (cmd_buf.cmd&0xf) < DEVICESNUM) {
-					FileInfo.vDisk = &vDisk[cmd_buf.cmd&0xf];
+				if (cmd_buf.cmd>=0xf0 && drive < DEVICESNUM) {
+					FileInfo.vDisk = &vDisk[drive];
 					//and copy dir_cluster into
 					FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 				}
@@ -1972,10 +1976,10 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 				 if (cmd_buf.cmd>=0xf0)
 				 {
 					//if we come from cmd 0xEC
-					if ((cmd_buf.cmd&0xf) < DEVICESNUM) {
+					if (drive < DEVICESNUM) {
 						//and cmd is set entry to drive,
 						//set pointer to vDisk
-						FileInfo.vDisk = &vDisk[cmd_buf.cmd&0xf];
+						FileInfo.vDisk = &vDisk[drive];
 						//and copy dir_cluster into
 						FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 						//and let reset the values
@@ -2089,10 +2093,9 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 		case 0xF2:	// set direntry to vD2:
 		case 0xF3:	// set direntry to vD3:
 		case 0xF4:	// set direntry to vD4:
-		case 0xFF:  // set actual directory
+		case 0xFF:	// set actual directory
 			{
 			unsigned char ret;
-			unsigned char drive = cmd_buf.cmd & 0xf;
 
 			if ( drive < DEVICESNUM )
 			{
@@ -2121,9 +2124,9 @@ Command_EC_F0_FF_found:
 					//reset flags except ATRNEW
 					FileInfo.vDisk->flags &= FLAGS_ATRNEW;
 
-					if( atari_sector_buffer[8]=='A' &&
-						 atari_sector_buffer[9]=='T' &&
-						  atari_sector_buffer[10]=='R' )
+					if(	atari_sector_buffer[8]=='A' &&
+						atari_sector_buffer[9]=='T' &&
+						atari_sector_buffer[10]=='R' )
 					{
 						// ATR
 						unsigned long compute;
@@ -2142,15 +2145,17 @@ Command_EC_F0_FF_found:
 						if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE; //atr_medium_size = 0x80;
 					}
 					else
-					if(( atari_sector_buffer[8]=='X' &&
-						 atari_sector_buffer[9]=='F' &&
-						  atari_sector_buffer[10]=='D' )
-					  || ( atari_sector_buffer[8]=='C' &&
-						 atari_sector_buffer[9]=='A' &&
-						  atari_sector_buffer[10]=='S' )
-					  || ( atari_sector_buffer[8]=='B' &&
-						 atari_sector_buffer[9]=='I' &&
-						  atari_sector_buffer[10]=='N' ))
+					if((	atari_sector_buffer[8]=='X' &&
+						atari_sector_buffer[9]=='F' &&
+						atari_sector_buffer[10]=='D' )
+						||
+					   (	atari_sector_buffer[8]=='C' &&
+						atari_sector_buffer[9]=='A' &&
+						atari_sector_buffer[10]=='S' )
+						||
+					   (	atari_sector_buffer[8]=='B' &&
+						atari_sector_buffer[9]=='I' &&
+						atari_sector_buffer[10]=='N' ))
 					{
 						//XFD
 						faccess_offset(FILE_ACCESS_READ,0,4); //read header
@@ -2182,26 +2187,26 @@ Command_EC_F0_FF_found:
 							}
 						}
 					}
-                    else
-                    if( atari_sector_buffer[8]=='A' &&
-                         atari_sector_buffer[9] =='T' &&
-                          atari_sector_buffer[10] == 'X' )
-                    {
-                        //ATX
-			if (drive > 2) {	// support first 2 drives only because of to less RAM!
-				outbox_P(PSTR("only 2 drives!"));
-				break;
-			}
-                        loadAtxFile(drive);	// TODO: check return value
-                        FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
-                    }
+					else
+					if(	atari_sector_buffer[8] == 'A' &&
+						atari_sector_buffer[9] == 'T' &&
+						atari_sector_buffer[10] == 'X' )
+					{
+						//ATX
+						if (drive > 2) {	// support first 2 drives only because of to less RAM!
+							outbox_P(PSTR("only 2 drives!"));
+							break;
+						}
+						loadAtxFile(drive);	// TODO: check return value
+						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
+					}
 					else
 					{
 Set_XEX:					// XEX
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 
-					if(drive != 0 && drive < DEVICESNUM) {
+					if(drive && drive < DEVICESNUM) {
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
