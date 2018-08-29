@@ -440,10 +440,12 @@ int main(void)
 		//only D1-D4, but we must start 0-indexed for the eeprom-array
 		for(i = 0; i < DEVICESNUM-1; i++) {
 			tmpvDisk.dir_cluster = eeprom_read_dword(&image_store[i].dir_cluster);
-			cmd_buf.aux = eeprom_read_word(&image_store[i].file_index);
-			cmd_buf.cmd = (0xF0 | (i+1));	//set drive
-			cmd_buf.dev = 0x71;	//say we are a sdrive cmd
-			process_command();	//set image to drive
+			if (tmpvDisk.dir_cluster != 0xffffffff) {
+				cmd_buf.aux = eeprom_read_word(&image_store[i].file_index);
+				cmd_buf.cmd = (0xF0 | (i+1));	//set drive
+				cmd_buf.dev = 0x71;	//say we are a sdrive cmd
+				process_command();	//set image to drive
+			}
 		}
 		actual_page = PAGE_MAIN;	//clear the fake
 		draw_Buttons();		//now redraw buttons
