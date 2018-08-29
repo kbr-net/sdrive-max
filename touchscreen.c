@@ -32,7 +32,9 @@ static void setIdling() {
 	      YM_PORT &= ~(1<<YM);	// Y- = L
  XP_DDR &= ~(1<<XP); XP_PORT &= ~(1<<XP);	// X+ = Z
 	      YP_PORT &= ~(1<<YP);	// Y+ = L
- _delay_us(0.5);
+ //_delay_us(0.5);
+ _delay_us(10);		//needs more time to take effect
+			//otherwise one bad touch occurs
 }
 
 // Ausgangszustand wiederherstellen

@@ -27,6 +27,7 @@
 #include "atx.h"
 #include "tape.h"
 
+#define DISPLAY_IDLE 2000000
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	0
 #define SWVERSIONMINOR	9
@@ -312,6 +313,7 @@ void Clear_atari_sector_buffer_256()
 struct sio_cmd cmd_buf;
 unsigned char virtual_drive_number;
 unsigned char motor = 0;
+unsigned long sleep = DISPLAY_IDLE;
 //Parameters
 struct SDriveParameters sdrparams;
 
@@ -545,6 +547,12 @@ ST_IDLE:
 		char *name;
 
 		if (isTouching()) {
+			if (sleep == 0) {
+				//TFT_sleep_off();	//show display only
+				//TFT_on();
+				tft.pages[actual_page].draw();	//draw page again
+				goto Ignore_Touch;	//first touch after blank is ignored
+			}
 			b = check_Buttons();
 			if (b) {
 				//get pointers
@@ -632,7 +640,8 @@ ST_IDLE:
 				}
 				sfp = atari_sector_buffer;
 				//if matched, wait for button release
-				while (isTouching());
+Ignore_Touch:			while (isTouching());
+				sleep = DISPLAY_IDLE;	//reset display blank timer
 				_delay_ms(50);	//wait a little for debounce
 			}
 		}
@@ -678,6 +687,14 @@ ST_IDLE:
 		}
 		else
 			autowritecounter++;
+		if (sleep) {
+			//print_I(10,260,1,White,Black,sleep);
+			sleep--;
+			if (sleep == 0)
+				//TFT_sleep_on();
+				//TFT_off();
+				TFT_fill(Black);
+		}
 
 	} //while
 	return(0);

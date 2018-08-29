@@ -76,6 +76,27 @@ void TFT_off() {
 #endif
 }
 
+// enter/release display sleep mode
+void TFT_sleep_on() {
+#ifdef HX8347G
+    TFT_write_cmd(0x1f);	//set standby mode
+    TFT_write(0xd5);
+#else
+    TFT_write_cmd(ILI9341_ENTER_SLEEP_MODE);
+#endif
+    delay_ms(120);
+}
+
+void TFT_sleep_off() {
+#ifdef HX8347G
+    TFT_write_cmd(0x1f);	//set power on and exit standby mode
+    TFT_write(0xd4);
+#else
+    TFT_write_cmd(ILI9341_SLEEP_OUT);
+#endif
+    delay_ms(5);
+}
+
 void TFT_GPIO_init()
 {
     TFT_port_config_low |= 0x03;
