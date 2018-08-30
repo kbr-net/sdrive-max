@@ -70,7 +70,7 @@ struct atxSectorHeader {
     u32 data;
 };
 
-struct atxExtendedSectorData {
+struct atxTrackChunk {
     u32 size;
     u08 type;
     u08 sectorIndex;

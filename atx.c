@@ -98,7 +98,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     struct atxTrackHeader *trackHeader;
     struct atxSectorListHeader *slHeader;
     struct atxSectorHeader *sectorHeader;
-    struct atxExtendedSectorData *extSectorData;
+    struct atxTrackChunk *extSectorData;
 
     u16 i;
     u16 tgtSectorIndex = 0;         // the index of the target sector within the sector list
@@ -108,7 +108,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     // local variables used for weak data handling
     u08 extendedDataRecords = 0;
     u32 maxSectorOffset = 0;
-    int weakOffset = -1;
+    int16_t weakOffset = -1;
 
     // calculate track and relative sector number from the absolute sector number
     u08 tgtTrackNumber = (num - 1) / gSectorsPerTrack + 1;
@@ -199,19 +199,21 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     }
     last_angle_returned = gLastAngle;
 
-    // read through the extended data records if any were found
+    // if an extended data record exists for this track, iterate through all track chunks to search
+    // for those records (note that we stop looking for chunks when we hit the 8-byte terminator; length == 0)
     if (extendedDataRecords > 0) {
-        currentFileOffset = gTrackInfo[drive][tgtTrackNumber - 1].offset + maxSectorOffset + gBytesPerSector;
-        for (i = 0; i < extendedDataRecords; i++) {
-            if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxExtendedSectorData))) {
-                extSectorData = (struct atxExtendedSectorData *) atari_sector_buffer;
+        currentFileOffset = gTrackInfo[drive][tgtTrackNumber - 1].offset + trackHeader->headerSize;
+        do {
+            faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackChunk));
+            extSectorData = (struct atxTrackChunk *) atari_sector_buffer;
+            if (extSectorData->size > 0) {
                 // if the target sector has a weak data flag, grab the start weak offset within the sector data
                 if (extSectorData->sectorIndex == tgtSectorIndex && extSectorData->type == 0x10) {
                     weakOffset = extSectorData->data;
                 }
+                currentFileOffset += extSectorData->size;
             }
-            currentFileOffset += sizeof(struct atxExtendedSectorData);
-        }
+        } while (extSectorData->size > 0);
     }
 
     // set the sector status and size
@@ -223,7 +225,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
 
     // if a weak offset is defined, randomize the appropriate data
     if (weakOffset > -1) {
-        for (i = (u16) weakOffset; i < gBytesPerSector; i++) {
+        for (i = (u16) weakOffset; i < gBytesPerSector - weakOffset; i++) {
             atari_sector_buffer[i] = (unsigned char) (rand() % 256);
         }
     }
