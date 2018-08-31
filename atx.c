@@ -107,7 +107,6 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
 
     // local variables used for weak data handling
     u08 extendedDataRecords = 0;
-    u32 maxSectorOffset = 0;
     int16_t weakOffset = -1;
 
     // calculate track and relative sector number from the absolute sector number
@@ -183,7 +182,6 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
                     }
                     tgtSectorIndex = i;
                     tgtSectorOffset = sectorHeader->data;
-                    maxSectorOffset = sectorHeader->data > maxSectorOffset ? sectorHeader->data : maxSectorOffset;
                     // if the sector status is not valid, flag it as an error
                     if (sectorHeader->status > 0) {
                         hasError = (BOOL) TRUE;
