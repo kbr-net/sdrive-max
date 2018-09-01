@@ -86,6 +86,22 @@ unsigned int action_tape_turbo (struct button *b) {
 	return(0);
 }
 
+unsigned int action_tape_pause (struct button *b) {
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
+	if(flags->selected) {
+		tape_flags.run = 1;
+		flags->selected = 0;
+		draw_Buttons();
+	}
+	else
+	if(tape_flags.run) {
+		tape_flags.run = 0;
+		flags->selected = 1;
+		draw_Buttons();
+	}
+	return(0);
+}
+
 unsigned int action_cancel () {
 	//on file_page reset file index to same page
 	if (actual_page == PAGE_FILE)
@@ -442,8 +458,9 @@ const struct button PROGMEM buttons_cfg[] = {
 
 const struct button PROGMEM buttons_tape[] = {
 	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},press},
-	{"Tur",105,165,50,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_turbo},
-	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
+	{"Pause",15,205,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_pause},
+	{"Turbo",144,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_turbo},
+	{"Exit",144,205,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
 
 const struct button PROGMEM buttons_debug[] = {
@@ -605,11 +622,11 @@ void config_page () {
 }
 
 void tape_page () {
-	Draw_Rectangle(10,100,tft.width-11,200,1,SQUARE,window_bg,Black);
-	Draw_Rectangle(10,100,tft.width-11,200,0,SQUARE,Grey,Black);
-	Draw_Rectangle(11,101,tft.width-12,199,0,SQUARE,Grey,Black);
+	Draw_Rectangle(5,100,tft.width-6,245,1,SQUARE,window_bg,Black);
+	Draw_Rectangle(5,100,tft.width-6,245,0,SQUARE,Grey,Black);
+	Draw_Rectangle(6,101,tft.width-7,244,0,SQUARE,Grey,Black);
 	print_str_P(70, 105, 2, Orange, window_bg, PSTR("Tape-Emu"));
-	Draw_H_Line(12,tft.width-13,122,Orange);
+	Draw_H_Line(7,tft.width-8,122,Orange);
 	draw_Buttons();
 }
 
