@@ -95,4 +95,19 @@ u16 incAngularDisplacement(u16 start, u16 delta);
 // delays until head position reaches the specified position
 void waitForAngularPosition(u16 pos);
 
+// hook to allow platform-specific implementations to change byte ordering as needed
+void byteSwapAtxFileHeader(struct atxFileHeader * header);
+
+// hook to allow platform-specific implementations to change byte ordering as needed
+void byteSwapAtxTrackHeader(struct atxTrackHeader * header);
+
+// hook to allow platform-specific implementations to change byte ordering as needed
+void byteSwapAtxSectorListHeader(struct atxSectorListHeader * header);
+
+// hook to allow platform-specific implementations to change byte ordering as needed
+void byteSwapAtxSectorHeader(struct atxSectorHeader * header);
+
+// hook to allow platform-specific implementations to change byte ordering as needed
+void byteSwapAtxTrackChunk(struct atxTrackChunk *header);
+
 #endif //ATX_TEST_ATX_H

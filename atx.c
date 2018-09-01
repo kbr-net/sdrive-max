@@ -20,11 +20,10 @@
 //*****************************************************************************
 
 #include <stdlib.h>
-#include <avr/io.h>
 #include <util/delay.h>
 #include "avrlibtypes.h"
-#include "atx.h"
 #include "fat.h"
+#include "atx.h"
 
 // number of angular units in a full disk rotation
 #define AU_FULL_ROTATION         26042
@@ -63,6 +62,7 @@ u16 loadAtxFile(u08 drive) {
 
     // read the file header
     faccess_offset(FILE_ACCESS_READ, 0, sizeof(struct atxFileHeader));
+    byteSwapAtxFileHeader((struct atxFileHeader *) atari_sector_buffer);
 
     // validate the ATX file header
     fileHeader = (struct atxFileHeader *) atari_sector_buffer;
@@ -87,6 +87,7 @@ u16 loadAtxFile(u08 drive) {
             break;
         }
         trackHeader = (struct atxTrackHeader *) atari_sector_buffer;
+        byteSwapAtxTrackHeader(trackHeader);
         gTrackInfo[drive][trackHeader->trackNumber].offset = startOffset;
         startOffset += trackHeader->size;
     }
@@ -147,6 +148,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     u32 currentFileOffset = gTrackInfo[drive][tgtTrackNumber - 1].offset;
     faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackHeader));
     trackHeader = (struct atxTrackHeader *) atari_sector_buffer;
+    byteSwapAtxTrackHeader(trackHeader);
     u16 sectorCount = trackHeader->sectorCount;
 
     // if there are no sectors in this track or the track number doesn't match, return error
@@ -158,6 +160,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     currentFileOffset += trackHeader->headerSize;
     faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorListHeader));
     slHeader = (struct atxSectorListHeader *) atari_sector_buffer;
+    byteSwapAtxSectorListHeader(slHeader);
 
     // sector list header is variable length, so skip any extra header bytes that may be present
     currentFileOffset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
@@ -167,6 +170,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     for (i=0; i < sectorCount; i++) {
         if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorHeader))) {
             sectorHeader = (struct atxSectorHeader *) atari_sector_buffer;
+            byteSwapAtxTrackChunk(sectorHeader);
             // if the sector number matches the one we're looking for...
             if (sectorHeader->number == tgtSectorNumber) {
                 // check if it's the next sector that the head would encounter angularly...
@@ -204,6 +208,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
         do {
             faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackChunk));
             extSectorData = (struct atxTrackChunk *) atari_sector_buffer;
+            byteSwapAtxTrackChunk(extSectorData);
             if (extSectorData->size > 0) {
                 // if the target sector has a weak data flag, grab the start weak offset within the sector data
                 if (extSectorData->sectorIndex == tgtSectorIndex && extSectorData->type == 0x10) {
@@ -255,24 +260,4 @@ u16 incAngularDisplacement(u16 start, u16 delta) {
         ret -= AU_FULL_ROTATION;
     }
     return ret;
-}
-
-void waitForAngularPosition(u16 pos) {
-    // if the position is less than the current timer, we need to wait for a rollover 
-    // to occur
-    if (pos < TCNT1 / 2) {
-        TIFR1 |= _BV(OCF1A);
-        while (!(TIFR1 & _BV(OCF1A)));
-    }
-    // wait for the timer to reach the target position
-    while (TCNT1 / 2 < pos);
-}
-
-u16 getCurrentHeadPosition() {
-    // TCNT1 is a variable driven by an Atmel timer that ticks every 4 microseconds. A full 
-    // rotation of the disk is represented in an ATX file by an angular positional value 
-    // between 1-26042 (or 8 microseconds based on 288 rpms). So, TCNT1 / 2 always gives the 
-    // current angular position of the drive head on the track any given time assuming the 
-    // disk is spinning continously.
-    return TCNT1 / 2;
 }
