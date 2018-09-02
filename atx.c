@@ -117,6 +117,8 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
 
     // set initial status (in case the target sector is not found)
     *status = 0xEF;
+    // set the sector size
+    *sectorSize = gBytesPerSector;
 
     // immediately fail on track read > 40
     if (tgtTrackNumber > 40) {
@@ -219,9 +221,6 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
             }
         } while (extSectorData->size > 0);
     }
-
-    // set the sector status and size
-    *sectorSize = gBytesPerSector;
 
     // read the data (re-using tgtSectorIndex variable here to reduce stack consumption)
     tgtSectorIndex = tgtSectorOffset ? (u16) faccess_offset(FILE_ACCESS_READ, gTrackInfo[drive][tgtTrackNumber - 1].offset + tgtSectorOffset, gBytesPerSector) : (u16) 0;

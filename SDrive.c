@@ -1171,7 +1171,9 @@ percom_prepared:
 		case 0x52:	//read
 		    {
 			unsigned short proceeded_bytes;
-			unsigned short atari_sector_size;
+			//set the standard SD Sector Size for returning data,
+			//if an error occurs
+			unsigned short atari_sector_size = 0x80;
 			u32 n_data_offset;
 			u16 n_sector;
 			u16 file_sectors;
@@ -1182,7 +1184,7 @@ percom_prepared:
 			n_sector = cmd_buf.aux;	//2,3
 
 			if(n_sector==0)
-				goto Send_ERR_and_DATA;;
+				goto Send_ERR_and_DATA;
 
 			motor_on();
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
