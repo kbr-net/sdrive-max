@@ -24,6 +24,7 @@
 #include "avrlibtypes.h"
 #include "fat.h"
 #include "atx.h"
+#include "atx_avr.h"
 
 // number of angular units in a full disk rotation
 #define AU_FULL_ROTATION         26042
@@ -49,12 +50,12 @@ struct atxTrackInfo {
 extern unsigned char atari_sector_buffer[256];
 extern u16 last_angle_returned; // extern so we can display it on the screen
 
-u16 gBytesPerSector;                    // number of bytes per sector
-u08 gSectorsPerTrack;                   // number of sectors in each track
-struct atxTrackInfo gTrackInfo[2][40];  // pre-calculated info for each track and drive
-                                        // support slot D1 and D2 only because of insufficient RAM!
-u16 gLastAngle = 0;
-u08 gCurrentHeadTrack = 1;
+u16 gBytesPerSector;                                 // number of bytes per sector
+u08 gSectorsPerTrack;                                // number of sectors in each track
+struct atxTrackInfo gTrackInfo[NUM_ATX_DRIVES][40];  // pre-calculated info for each track and drive
+                                                     // support slot D1 and D2 only because of insufficient RAM!
+u16 gLastAngle;
+u08 gCurrentHeadTrack;
 
 u16 loadAtxFile(u08 drive) {
     struct atxFileHeader *fileHeader;
@@ -170,7 +171,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     for (i=0; i < sectorCount; i++) {
         if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorHeader))) {
             sectorHeader = (struct atxSectorHeader *) atari_sector_buffer;
-            byteSwapAtxTrackChunk(sectorHeader);
+            byteSwapAtxSectorHeader(sectorHeader);
             // if the sector number matches the one we're looking for...
             if (sectorHeader->number == tgtSectorNumber) {
                 // check if it's the next sector that the head would encounter angularly...
