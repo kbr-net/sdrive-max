@@ -653,13 +653,21 @@ ST_IDLE:
 		}
 		//scrolling long filename
 		if (tft.cfg.scroll && actual_page == PAGE_FILE && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
-			if (select_file_counter > 20000) {
-				sfp++;
-				Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
-				print_strn(5, 10, 2, Yellow, Black, sfp, 19);
-				select_file_counter = 0;
-				if (strlen(sfp) == 19)
-					sfp = atari_sector_buffer-1;
+			if (select_file_counter == 20000) {
+				if (sfp == atari_sector_buffer) {
+					select_file_counter = 20001;
+					sfp++;
+				}
+				else {
+					sfp++;
+					Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
+					print_strn(5, 10, 2, Yellow, Black, sfp, 19);
+					select_file_counter = 0;
+					if (strlen(sfp) == 19) {
+						sfp = atari_sector_buffer-1;
+						select_file_counter = 20001;
+					}
+				}
 			}
 			else
 				select_file_counter++;
