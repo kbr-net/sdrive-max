@@ -228,7 +228,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
 
     // if a weak offset is defined, randomize the appropriate data
     if (weakOffset > -1) {
-        for (i = (u16) weakOffset; i < gBytesPerSector - weakOffset; i++) {
+        for (i = (u16) weakOffset; i < gBytesPerSector; i++) {
             atari_sector_buffer[i] = (unsigned char) (rand() % 256);
         }
     }
