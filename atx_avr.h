@@ -19,4 +19,4 @@
 //
 //*****************************************************************************
 
-#define NUM_ATX_DRIVES 2
+#define NUM_ATX_DRIVES 3	//for drive 0-2, D0 is needed for the sdrive control program
