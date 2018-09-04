@@ -20,11 +20,11 @@
 //*****************************************************************************
 
 #include <stdlib.h>
-#include <avr/io.h>
 #include <util/delay.h>
 #include "avrlibtypes.h"
-#include "atx.h"
 #include "fat.h"
+#include "atx.h"
+#include "atx_avr.h"
 
 // number of angular units in a full disk rotation
 #define AU_FULL_ROTATION         26042
@@ -40,6 +40,8 @@
 #define MS_TRACK_STEP            5.3
 // number of milliseconds drive head takes to settle after track stepping
 #define MS_HEAD_SETTLE           0
+// mask for checking FDC status "data lost" bit
+#define MASK_FDC_DLOST           0x04
 
 struct atxTrackInfo {
     u32 offset;   // absolute position within file for start of track header
@@ -48,12 +50,12 @@ struct atxTrackInfo {
 extern unsigned char atari_sector_buffer[256];
 extern u16 last_angle_returned; // extern so we can display it on the screen
 
-u16 gBytesPerSector;                    // number of bytes per sector
-u08 gSectorsPerTrack;                   // number of sectors in each track
-struct atxTrackInfo gTrackInfo[2][40];  // pre-calculated info for each track and drive
-                                        // support slot D1 and D2 only because of insufficient RAM!
-u16 gLastAngle = 0;
-u08 gCurrentHeadTrack = 1;
+u16 gBytesPerSector;                                 // number of bytes per sector
+u08 gSectorsPerTrack;                                // number of sectors in each track
+struct atxTrackInfo gTrackInfo[NUM_ATX_DRIVES][40];  // pre-calculated info for each track and drive
+                                                     // support slot D1 and D2 only because of insufficient RAM!
+u16 gLastAngle;
+u08 gCurrentHeadTrack;
 
 u16 loadAtxFile(u08 drive) {
     struct atxFileHeader *fileHeader;
@@ -61,6 +63,7 @@ u16 loadAtxFile(u08 drive) {
 
     // read the file header
     faccess_offset(FILE_ACCESS_READ, 0, sizeof(struct atxFileHeader));
+    byteSwapAtxFileHeader((struct atxFileHeader *) atari_sector_buffer);
 
     // validate the ATX file header
     fileHeader = (struct atxFileHeader *) atari_sector_buffer;
@@ -85,6 +88,7 @@ u16 loadAtxFile(u08 drive) {
             break;
         }
         trackHeader = (struct atxTrackHeader *) atari_sector_buffer;
+        byteSwapAtxTrackHeader(trackHeader);
         gTrackInfo[drive][trackHeader->trackNumber].offset = startOffset;
         startOffset += trackHeader->size;
     }
@@ -96,7 +100,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     struct atxTrackHeader *trackHeader;
     struct atxSectorListHeader *slHeader;
     struct atxSectorHeader *sectorHeader;
-    struct atxExtendedSectorData *extSectorData;
+    struct atxTrackChunk *extSectorData;
 
     u16 i;
     u16 tgtSectorIndex = 0;         // the index of the target sector within the sector list
@@ -105,15 +109,16 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
 
     // local variables used for weak data handling
     u08 extendedDataRecords = 0;
-    u32 maxSectorOffset = 0;
-    int weakOffset = -1;
+    int16_t weakOffset = -1;
 
     // calculate track and relative sector number from the absolute sector number
     u08 tgtTrackNumber = (num - 1) / gSectorsPerTrack + 1;
     u08 tgtSectorNumber = (num - 1) % gSectorsPerTrack + 1;
 
     // set initial status (in case the target sector is not found)
-    *status = 0xF7;
+    *status = 0xEF;
+    // set the sector size
+    *sectorSize = gBytesPerSector;
 
     // immediately fail on track read > 40
     if (tgtTrackNumber > 40) {
@@ -146,6 +151,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     u32 currentFileOffset = gTrackInfo[drive][tgtTrackNumber - 1].offset;
     faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackHeader));
     trackHeader = (struct atxTrackHeader *) atari_sector_buffer;
+    byteSwapAtxTrackHeader(trackHeader);
     u16 sectorCount = trackHeader->sectorCount;
 
     // if there are no sectors in this track or the track number doesn't match, return error
@@ -157,6 +163,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     currentFileOffset += trackHeader->headerSize;
     faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorListHeader));
     slHeader = (struct atxSectorListHeader *) atari_sector_buffer;
+    byteSwapAtxSectorListHeader(slHeader);
 
     // sector list header is variable length, so skip any extra header bytes that may be present
     currentFileOffset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
@@ -166,6 +173,7 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     for (i=0; i < sectorCount; i++) {
         if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorHeader))) {
             sectorHeader = (struct atxSectorHeader *) atari_sector_buffer;
+            byteSwapAtxSectorHeader(sectorHeader);
             // if the sector number matches the one we're looking for...
             if (sectorHeader->number == tgtSectorNumber) {
                 // check if it's the next sector that the head would encounter angularly...
@@ -174,9 +182,13 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
                     pTT = tt;
                     gLastAngle = sectorHeader->timev;
                     *status = ~(sectorHeader->status);
+                    // ATX images don't normally set the DRQ status bit. If we're dealing with a long sector (the lost data
+                    // bit will be set active low), than the DRQ bit should be manually set to active low as well
+                    if (!(*status & MASK_FDC_DLOST)) {
+                        *status &= 0xFD;
+                    }
                     tgtSectorIndex = i;
                     tgtSectorOffset = sectorHeader->data;
-                    maxSectorOffset = sectorHeader->data > maxSectorOffset ? sectorHeader->data : maxSectorOffset;
                     // if the sector status is not valid, flag it as an error
                     if (sectorHeader->status > 0) {
                         hasError = (BOOL) TRUE;
@@ -192,23 +204,23 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
     }
     last_angle_returned = gLastAngle;
 
-    // read through the extended data records if any were found
+    // if an extended data record exists for this track, iterate through all track chunks to search
+    // for those records (note that we stop looking for chunks when we hit the 8-byte terminator; length == 0)
     if (extendedDataRecords > 0) {
-        currentFileOffset = gTrackInfo[drive][tgtTrackNumber - 1].offset + maxSectorOffset + gBytesPerSector;
-        for (i = 0; i < extendedDataRecords; i++) {
-            if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxExtendedSectorData))) {
-                extSectorData = (struct atxExtendedSectorData *) atari_sector_buffer;
+        currentFileOffset = gTrackInfo[drive][tgtTrackNumber - 1].offset + trackHeader->headerSize;
+        do {
+            faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackChunk));
+            extSectorData = (struct atxTrackChunk *) atari_sector_buffer;
+            byteSwapAtxTrackChunk(extSectorData);
+            if (extSectorData->size > 0) {
                 // if the target sector has a weak data flag, grab the start weak offset within the sector data
                 if (extSectorData->sectorIndex == tgtSectorIndex && extSectorData->type == 0x10) {
                     weakOffset = extSectorData->data;
                 }
+                currentFileOffset += extSectorData->size;
             }
-            currentFileOffset += sizeof(struct atxExtendedSectorData);
-        }
+        } while (extSectorData->size > 0);
     }
-
-    // set the sector status and size
-    *sectorSize = gBytesPerSector;
 
     // read the data (re-using tgtSectorIndex variable here to reduce stack consumption)
     tgtSectorIndex = tgtSectorOffset ? (u16) faccess_offset(FILE_ACCESS_READ, gTrackInfo[drive][tgtTrackNumber - 1].offset + tgtSectorOffset, gBytesPerSector) : (u16) 0;
@@ -248,24 +260,4 @@ u16 incAngularDisplacement(u16 start, u16 delta) {
         ret -= AU_FULL_ROTATION;
     }
     return ret;
-}
-
-void waitForAngularPosition(u16 pos) {
-    // if the position is less than the current timer, we need to wait for a rollover 
-    // to occur
-    if (pos < TCNT1 / 2) {
-        TIFR1 |= _BV(OCF1A);
-        while (!(TIFR1 & _BV(OCF1A)));
-    }
-    // wait for the timer to reach the target position
-    while (TCNT1 / 2 < pos);
-}
-
-u16 getCurrentHeadPosition() {
-    // TCNT1 is a variable driven by an Atmel timer that ticks every 4 microseconds. A full 
-    // rotation of the disk is represented in an ATX file by an angular positional value 
-    // between 1-26042 (or 8 microseconds based on 288 rpms). So, TCNT1 / 2 always gives the 
-    // current angular position of the drive head on the track any given time assuming the 
-    // disk is spinning continously.
-    return TCNT1 / 2;
 }

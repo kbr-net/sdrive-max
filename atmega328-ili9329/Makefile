@@ -53,7 +53,7 @@ CFLAGS += $(CDEFS) -DILI9329
 
 ## Objects that must be built in order to link
 #OBJECTS = SDrive.o spi.o mmc.o fat.o delay100us.o timer.o
-OBJECTS = SDrive.o spi.o mmc.o fat.o usart.o tft.o display.o touchscreen.o atx.o
+OBJECTS = SDrive.o spi.o mmc.o fat.o usart.o tft.o display.o touchscreen.o atx.o atx_avr.o
 OBJECTS += tape.o
 
 ## Objects explicitly added by the user
@@ -91,6 +91,9 @@ touchscreen.o: ../touchscreen.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 atx.o: ../atx.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+atx_avr.o: ../atx_avr.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 tape.o: ../tape.c

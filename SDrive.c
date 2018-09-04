@@ -29,7 +29,7 @@
 
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	0
-#define SWVERSIONMINOR	8
+#define SWVERSIONMINOR	9
 //#define DEVID		0x53444e47
 //#define DEVID		0x474e4453	// SDNG reverse!
 
@@ -440,10 +440,12 @@ int main(void)
 		//only D1-D4, but we must start 0-indexed for the eeprom-array
 		for(i = 0; i < DEVICESNUM-1; i++) {
 			tmpvDisk.dir_cluster = eeprom_read_dword(&image_store[i].dir_cluster);
-			cmd_buf.aux = eeprom_read_word(&image_store[i].file_index);
-			cmd_buf.cmd = (0xF0 | (i+1));	//set drive
-			cmd_buf.dev = 0x71;	//say we are a sdrive cmd
-			process_command();	//set image to drive
+			if (tmpvDisk.dir_cluster != 0xffffffff) {
+				cmd_buf.aux = eeprom_read_word(&image_store[i].file_index);
+				cmd_buf.cmd = (0xF0 | (i+1));	//set drive
+				cmd_buf.dev = 0x71;	//say we are a sdrive cmd
+				process_command();	//set image to drive
+			}
 		}
 		actual_page = PAGE_MAIN;	//clear the fake
 		draw_Buttons();		//now redraw buttons
@@ -598,11 +600,15 @@ ST_IDLE:
 				}
 				//tape mode?
 				if(actual_page == PAGE_TAPE && name[0] == 'S') {
-					if(tape_flags.run) {	//Stop
+					struct button *pb = &tft.pages[actual_page].buttons[1];
+					struct b_flags *pause = pgm_read_ptr(&pb->flags);
+					if(tape_flags.run || pause->selected) {	//Stop
 						USART_Init(ATARI_SPEED_STANDARD);
 						tape_flags.run = 0;
 						tape_offset = 0;
 						flags->selected = 0;
+						//clear also the Pause Button
+						pause->selected = 0;
 						print_str_P(35,135,2,Yellow,window_bg, PSTR("Stopped...   "));
 						draw_Buttons();
 					}
@@ -647,13 +653,21 @@ ST_IDLE:
 		}
 		//scrolling long filename
 		if (tft.cfg.scroll && actual_page == PAGE_FILE && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
-			if (select_file_counter > 20000) {
-				sfp++;
-				Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
-				print_strn(5, 10, 2, Yellow, Black, sfp, 19);
-				select_file_counter = 0;
-				if (strlen(sfp) == 19)
-					sfp = atari_sector_buffer-1;
+			if (select_file_counter == 20000) {
+				if (sfp == atari_sector_buffer) {
+					select_file_counter = 20001;
+					sfp++;
+				}
+				else {
+					sfp++;
+					Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
+					print_strn(5, 10, 2, Yellow, Black, sfp, 19);
+					select_file_counter = 0;
+					if (strlen(sfp) == 19) {
+						sfp = atari_sector_buffer-1;
+						select_file_counter = 20001;
+					}
+				}
 			}
 			else
 				select_file_counter++;
@@ -702,6 +716,7 @@ void process_command ()
 	u32 *asb32_p = (u32*) atari_sector_buffer;
 	struct button *bp;
 	char *name;
+	unsigned char drive;
 
 	if(!cmd_buf.cmd)
 	{
@@ -751,6 +766,8 @@ change_sio_speed_by_fastsio_active:
 	}
 
 /////////////////////////////// disk commands
+
+	drive = cmd_buf.cmd & 0xf;
 
 	if( cmd_buf.dev>=0x31 && cmd_buf.dev<(0x30+DEVICESNUM) ) //D1: to D4: (yes, from D1: !!!)
 	{
@@ -1162,7 +1179,9 @@ percom_prepared:
 		case 0x52:	//read
 		    {
 			unsigned short proceeded_bytes;
-			unsigned short atari_sector_size;
+			//set the standard SD Sector Size for returning data,
+			//if an error occurs
+			unsigned short atari_sector_size = 0x80;
 			u32 n_data_offset;
 			u16 n_sector;
 			u16 file_sectors;
@@ -1173,7 +1192,7 @@ percom_prepared:
 			n_sector = cmd_buf.aux;	//2,3
 
 			if(n_sector==0)
-				goto Send_ERR_and_DATA;;
+				goto Send_ERR_and_DATA;
 
 			motor_on();
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
@@ -1941,6 +1960,7 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 
 			//zmeni command na 0xf0-0xff (pro nastaveni nalezeneho souboru/adresare)				
 			cmd_buf.cmd=(0xf0|cmd_buf.aux1);
+			drive = cmd_buf.aux1;
 			cmd_buf.aux1=cmd_buf.aux2=0; //vyhledavat od indexu 0
 			//a pokracuje dal...
 			//commandem ED...
@@ -1955,8 +1975,8 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 				i=cmd_buf.aux;  //zacne hledat od tohoto indexu
 
 				//if we come from cmd 0xEC, set vDisk to drive
-				if (cmd_buf.cmd>=0xf0 && (cmd_buf.cmd&0xf) < DEVICESNUM) {
-					FileInfo.vDisk = &vDisk[cmd_buf.cmd&0xf];
+				if (cmd_buf.cmd>=0xf0 && drive < DEVICESNUM) {
+					FileInfo.vDisk = &vDisk[drive];
 					//and copy dir_cluster into
 					FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 				}
@@ -1972,10 +1992,10 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 				 if (cmd_buf.cmd>=0xf0)
 				 {
 					//if we come from cmd 0xEC
-					if ((cmd_buf.cmd&0xf) < DEVICESNUM) {
+					if (drive < DEVICESNUM) {
 						//and cmd is set entry to drive,
 						//set pointer to vDisk
-						FileInfo.vDisk = &vDisk[cmd_buf.cmd&0xf];
+						FileInfo.vDisk = &vDisk[drive];
 						//and copy dir_cluster into
 						FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 						//and let reset the values
@@ -2089,10 +2109,9 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 		case 0xF2:	// set direntry to vD2:
 		case 0xF3:	// set direntry to vD3:
 		case 0xF4:	// set direntry to vD4:
-		case 0xFF:  // set actual directory
+		case 0xFF:	// set actual directory
 			{
 			unsigned char ret;
-			unsigned char drive = cmd_buf.cmd & 0xf;
 
 			if ( drive < DEVICESNUM )
 			{
@@ -2121,9 +2140,9 @@ Command_EC_F0_FF_found:
 					//reset flags except ATRNEW
 					FileInfo.vDisk->flags &= FLAGS_ATRNEW;
 
-					if( atari_sector_buffer[8]=='A' &&
-						 atari_sector_buffer[9]=='T' &&
-						  atari_sector_buffer[10]=='R' )
+					if(	atari_sector_buffer[8]=='A' &&
+						atari_sector_buffer[9]=='T' &&
+						atari_sector_buffer[10]=='R' )
 					{
 						// ATR
 						unsigned long compute;
@@ -2142,15 +2161,17 @@ Command_EC_F0_FF_found:
 						if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE; //atr_medium_size = 0x80;
 					}
 					else
-					if(( atari_sector_buffer[8]=='X' &&
-						 atari_sector_buffer[9]=='F' &&
-						  atari_sector_buffer[10]=='D' )
-					  || ( atari_sector_buffer[8]=='C' &&
-						 atari_sector_buffer[9]=='A' &&
-						  atari_sector_buffer[10]=='S' )
-					  || ( atari_sector_buffer[8]=='B' &&
-						 atari_sector_buffer[9]=='I' &&
-						  atari_sector_buffer[10]=='N' ))
+					if((	atari_sector_buffer[8]=='X' &&
+						atari_sector_buffer[9]=='F' &&
+						atari_sector_buffer[10]=='D' )
+						||
+					   (	atari_sector_buffer[8]=='C' &&
+						atari_sector_buffer[9]=='A' &&
+						atari_sector_buffer[10]=='S' )
+						||
+					   (	atari_sector_buffer[8]=='B' &&
+						atari_sector_buffer[9]=='I' &&
+						atari_sector_buffer[10]=='N' ))
 					{
 						//XFD
 						faccess_offset(FILE_ACCESS_READ,0,4); //read header
@@ -2182,26 +2203,26 @@ Command_EC_F0_FF_found:
 							}
 						}
 					}
-                    else
-                    if( atari_sector_buffer[8]=='A' &&
-                         atari_sector_buffer[9] =='T' &&
-                          atari_sector_buffer[10] == 'X' )
-                    {
-                        //ATX
-			if (drive > 2) {	// support first 2 drives only because of to less RAM!
-				outbox_P(PSTR("only 2 drives!"));
-				break;
-			}
-                        loadAtxFile(drive);	// TODO: check return value
-                        FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
-                    }
+					else
+					if(	atari_sector_buffer[8] == 'A' &&
+						atari_sector_buffer[9] == 'T' &&
+						atari_sector_buffer[10] == 'X' )
+					{
+						//ATX
+						if (drive > 2) {	// support first 2 drives only because of to less RAM!
+							outbox_P(PSTR("only 2 drives!"));
+							break;
+						}
+						loadAtxFile(drive);	// TODO: check return value
+						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
+					}
 					else
 					{
 Set_XEX:					// XEX
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 
-					if(drive != 0 && drive < DEVICESNUM) {
+					if(drive && drive < DEVICESNUM) {
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);

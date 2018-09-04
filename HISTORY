@@ -1,3 +1,15 @@
+v0.9;
+- added a tape pause function
+- prevent hang on restore images
+- fixed display bug on insert image
+- hold scrolling filename on begin and end
+- ATX:
+  - corrected FDC status on missing sector
+  - fixed bug in long sector handling
+  - bugfixes for weak sector handling
+  - fixed wrong sector size on errors
+  - fixed an overflow for second drive
+
 v0.8:
 - drive motor simulation
 - support for timing based sector access on ATX files
