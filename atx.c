@@ -42,6 +42,8 @@
 #define MS_HEAD_SETTLE           0
 // mask for checking FDC status "data lost" bit
 #define MASK_FDC_DLOST           0x04
+// mask for checking FDC status "missing" bit
+#define MASK_FDC_MISSING         0x10
 
 struct atxTrackInfo {
     u32 offset;   // absolute position within file for start of track header
@@ -174,13 +176,14 @@ u16 loadAtxSector(u08 drive, u16 num, unsigned short *sectorSize, u08 *status) {
         if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorHeader))) {
             sectorHeader = (struct atxSectorHeader *) atari_sector_buffer;
             byteSwapAtxSectorHeader(sectorHeader);
-            // if the sector number matches the one we're looking for...
-            if (sectorHeader->number == tgtSectorNumber) {
+            // if the sector is not flagged as missing and its number matches the one we're looking for...
+            if (!(sectorHeader->status & MASK_FDC_MISSING) && sectorHeader->number == tgtSectorNumber) {
                 // check if it's the next sector that the head would encounter angularly...
                 int tt = sectorHeader->timev - headPosition;
                 if (pTT == 0 || (tt > 0 && pTT < 0) || (tt > 0 && pTT > 0 && tt < pTT) || (tt < 0 && pTT < 0 && tt < pTT)) {
                     pTT = tt;
                     gLastAngle = sectorHeader->timev;
+                    // the Atari expects an inverted FDC status byte
                     *status = ~(sectorHeader->status);
                     // ATX images don't normally set the DRQ status bit. If we're dealing with a long sector (the lost data
                     // bit will be set active low), than the DRQ bit should be manually set to active low as well
