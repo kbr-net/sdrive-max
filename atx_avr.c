@@ -19,12 +19,7 @@
 //
 //*****************************************************************************
 
-#include <stdlib.h>
 #include <avr/io.h>
-#include <util/delay.h>
-#include "avrlibtypes.h"
-#include "atx.h"
-#include "fat.h"
 
 void waitForAngularPosition(u16 pos) {
     // if the position is less than the current timer, we need to wait for a rollover 

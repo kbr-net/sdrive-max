@@ -25,6 +25,7 @@
 #include "fat.h"
 #include "atx.h"
 #include "atx_avr.h"
+#include "atx_avr.c"
 
 // number of angular units in a full disk rotation
 #define AU_FULL_ROTATION         26042
