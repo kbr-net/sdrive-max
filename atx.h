@@ -110,4 +110,7 @@ void byteSwapAtxSectorHeader(struct atxSectorHeader * header);
 // hook to allow platform-specific implementations to change byte ordering as needed
 void byteSwapAtxTrackChunk(struct atxTrackChunk *header);
 
+//check for selected drive type, 810 or 1050
+u08 is_1050();
+
 #endif //ATX_TEST_ATX_H

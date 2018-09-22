@@ -38,7 +38,7 @@ unsigned int debug_page();
 
 struct display tft;
 
-unsigned char EEMEM cfg = 0xfb;	//config byte on eeprom, initial value is all on except boot_d1
+unsigned char EEMEM cfg = 0xf3;	//config byte on eeprom, initial value is all on except boot_d1 and 1050
 struct file_save EEMEM image_store[DEVICESNUM-1] = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
 extern u16 EEMEM MINX;
 extern u16 EEMEM MINY;
@@ -304,10 +304,10 @@ unsigned int action_save_cfg () {
 	unsigned char rot = tft.cfg.rot;
 
 	*(char*)&tft.cfg = 0;	//clear first
-	for(i = 0; i < 4; i++) {
+	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
-		if(i < 3)	//not save last(SaveIm) button, only load ptr
+		if(i < tft.pages[actual_page].nbuttons-3)	//not save last(SaveIm) button, only load ptr
 			*(char*)&tft.cfg |= flags->selected << i;
 	}
 	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
@@ -443,15 +443,9 @@ const struct button PROGMEM buttons_cfg[] = {
 	{"Rotate",15,45,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"Scroll",15,85,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"BootD1",15,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"SaveIm",15,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-/* all 8 needs too much RAM!!!
-	{"empty3",15,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty4",15,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty5",15,205,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty6",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty7",115,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty8",115,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-*/
+	{"1050",15,165,70,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	//!!leave this buttons at the end, then we can loop thru the previous!!
+	{"SaveIm",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"Save",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_save_cfg},
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
@@ -611,11 +605,11 @@ void config_page () {
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
-	for(i = 0; i < 4; i++) {
+	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
 		flags->selected = (*(char*)&tft.cfg >> i) & 1;
-		if(i == 3)
+		if(i == tft.pages[actual_page].nbuttons-3)
 			flags->selected = 0;
 	}
 	draw_Buttons();

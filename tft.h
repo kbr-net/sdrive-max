@@ -30,6 +30,9 @@ struct page {
 	unsigned char nbuttons;
 };
 
+#define ATARI810 0
+#define ATARI1050 1
+
 struct display {
 	unsigned int width;
 	unsigned int heigth;
@@ -37,6 +40,7 @@ struct display {
 		unsigned char rot : 1;
 		unsigned char scroll : 1;
 		unsigned char boot_d1 : 1;
+		unsigned char drive_type : 1;
 	} cfg;
 	struct page *pages;
 	//struct TSPoint *tp;	//unused

@@ -20,6 +20,9 @@
 //*****************************************************************************
 
 #include <avr/io.h>
+#include "tft.h"
+
+extern struct display tft;
 
 void waitForAngularPosition(u16 pos) {
     // if the position is less than the current timer, we need to wait for a rollover 
@@ -59,4 +62,8 @@ void byteSwapAtxSectorHeader(struct atxSectorHeader * header) {
 
 void byteSwapAtxTrackChunk(struct atxTrackChunk *header) {
     // AVR implementation is a NO-OP
+}
+
+u08 is_1050() {
+    return(tft.cfg.drive_type);
 }
