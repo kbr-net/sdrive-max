@@ -40,11 +40,12 @@
 #include "global.h"
 #include "mmc.h"
 #include "fat.h"
+#include "display.h"
 // include project-specific hardware configuration
 #include "mmcconf.h"
 
-extern u32 n_actual_mmc_sector;
-extern u08 n_actual_mmc_sector_needswrite;
+u32 n_actual_mmc_sector;
+u08 n_actual_mmc_sector_needswrite;
 extern unsigned char mmc_sector_buffer[512];
 struct flags SDFlags;
 
@@ -198,6 +199,9 @@ u08 mmcRead(u32 sector)
 	u16 i;
 	u08 *buffer=mmc_sector_buffer;	//natvrdo!
 
+	//too expensive for atx support!
+	//Draw_Circle(15,5,3,1,Green);
+
 	// assert chip select
 	cbi(MMC_CS_PORT,MMC_CS_PIN);
 	// issue command
@@ -224,6 +228,7 @@ u08 mmcRead(u32 sector)
 	sbi(MMC_CS_PORT,MMC_CS_PIN);
 	spiTransferFF();	// send 8 clocks at end
 	//
+	//Draw_Circle(15,5,3,1,Black);
 	return 0;	//success
 }
 
@@ -234,6 +239,7 @@ u08 mmcWrite(u32 sector)
 	u08 *buffer=mmc_sector_buffer;	//natvrdo!
 
         //LED_RED_ON;	//TODO
+	//Draw_Circle(15,5,3,1,Red);
 
 	// assert chip select
 	cbi(MMC_CS_PORT,MMC_CS_PIN);
@@ -267,6 +273,7 @@ u08 mmcWrite(u32 sector)
 	spiTransferFF();	// send 8 clocks at end
 
         //LED_RED_OFF;	//TODO
+	//Draw_Circle(15,5,3,1,Black);
 
 	// return success
 	return 0;
@@ -340,7 +347,8 @@ u08 mmcReadCached(u32 sector)
 u08 mmcWriteCached(unsigned char force)
 {
         //if ( get_readonly() ) return 0xff; //zakazany zapis
-        //LED_RED_ON;	//TODO
+        //LED_RED_ON;	//signal cache is not written yet
+	Draw_Circle(15,5,3,1,Red);
         if (force)
         {
                 u08 ret,retry;
@@ -353,6 +361,7 @@ u08 mmcWriteCached(unsigned char force)
                 while(ret); //and if it did not work, SDrive blocks it!
                 n_actual_mmc_sector_needswrite = 0;
                 //LED_RED_OFF;
+		Draw_Circle(15,5,3,1,Black);
         }
         else
         {

@@ -76,8 +76,6 @@ const unsigned char PROGMEM atari_speed_table[] = {
 
 unsigned char debug = 0;
 unsigned char mmc_sector_buffer[512];	// one SD sector
-u32 n_actual_mmc_sector;
-unsigned char n_actual_mmc_sector_needswrite;
 unsigned char atari_sector_buffer[256];
 u08 atari_sector_status = 0xff;
 u16 last_angle_returned;
