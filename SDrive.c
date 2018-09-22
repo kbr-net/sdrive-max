@@ -309,6 +309,7 @@ void Clear_atari_sector_buffer_256()
 ////some more globals
 struct sio_cmd cmd_buf;
 unsigned char virtual_drive_number;
+unsigned char last_drive_accessed;
 unsigned char motor = 0;
 //Parameters
 struct SDriveParameters sdrparams;
@@ -1197,7 +1198,13 @@ percom_prepared:
 			{
                 if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
                 {
-                    if (!loadAtxSector(virtual_drive_number, n_sector, &atari_sector_size, &atari_sector_status)) {
+		    //Load track info table on each drive change, it's fast enough and needs only one buffer.
+		    //Good for now, if more then read is implemented, this should be done before!
+		    if (last_drive_accessed != virtual_drive_number) {
+			loadAtxFile();	// TODO: check return value
+			last_drive_accessed = virtual_drive_number;
+		    }
+                    if (!loadAtxSector(n_sector, &atari_sector_size, &atari_sector_status)) {
                         goto Send_ERR_and_DATA;
                     }
                 }
@@ -2207,11 +2214,9 @@ Command_EC_F0_FF_found:
 						atari_sector_buffer[10] == 'X' )
 					{
 						//ATX
-						if (drive > 2) {	// support first 2 drives only because of to less RAM!
-							outbox_P(PSTR("only 2 drives!"));
-							break;
-						}
-						loadAtxFile(drive);	// TODO: check return value
+						//Load track info initially once, if no drive change occurs.
+						loadAtxFile();	// TODO: check return value
+						last_drive_accessed = actual_drive_number;
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
 					}
 					else

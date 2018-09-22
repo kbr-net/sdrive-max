@@ -110,7 +110,7 @@ uchar getAtxTrack(uchar num) {
 
     // find the sector header
     printf("=============================================\n");
-    printf("Track: %i count: %i\n", tgtTrackNumber, sectorCount);
+    printf("Track: %i count: %i\n", trackHeader.trackNumber, sectorCount);
     printf("=============================================\n");
     uchar sectors[26];
     bzero(&sectors, sizeof(sectors));
