@@ -1,5 +1,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/sleep.h>
 #include <avr/eeprom.h>
 #include <util/delay.h>
 #include "avrlibdefs.h"         // global AVRLIB defines
@@ -32,11 +33,12 @@ static void setIdling() {
 	      YM_PORT &= ~(1<<YM);	// Y- = L
  XP_DDR &= ~(1<<XP); XP_PORT &= ~(1<<XP);	// X+ = Z
 	      YP_PORT &= ~(1<<YP);	// Y+ = L
- _delay_us(0.5);
+ //_delay_us(0.5);
+ _delay_us(10);	//need more time, otherwise one bad touch occurs
 }
 
 // Ausgangszustand wiederherstellen
-static void restorePorts() {
+void restorePorts() {
  XP_PORT |= (1<<XP);	// RS high
  //YM_PORT &=~(1<<YM);	// CS high oder low??
  YM_PORT |= (1<<YM);	// CS high
@@ -44,6 +46,32 @@ static void restorePorts() {
  YM_DDR |= (1<<YM);	// Y- (CS): Ausgang
  XP_DDR |= (1<<XP);	// X+ (RS): Ausgang
  YP_DDR |= (1<<YP);	// Y+ (D1): Ausgang
+}
+
+EMPTY_INTERRUPT(PCINT0_vect);
+
+void waitTouch() {
+ setIdling();
+#if defined(HX8347G) || defined(ILI9329)
+ PCMSK2 |= (1<<XM);		//select interrupt pin
+ PCICR |= (1<<PCIE2);		//interrupt enable
+#else
+ PCMSK0 |= (1<<XM);		//select interrupt pin
+ PCICR |= (1<<PCIE0);		//interrupt enable
+#endif
+/* too expensive, we make it by self, see below
+ set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+ sleep_mode();
+*/
+ SMCR = (1<<SM1) | (1<<SE);	//power down mode, sleep enable
+ sleep_cpu();
+ SMCR = 0;			//disable
+#if defined(HX8347G) || defined(ILI9329)
+ PCICR &= ~(1<<PCIE2);		//interrupt disable
+#else
+ PCICR &= ~(1<<PCIE0);		//interrupt disable
+#endif
+ restorePorts();
 }
 
 char isTouching() {

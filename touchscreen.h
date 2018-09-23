@@ -78,6 +78,8 @@ struct TSPoint {
 	unsigned int y;
 };
 
+void restorePorts();
+void waitTouch();
 char isTouching();
 //uint16_t readTouch(uint8_t b);
 struct TSPoint getPoint();

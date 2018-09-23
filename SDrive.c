@@ -685,6 +685,11 @@ ST_IDLE:
 		}
 		else
 			autowritecounter++;
+		if (autowritecounter == 0) {
+			outbox_P(PSTR("sleep in"));
+			waitTouch();
+			outbox_P(PSTR("sleep out"));
+		}
 
 	} //while
 	return(0);
@@ -697,6 +702,9 @@ ISR(PCINT1_vect)
 {
 	if(CMD_PORT & (1<<CMD_PIN))	//do nothing on high
 		return;
+
+	if(SMCR & (1<<SE))			//do we come from sleep mode?
+		restorePorts();
 
 	FileInfo.vDisk = vp;		//restore vDisk pointer
 
