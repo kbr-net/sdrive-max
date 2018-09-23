@@ -27,6 +27,7 @@
 #include "atx.h"
 #include "tape.h"
 
+#define DISPLAY_IDLE 2000000
 //#define DATE		"20140519"
 #define SWVERSIONMAJOR	1
 #define SWVERSIONMINOR	0
@@ -311,6 +312,7 @@ struct sio_cmd cmd_buf;
 unsigned char virtual_drive_number;
 unsigned char last_drive_accessed;
 unsigned char motor = 0;
+unsigned long sleep = DISPLAY_IDLE;
 //Parameters
 struct SDriveParameters sdrparams;
 
@@ -685,10 +687,17 @@ ST_IDLE:
 		}
 		else
 			autowritecounter++;
-		if (autowritecounter == 0) {
-			outbox_P(PSTR("sleep in"));
-			waitTouch();
-			outbox_P(PSTR("sleep out"));
+
+		if (sleep) {
+			//print_I(10,260,1,White,Black,sleep);
+			sleep--;
+			if (sleep == 0) {
+				TFT_sleep_on();
+				waitTouch();
+				TFT_sleep_off();
+				while (isTouching());	//wait for release
+				sleep = DISPLAY_IDLE;	//reset display blank timer
+			}
 		}
 
 	} //while
@@ -703,8 +712,9 @@ ISR(PCINT1_vect)
 	if(CMD_PORT & (1<<CMD_PIN))	//do nothing on high
 		return;
 
-	if(SMCR & (1<<SE))			//do we come from sleep mode?
+	if(SMCR & (1<<SE)) {			//do we come from sleep mode?
 		restorePorts();
+	}
 
 	FileInfo.vDisk = vp;		//restore vDisk pointer
 
