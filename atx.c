@@ -34,13 +34,17 @@
 // number of ms for each angular unit
 #define MS_ANGULAR_UNIT_VAL      0.007999897601
 // number of milliseconds drive takes to process a request
-#define MS_DRIVE_REQUEST_DELAY   3.22
+#define MS_DRIVE_REQUEST_DELAY_810  3.22
+#define MS_DRIVE_REQUEST_DELAY_1050 3.22
 // number of milliseconds to calculate CRC
-#define MS_CRC_CALCULATION       2
+#define MS_CRC_CALCULATION_810   2
+#define MS_CRC_CALCULATION_1050  2
 // number of milliseconds drive takes to step 1 track
-#define MS_TRACK_STEP            5.3
+#define MS_TRACK_STEP_810        5.3
+#define MS_TRACK_STEP_1050       10.2
 // number of milliseconds drive head takes to settle after track stepping
-#define MS_HEAD_SETTLE           0
+#define MS_HEAD_SETTLE_810       0
+#define MS_HEAD_SETTLE_1050      20
 // mask for checking FDC status "data lost" bit
 #define MASK_FDC_DLOST           0x04
 // mask for checking FDC status "missing" bit
@@ -133,7 +137,11 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     }
 
     // delay for the time the drive takes to process the request
-    _delay_ms(MS_DRIVE_REQUEST_DELAY);
+    if (is_1050()) {
+        _delay_ms(MS_DRIVE_REQUEST_DELAY_1050);
+    } else {
+        _delay_ms(MS_DRIVE_REQUEST_DELAY_810);
+    }
 
     // delay for track stepping if needed
     if (gCurrentHeadTrack != tgtTrackNumber) {
@@ -142,10 +150,18 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
         if (diff < 0) diff *= -1;
         // wait for each track (this is done in a loop since _delay_ms needs a compile-time constant)
         for (i = 0; i < diff; i++) {
-            _delay_ms(MS_TRACK_STEP);
+            if (is_1050()) {
+                _delay_ms(MS_TRACK_STEP_1050);
+            } else {
+                _delay_ms(MS_TRACK_STEP_810);
+            }
         }
         // delay for head settling
-        _delay_ms(MS_HEAD_SETTLE);
+        if (is_1050()) {
+            _delay_ms(MS_HEAD_SETTLE_1050);
+        } else {
+            _delay_ms(MS_HEAD_SETTLE_810);
+        }
     }
 
     // set new head track position
@@ -283,7 +299,11 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
         waitForAngularPosition(incAngularDisplacement(incAngularDisplacement(headPosition, rotationDelay), AU_ONE_SECTOR_READ));
 
         // delay for CRC calculation
-        _delay_ms(MS_CRC_CALCULATION);
+        if (is_1050()) {
+            _delay_ms(MS_CRC_CALCULATION_1050);
+        } else {
+            _delay_ms(MS_CRC_CALCULATION_810);
+        }
     }
 
     // the Atari expects an inverted FDC status byte
