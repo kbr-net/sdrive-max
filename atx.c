@@ -73,7 +73,9 @@ u16 loadAtxFile() {
 
     // read the file header
     faccess_offset(FILE_ACCESS_READ, 0, sizeof(struct atxFileHeader));
+#ifndef __AVR__
     byteSwapAtxFileHeader((struct atxFileHeader *) atari_sector_buffer);
+#endif
 
     // validate the ATX file header
     fileHeader = (struct atxFileHeader *) atari_sector_buffer;
@@ -98,7 +100,9 @@ u16 loadAtxFile() {
             break;
         }
         trackHeader = (struct atxTrackHeader *) atari_sector_buffer;
+#ifndef __AVR__
         byteSwapAtxTrackHeader(trackHeader);
+#endif
         gTrackInfo[trackHeader->trackNumber].offset = startOffset;
         startOffset += trackHeader->size;
     }
@@ -173,7 +177,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     u32 currentFileOffset = gTrackInfo[tgtTrackNumber - 1].offset;
     faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackHeader));
     trackHeader = (struct atxTrackHeader *) atari_sector_buffer;
+#ifndef __AVR__
     byteSwapAtxTrackHeader(trackHeader);
+#endif
     u16 sectorCount = trackHeader->sectorCount;
 
     // if there are no sectors in this track or the track number doesn't match, return error
@@ -183,7 +189,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
             currentFileOffset += trackHeader->headerSize;
             faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorListHeader));
             slHeader = (struct atxSectorListHeader *) atari_sector_buffer;
+#ifndef __AVR__
             byteSwapAtxSectorListHeader(slHeader);
+#endif
 
             // sector list header is variable length, so skip any extra header bytes that may be present
             currentFileOffset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
@@ -201,7 +209,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
             for (i=0; i < sectorCount; i++) {
                 if (faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorHeader))) {
                     sectorHeader = (struct atxSectorHeader *) atari_sector_buffer;
+#ifndef __AVR__
                     byteSwapAtxSectorHeader(sectorHeader);
+#endif
                     // if the sector is not flagged as missing and its number matches the one we're looking for...
                     if (!(sectorHeader->status & MASK_FDC_MISSING) && sectorHeader->number == tgtSectorNumber) {
                         // check if it's the next sector that the head would encounter angularly...
@@ -258,7 +268,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
             do {
                 faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackChunk));
                 extSectorData = (struct atxTrackChunk *) atari_sector_buffer;
+#ifndef __AVR__
                 byteSwapAtxTrackChunk(extSectorData);
+#endif
                 if (extSectorData->size > 0) {
                     // if the target sector has a weak data flag, grab the start weak offset within the sector data
                     if (extSectorData->sectorIndex == tgtSectorIndex && extSectorData->type == 0x10) {
