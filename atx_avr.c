@@ -19,7 +19,12 @@
 //
 //*****************************************************************************
 
+#include <stdlib.h>
 #include <avr/io.h>
+#include <util/delay.h>
+#include "avrlibtypes.h"
+#include "atx.h"
+#include "fat.h"
 #include "tft.h"
 
 extern struct display tft;

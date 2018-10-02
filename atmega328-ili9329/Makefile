@@ -14,7 +14,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -Wpadded -Wshadow -Winline -Wa,-gdwarf2     -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct
+CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2     -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += -ffunction-sections -mrelax -mcall-prologues
 
@@ -53,7 +53,7 @@ CFLAGS += $(CDEFS) -DILI9329
 
 ## Objects that must be built in order to link
 #OBJECTS = SDrive.o spi.o mmc.o fat.o delay100us.o timer.o
-OBJECTS = SDrive.o spi.o mmc.o fat.o usart.o tft.o display.o touchscreen.o atx.o
+OBJECTS = SDrive.o spi.o mmc.o fat.o usart.o tft.o display.o touchscreen.o atx.o atx_avr.o
 OBJECTS += tape.o
 
 ## Objects explicitly added by the user
@@ -91,6 +91,9 @@ touchscreen.o: ../touchscreen.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 atx.o: ../atx.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+atx_avr.o: ../atx_avr.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 tape.o: ../tape.c
