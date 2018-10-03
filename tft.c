@@ -347,6 +347,8 @@ unsigned int action_cal () {
 		while(isTouching());	//wait for release
 		while(!isTouching());
 		p = getRawPoint();
+		Draw_H_Line(x-10,x+10,y,Green);
+		Draw_V_Line(x,y-10,y+10,Green);
 		switch (i) {
 			case 0:
 				px1 = p.x;
@@ -372,6 +374,7 @@ unsigned int action_cal () {
 		}
 		//print_I(10,50,1,White,Black,p.x);
 		//print_I(40,50,1,White,Black,p.y);
+		_delay_ms(500);		//debounce
 	}
 
 	while(isTouching());
