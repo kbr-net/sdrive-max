@@ -312,7 +312,7 @@ struct sio_cmd cmd_buf;
 unsigned char virtual_drive_number;
 unsigned char last_drive_accessed;
 unsigned char motor = 0;
-unsigned long sleep = DISPLAY_IDLE;
+unsigned long sleep = 0;
 //Parameters
 struct SDriveParameters sdrparams;
 
@@ -633,9 +633,10 @@ ST_IDLE:
 				}
 				sfp = atari_sector_buffer;
 				//if matched, wait for button release
-				while (isTouching());
+bad_touch:			while (isTouching());
 				_delay_ms(50);	//wait a little for debounce
 			}
+			sleep = 0;	//reset display blank timer
 		}
 
 		if(tape_flags.run) {
@@ -688,17 +689,16 @@ ST_IDLE:
 		else
 			autowritecounter++;
 
-		if (sleep) {
+		if (sleep > DISPLAY_IDLE) {
 			//print_I(10,260,1,White,Black,sleep);
-			sleep--;
-			if (sleep == 0) {
+			if(tft.cfg.blank)
 				TFT_sleep_on();
-				waitTouch();
-				TFT_sleep_off();
-				while (isTouching());	//wait for release
-				sleep = DISPLAY_IDLE;	//reset display blank timer
-			}
+			waitTouch();
+			TFT_sleep_off();
+			goto bad_touch;
 		}
+		else
+			sleep++;
 
 	} //while
 	return(0);

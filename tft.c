@@ -447,6 +447,7 @@ const struct button PROGMEM buttons_cfg[] = {
 	{"Scroll",15,85,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"BootD1",15,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"1050",15,165,70,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"Blank",15,205,80,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	//!!leave this buttons at the end, then we can loop thru the previous!!
 	{"SaveIm",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"Save",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_save_cfg},
