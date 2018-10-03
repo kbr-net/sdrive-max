@@ -100,7 +100,8 @@ u16 loadAtxFile() {
             break;
         }
         trackHeader = (struct atxTrackHeader *) atari_sector_buffer;
-#ifndef __AVR__
+
+#ifndef __AVR__ // note that byte swapping is not needed on AVR platforms, so we remove the calls to conserve resources
         byteSwapAtxTrackHeader(trackHeader);
 #endif
         gTrackInfo[trackHeader->trackNumber].offset = startOffset;

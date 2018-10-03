@@ -49,6 +49,7 @@ u16 getCurrentHeadPosition() {
     return TCNT1 / 2;
 }
 
+#ifndef __AVR__ // note that byte swapping is not needed on AVR platforms, so we remove the functions to conserve resources
 void byteSwapAtxFileHeader(struct atxFileHeader * header) {
     // AVR implementation is a NO-OP
 }
@@ -68,6 +69,7 @@ void byteSwapAtxSectorHeader(struct atxSectorHeader * header) {
 void byteSwapAtxTrackChunk(struct atxTrackChunk *header) {
     // AVR implementation is a NO-OP
 }
+#endif
 
 u08 is_1050() {
     return(tft.cfg.drive_type);
