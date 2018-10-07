@@ -9,10 +9,10 @@
 #include "tft.h"
 #include "display.h"
 
-u16 EEMEM MINX = 0xffff;
-u16 EEMEM MINY = 0xffff;
-u16 EEMEM MAXX = 0xffff;
-u16 EEMEM MAXY = 0xffff;
+u16 MINX EEMEM = 0xffff;
+u16 MINY EEMEM = 0xffff;
+u16 MAXX EEMEM = 0xffff;
+u16 MAXY EEMEM = 0xffff;
 
 #define TS_MINX eeprom_read_word(&MINX)
 #define TS_MINY eeprom_read_word(&MINY)
@@ -63,7 +63,8 @@ void waitTouch() {
 	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 	sleep_mode();
 */
-	SMCR = (1<<SM1) | (1<<SE);	//power down mode, sleep enable
+	//SMCR = (1<<SM1) | (1<<SE);	//power down mode, sleep enable
+	SMCR = (1<<SM1) | (1<<SM0) | (1<<SE);	//power save mode, sleep enable
 	sleep_cpu();
 	SMCR = 0;			//disable
 #if defined(HX8347G) || defined(ILI9329)

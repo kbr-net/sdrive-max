@@ -27,12 +27,18 @@
 #include "atx.h"
 #include "tape.h"
 
+#define SWVERSIONMAJOR  1
+#define SWVERSIONMINOR  0b
+
+//workaround to get version numbers converted to strings
+#define STR_A(x)        #x
+#define STR(x)  STR_A(x)
+
+const char system_name[] PROGMEM = "SDrive-MAX";
+const char system_version[] PROGMEM = "by KBr V" STR(SWVERSIONMAJOR) "." STR(SWVERSIONMINOR);
+const char system_info[] PROGMEM = "SDrive" STR(SWVERSIONMAJOR) STR(SWVERSIONMINOR) " " STR(DATE) " by KBr"; //SDriveVersion info
+
 #define DISPLAY_IDLE 2000000
-//#define DATE		"20140519"
-#define SWVERSIONMAJOR	1
-#define SWVERSIONMINOR	0
-//#define DEVID		0x53444e47
-//#define DEVID		0x474e4453	// SDNG reverse!
 
 #define TWOBYTESTOWORD(ptr)	*((u16*)(ptr))
 #define FOURBYTESTOLONG(ptr)	*((u32*)(ptr))
@@ -59,7 +65,7 @@
 
 #define US_POKEY_DIV_MAX		(255-6)		//pokeydiv 249 => avrspeed 255 (vic nemuze)
 
-const unsigned char PROGMEM atari_speed_table[] = {
+const unsigned char atari_speed_table[] PROGMEM = {
 	//avr-UBRR	//pokeydiv: Baud Atari, AVR
 	15,		//0: 127842, 125000
 	17,		//1: 111862, 111111
@@ -93,25 +99,11 @@ struct FileInfoStruct FileInfo;			//< file information for last file accessed
 extern struct display tft;
 extern unsigned char actual_page;
 extern unsigned char file_selected;
-extern struct file_save EEMEM image_store[];
+extern struct file_save image_store[] EEMEM;
 
-//workaround to get version numbers converted to strings
-#define STR_A(x)	#x
-#define STR(x)	STR_A(x)
-
-const uint8_t PROGMEM system_info[] = "SDrive" STR(SWVERSIONMAJOR) STR(SWVERSIONMINOR) " " STR(DATE) " by KBr";	//SDriveVersion info
-
-//uint8_t EEMEM system_info[]="SDrive03 20140519 by kbr";	//SDriveVersion info
-//                                 VVYYYYMMDD
-//                                 VV cislo nove oficialne vydane verze, meni se jen pri vydani noveho oficialniho firmware
-//									  s rozsirenymi/zmenenymi funkcemi zpetne nekompatibilni
-//									  rostouci posloupnost 01 .. 09 0A 0B .. 0Z .. 0a 0b .. 0y 0z 10 11 ..... zz
-
-//nasledujici parametry se daji modifiovat pres EEPROM configure
-//                              |filenameext|
-uint8_t EEMEM system_atr_name[]="SDRIVE  ATR";  //8+3 zamerne deklarovano za system_info,aby bylo pripadne v dosahu pres get status
+uint8_t system_atr_name[] EEMEM = "SDRIVE  ATR";  //8+3 zamerne deklarovano za system_info,aby bylo pripadne v dosahu pres get status
 //
-uint8_t EEMEM system_fastsio_pokeydiv_default=US_POKEY_DIV_DEFAULT;
+uint8_t system_fastsio_pokeydiv_default EEMEM = US_POKEY_DIV_DEFAULT;
 
 /*
 1) 720*128=92160	   (  90,000KB)
@@ -132,7 +124,7 @@ uint8_t EEMEM system_fastsio_pokeydiv_default=US_POKEY_DIV_DEFAULT;
 #define IMSIZE7	2948736
 #define IMSIZES 7
 
-uint8_t EEMEM system_percomtable[]= {
+uint8_t system_percomtable[] EEMEM = {
 	0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
 	0x28,0x01,0x00,0x1A,0x00,0x04,0x00,0x80, IMSIZE2&0xff,(IMSIZE2>>8)&0xff,(IMSIZE2>>16)&0xff,(IMSIZE2>>24)&0xff,
 	0x28,0x01,0x00,0x12,0x00,0x04,0x01,0x00, IMSIZE3&0xff,(IMSIZE3>>8)&0xff,(IMSIZE3>>16)&0xff,(IMSIZE3>>24)&0xff,
@@ -324,6 +316,37 @@ void sio_debug (char status) {
 	outbox(DebugBuffer);
 }
 
+//screen blanker(uses AVR timer 2)
+#define blanker_on()	TIMSK2 & _BV(TOIE2)
+
+unsigned char blank_count = 0;
+
+void blanker_start () {
+	TFT_fill(Black);
+	TIMSK2 |= _BV(TOIE2);	//interrupt enable
+	TCCR2B |= _BV(CS22) | _BV(CS21) | _BV(CS20);	//start, prescaler 1024
+}
+
+void blanker_stop () {
+	TIMSK2 &= ~_BV(TOIE2);	//interrupt disable
+	TCCR2B = 0;		//stop
+	tft.pages[actual_page].draw();	//redraw page
+	sleep = 0;		//reset display blank timer
+}
+
+ISR(TIMER2_OVF_vect) {
+	blank_count++;
+	if (blank_count % 64 == 0) {
+		unsigned int x = rand() % 120;
+		unsigned int y = rand() % 300;
+		//unsigned int col = rand() * rand();
+
+		TFT_fill(Black);
+		print_str_P(x,y,2,Orange,Black, system_name);
+	}
+}
+
+//drive motor simulation
 void motor_on () {
 	TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
 							// 16MHz/64 = 250KHz(4µs)
@@ -546,6 +569,10 @@ ST_IDLE:
 		char *name;
 
 		if (isTouching()) {
+			if(blanker_on()) {
+				blanker_stop();
+				goto bad_touch;
+			}
 			b = check_Buttons();
 			if (b) {
 				//get pointers
@@ -689,16 +716,16 @@ bad_touch:			while (isTouching());
 		else
 			autowritecounter++;
 
-		if (sleep > DISPLAY_IDLE) {
-			//print_I(10,260,1,White,Black,sleep);
-			if(tft.cfg.blank)
-				TFT_sleep_on();
-			waitTouch();
-			TFT_sleep_off();
-			goto bad_touch;
+		if(tft.cfg.blank) {
+			if (sleep > DISPLAY_IDLE) {
+				if (!blanker_on() ) {
+					//start blanker via timer 2
+					blanker_start();
+				}
+			}
+			else
+				sleep++;
 		}
-		else
-			sleep++;
 
 	} //while
 	return(0);
@@ -712,9 +739,8 @@ ISR(PCINT1_vect)
 	if(CMD_PORT & (1<<CMD_PIN))	//do nothing on high
 		return;
 
-	if(SMCR & (1<<SE)) {			//do we come from sleep mode?
-		restorePorts();
-	}
+	if(blanker_on())		//this is not optimal here, should be
+		blanker_stop();		// done after ACK
 
 	FileInfo.vDisk = vp;		//restore vDisk pointer
 

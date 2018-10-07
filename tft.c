@@ -19,6 +19,8 @@ extern char atari_sector_buffer[];
 extern struct FileInfoStruct FileInfo;
 extern virtual_disk_t vDisk[];
 //extern struct GlobalSystemValues GS;
+extern const char system_name[] PROGMEM;
+extern const char system_version[] PROGMEM;
 
 unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
@@ -27,7 +29,7 @@ unsigned int nfiles = 0;
 unsigned int file_selected = -1;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
-const char PROGMEM known_extensions[][3] = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
+const char known_extensions[][3] PROGMEM = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
 struct TSPoint p;
 
 void main_page();
@@ -38,12 +40,12 @@ unsigned int debug_page();
 
 struct display tft;
 
-unsigned char EEMEM cfg = 0xf3;	//config byte on eeprom, initial value is all on except boot_d1 and 1050
-struct file_save EEMEM image_store[DEVICESNUM-1] = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
-extern u16 EEMEM MINX;
-extern u16 EEMEM MINY;
-extern u16 EEMEM MAXX;
-extern u16 EEMEM MAXY;
+unsigned char cfg EEMEM = 0xf3;	//config byte on eeprom, initial value is all on except boot_d1 and 1050
+struct file_save image_store[DEVICESNUM-1] EEMEM = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
+extern u16 MINX EEMEM;
+extern u16 MINY EEMEM;
+extern u16 MAXX EEMEM;
+extern u16 MAXY EEMEM;
 
 
 unsigned int action_b0 (struct button *b) {
@@ -574,8 +576,8 @@ void main_page () {
 	TFT_fill(Black);
 
 	//Header
-	print_str_P(20, 10, 2, Orange, Black, PSTR("SDrive-MAX"));
-	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V1.0b"));
+	print_str_P(20, 10, 2, Orange, Black, system_name); //"SDrive-MAX"
+	print_str_P(160, 18, 1, Orange, Black, system_version); //"by KBr V1.0"
 	Draw_H_Line(0,tft.width,30,Orange);
 
 	draw_Buttons();
