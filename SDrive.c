@@ -381,8 +381,8 @@ int main(void)
 	//Analog comperator 
 	ACSR |= _BV(ACIC) | _BV(ACD);	// set input capture to AC, and disable it
 					// (ICP pin has conflict with touchscreen otherwise, and saves power)
-	DIDR0 = 0b11111;		// disable digital input on analog pins(PC0-PC5), saves also power
-					// (are only used as output, btw. PC5 as interrupt)
+	DIDR0 = 0b1111;			// disable digital input on analog pins(PC0-PC4), saves also power
+					// (are only used as output, excluding PC5(CMD))
 
 	//init timer
 	GTCCR |= _BV(PSRSYNC);          // Prescaler reset
@@ -767,7 +767,7 @@ void process_command ()
 		err=USART_Get_Buffer_And_Check((unsigned char*)&cmd_buf,4,CMD_STATE_L);
 
 		//It was due to timeout?
-		if (err&0x02) {
+		if (err==0x02) {
 			outbox_P(PSTR("SIO:CMD Timeout"));
 			return; //exit. If Atari is off, it will hang here otherwise
 		}
@@ -777,11 +777,15 @@ void process_command ()
 
 		Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
 		wait_cmd_LH();	//Wait until the signal command rises to H
-		////dou to LED function never needed, i think
+		////due to LED function never needed, i think
 		//Delay100us();	//T2=100   (After lifting the command and before the ACK)
 
 		if(err)
 		{
+			if (debug) {
+				sprintf_P(atari_sector_buffer, PSTR("SIO-Error: %i"), err);
+				outbox(atari_sector_buffer);
+			}
 			if (fastsio_pokeydiv!=US_POKEY_DIV_STANDARD)
 			{
 				//Convert from standard to fast or vice versa

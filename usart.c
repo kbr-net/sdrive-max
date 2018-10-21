@@ -30,6 +30,8 @@ extern void sio_debug(char status);
 	#define U2X	U2X0
 	#define RXC	RXC0
 	#define UDR	UDR0
+	#define FE	FE0
+	#define DOR	DOR0
 #endif
 
 extern unsigned char atari_sector_buffer[256];
@@ -74,6 +76,12 @@ void USART_Init ( u16 value ) {
 	}
 }
 
+//maybe usefull for later use
+void USART_Flush() {
+	unsigned char dummy;
+	while (UCSRA & (1<<RXC)) dummy = UDR;     //flush
+}
+
 void USART_Transmit_Byte( unsigned char data ) {
 	/* Wait for empty transmit buffer */
 	while ( !( UCSRA & (1<<UDRE)) )	;
@@ -107,6 +115,7 @@ u08 USART_Get_Buffer_And_Check(unsigned char *buff, u16 len, u08 cmd_state) {
 	ptr=buff;
 	n=len;
 	unsigned long timeout = 0;
+	unsigned char stat;
 
 	while(1)
 	{ 
@@ -118,9 +127,12 @@ u08 USART_Get_Buffer_And_Check(unsigned char *buff, u16 len, u08 cmd_state) {
 			if ( timeout > 125000 ) return 0x02;
 			timeout++;
 		} while ( !(UCSRA & (1<<RXC)) );
-		// Get and return received data from buffer
-		//return UDR;
-		b=UDR;
+		// Get status and received data from buffer
+		stat = UCSRA;
+		b = UDR;
+		// Check for errors
+		if (stat & (1<<FE)) return 3;
+		if (stat & (1<<DOR)) return 4;
 		if (!n)
 		{
 			//v b je checksum (n+1 byte)
@@ -148,7 +160,7 @@ u08 USART_Get_buffer_and_check_and_send_ACK_or_NACK(unsigned char *buff, u16 len
 			err+=0x30;
 			outbox(&err);
 		}
-		return 0xff; //kdyz nesouhlasi checksum
+		return 0xff;	//kdyz nesouhlasi checksum
 	}
 	send_ACK();
 	if (debug) {
