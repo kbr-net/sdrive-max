@@ -348,10 +348,13 @@ ISR(TIMER2_OVF_vect) {
 
 //drive motor simulation
 void motor_on () {
-	TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
-							// 16MHz/64 = 250KHz(4µs)
-	motor = 1;
-	Draw_Circle(5,5,3,1,Green);
+	//if not currently running...
+	if (!motor) {
+		TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
+								// 16MHz/64 = 250KHz(4µs)
+		Draw_Circle(5,5,3,1,Green);
+	}
+	motor = 1;	//mark motor on and reset counter
 }
 
 void motor_off () {
@@ -1221,9 +1224,12 @@ percom_prepared:
 			break;
 
 
+		case 0x52:	//read
+			motor_on();	//on write turn on motor not until
+					// received data(timing problem on
+					// SIO highspeed!)
 		case 0x50:	//write
 		case 0x57:	//write (verify)
-		case 0x52:	//read
 		    {
 			unsigned short proceeded_bytes;
 			//set the standard SD Sector Size for returning data,
@@ -1241,7 +1247,6 @@ percom_prepared:
 			if(n_sector==0)
 				goto Send_ERR_and_DATA;
 
-			motor_on();
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
 			{
                 if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
@@ -1293,6 +1298,7 @@ percom_prepared:
                         {
                             break;
                         }
+			motor_on();
 
                         //if ( get_readonly() )
                         //	 goto Send_ERR_and_DATA;; //READ ONLY
