@@ -788,10 +788,10 @@ void Draw_Circle(signed int xc, signed int yc, signed int radius, unsigned char 
           {
               case YES:
               {
-                  Draw_Line((xc - a), (yc + b), (xc + a), (yc + b), colour);
-                  Draw_Line((xc - a), (yc - b), (xc + a), (yc - b), colour);
-                  Draw_Line((xc - b), (yc + a), (xc + b), (yc + a), colour);
-                  Draw_Line((xc - b), (yc - a), (xc + b), (yc - a), colour);
+                  Draw_H_Line((xc - a), (xc + a), (yc + b), colour);
+                  Draw_H_Line((xc - a), (xc + a), (yc - b), colour);
+                  Draw_H_Line((xc - b), (xc + b), (yc + a), colour);
+                  Draw_H_Line((xc - b), (xc + b), (yc - a), colour);
                   break;
               }
               default:
