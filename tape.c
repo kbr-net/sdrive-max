@@ -36,7 +36,7 @@ unsigned int send_tape_block (unsigned int offset) {
 		offset += r;
         }
 	else {	//this is the last/end record
-		print_str_P(35,135,2,Yellow,Light_Grey, PSTR("End  "));
+		print_str_P(35,135,2,Yellow,window_bg, PSTR("End  "));
 		Clear_atari_sector_buffer(block_len+3);
 		atari_sector_buffer[2] = 0xfe;	//mark end record
 		offset = 0;
