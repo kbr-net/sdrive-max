@@ -74,7 +74,6 @@ unsigned int action_b1_4 (struct button *b) {
 unsigned int action_tape (struct button *b) {
 	actual_page = PAGE_FILE;
 	tape_mode = 1;
-	tape_flags.turbo = 0;	//start with no turbo
 	sei();
 	tft.pages[actual_page].draw();
 	return(0);
