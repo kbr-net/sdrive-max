@@ -331,7 +331,6 @@ void blanker_stop () {
 	TIMSK2 &= ~_BV(TOIE2);	//interrupt disable
 	TCCR2B = 0;		//stop
 	tft.pages[actual_page].draw();	//redraw page
-	sleep = 0;		//reset display blank timer
 }
 
 ISR(TIMER2_OVF_vect) {
@@ -753,6 +752,7 @@ ISR(PCINT1_vect)
 
 	vp = FileInfo.vDisk;		//save actual vDisk pointer
 	FileInfo.vDisk = &tmpvDisk;	//set vDisk pointer to tmp
+	sleep = 0;			//reset display blank timer
 }
 
 //////process command frame
