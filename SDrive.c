@@ -302,7 +302,7 @@ void Clear_atari_sector_buffer_256()
 ////some more globals
 struct sio_cmd cmd_buf;
 unsigned char virtual_drive_number;
-unsigned char last_drive_accessed;
+unsigned char last_drive_accessed = 0;
 unsigned char motor = 0;
 unsigned long sleep = 0;
 //Parameters
@@ -2270,7 +2270,6 @@ Command_EC_F0_FF_found:
 						//ATX
 						//Load track info initially once, if no drive change occurs.
 						loadAtxFile();	// TODO: check return value
-						last_drive_accessed = actual_drive_number;
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
 					}
 					else
