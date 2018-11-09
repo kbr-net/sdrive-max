@@ -24,6 +24,7 @@
 
 #define ATX_VERSION		0x01
 #define STS_EXTENDED	0x40
+#define MAX_TRACK	42
 
 struct atxFileHeader {
     u08 signature[4];

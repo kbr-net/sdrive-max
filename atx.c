@@ -63,7 +63,7 @@ extern u16 last_angle_returned; // extern so we can display it on the screen
 
 u16 gBytesPerSector;                                 // number of bytes per sector
 u08 gSectorsPerTrack;                                // number of sectors in each track
-struct atxTrackInfo gTrackInfo[40];                  // pre-calculated info for each track
+struct atxTrackInfo gTrackInfo[MAX_TRACK];                  // pre-calculated info for each track
 u16 gLastAngle;
 u08 gCurrentHeadTrack;
 
@@ -95,7 +95,8 @@ u16 loadAtxFile() {
 
     // calculate track offsets
     u32 startOffset = fileHeader->startData;
-    while (1) {
+    u08 track;
+    for (track = 0; track < MAX_TRACK; track++) {
         if (!faccess_offset(FILE_ACCESS_READ, startOffset, sizeof(struct atxTrackHeader))) {
             break;
         }
@@ -104,7 +105,7 @@ u16 loadAtxFile() {
 #ifndef __AVR__ // note that byte swapping is not needed on AVR platforms, so we remove the calls to conserve resources
         byteSwapAtxTrackHeader(trackHeader);
 #endif
-        gTrackInfo[trackHeader->trackNumber].offset = startOffset;
+        gTrackInfo[track].offset = startOffset;
         startOffset += trackHeader->size;
     }
 
@@ -134,11 +135,6 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     *status = 0x10;
     // set the sector size
     *sectorSize = gBytesPerSector;
-
-    // immediately fail on track read > 40
-    if (tgtTrackNumber > 40) {
-        return 0;
-    }
 
     // delay for the time the drive takes to process the request
     if (is_1050()) {
@@ -176,6 +172,10 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 
     // read the track header
     u32 currentFileOffset = gTrackInfo[tgtTrackNumber - 1].offset;
+    // exit, if track not present
+    if (!currentFileOffset) {
+	goto error;
+    }
     faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxTrackHeader));
     trackHeader = (struct atxTrackHeader *) atari_sector_buffer;
 #ifndef __AVR__
@@ -318,6 +318,7 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
         }
     }
 
+error:
     // the Atari expects an inverted FDC status byte
     *status = ~(*status);
 
