@@ -184,19 +184,17 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     u16 sectorCount = trackHeader->sectorCount;
 
     // if there are no sectors in this track or the track number doesn't match, return error
-    if (trackHeader->trackNumber == tgtTrackNumber - 1) {
+    if (trackHeader->trackNumber == tgtTrackNumber - 1 && sectorCount) {
         // read the sector list header if there are sectors for this track
-        if (sectorCount > 0) {
-            currentFileOffset += trackHeader->headerSize;
-            faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorListHeader));
-            slHeader = (struct atxSectorListHeader *) atari_sector_buffer;
+	currentFileOffset += trackHeader->headerSize;
+	faccess_offset(FILE_ACCESS_READ, currentFileOffset, sizeof(struct atxSectorListHeader));
+	slHeader = (struct atxSectorListHeader *) atari_sector_buffer;
 #ifndef __AVR__
-            byteSwapAtxSectorListHeader(slHeader);
+	byteSwapAtxSectorListHeader(slHeader);
 #endif
 
-            // sector list header is variable length, so skip any extra header bytes that may be present
-            currentFileOffset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
-        }
+	// sector list header is variable length, so skip any extra header bytes that may be present
+	currentFileOffset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
 
         int pTT = 0;
         int retries = MAX_RETRIES_810;
