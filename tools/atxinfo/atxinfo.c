@@ -6,7 +6,7 @@
 int main (int argc, char **argv) {
 
 	FILE* file;
-	unsigned char t;
+	unsigned char t = 1;
 
 	if(argc < 2) return(1);
 
@@ -17,9 +17,7 @@ int main (int argc, char **argv) {
 		return(1);
 	}
 
-	for(t = 1; t <= 40; t++) {
-		getAtxTrack(t);
-	}
+	while(getAtxTrack(t)) t++;
 
 	closeAtxFile();
 	fclose(file);

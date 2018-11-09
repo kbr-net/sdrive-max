@@ -25,15 +25,17 @@
 #include "atx.h"
 
 struct atxTrackInfo {
-    ulong offset;   // absolute position within file for start of track header
+    u32 offset;   // absolute position within file for start of track header
     uchar xsCount;  // number of extended sector records
-    ulong xsOffset; // absolute position within file for start of extended sector records
+    u32 xsOffset; // absolute position within file for start of extended sector records
 };
+
+#define MAX_TRACK 80
 
 FILE *gFile;                            // reference to currently loaded ATX file
 ushort gBytesPerSector;                 // number of bytes per sector
 uchar gSectorsPerTrack;                 // number of sectors in each track
-struct atxTrackInfo gTrackInfo[40];     // pre-calculated info for each track
+struct atxTrackInfo gTrackInfo[MAX_TRACK];     // pre-calculated info for each track
 
 int loadAtxFile(FILE *f) {
     struct atxFileHeader fileHeader;
@@ -67,12 +69,13 @@ int loadAtxFile(FILE *f) {
     fseek(gFile, fileHeader.startData, SEEK_SET);
 
     // calculate track offsets
-    ulong startOffset = fileHeader.startData;
-    while (1) {
+    u32 startOffset = fileHeader.startData;
+    uchar track;
+    for (track = 0; track < MAX_TRACK; track++) {
         if (!fread(&trackHeader, sizeof(trackHeader), 1, gFile)) {
             break;
         }
-        gTrackInfo[trackHeader.trackNumber].offset = startOffset;
+        gTrackInfo[track].offset = startOffset;
         fseek(gFile, trackHeader.size - sizeof(trackHeader), SEEK_CUR);
         startOffset += trackHeader.size;
     }
@@ -90,20 +93,24 @@ uchar getAtxTrack(uchar num) {
     uchar tgtTrackNumber = num;
     ushort absSectorNumber = (tgtTrackNumber - 1) * gSectorsPerTrack;
 
-    if (tgtTrackNumber > 40)
+    // track present?
+    if (!gTrackInfo[tgtTrackNumber - 1].offset)
 	return ret;
+
+    ret = 1;
 
     // read the track header
     fseek(gFile, gTrackInfo[tgtTrackNumber - 1].offset, SEEK_SET);
     fread(&trackHeader, sizeof(trackHeader), 1, gFile);
+    ushort sectorCount = trackHeader.sectorCount;
 
     // read the sector list header
-    fseek(gFile, trackHeader.headerSize - sizeof(trackHeader), SEEK_CUR);
+    // this seek does nothing, size - size = 0
+    //fseek(gFile, trackHeader.headerSize - sizeof(trackHeader), SEEK_CUR);
     fread(&slHeader, sizeof(slHeader), 1, gFile);
-    uchar sectorCount = trackHeader.sectorCount;
 
     // sector list header is variable length, so skip any extra header bytes that may be present
-    fseek(gFile, slHeader.next - trackHeader.sectorCount * 8 - sizeof(slHeader), SEEK_CUR);
+    fseek(gFile, slHeader.next - sectorCount * 8 - sizeof(slHeader), SEEK_CUR);
 
     // indicator that extended sector data record exists for the sector we are reading
     uchar xsdFound = 0;
@@ -115,7 +122,7 @@ uchar getAtxTrack(uchar num) {
     uchar sectors[26];
     bzero(&sectors, sizeof(sectors));
     ushort i;
-    for (i=0; i < trackHeader.sectorCount; i++) {
+    for (i=0; i < sectorCount; i++) {
         if (! fread(&sectorHeader, sizeof(sectorHeader), 1, gFile))
 		break;
 
