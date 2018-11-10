@@ -5,7 +5,10 @@ v1.0:
 - all drives could now be used for ATX files
 - 810 firmware retry logic(ATX)
 - fixed missing sector handling(ATX)
-- added red signal(near drive signal on top/left) if write cache not written
+- fixed issue with double tracks(ATX)
+- fixed bug on file change(ATX)
+- added red signal(near motor signal on top/left) if write cache not written
+- improved SIO highspeed and fixed write problem
 
 v0.9:
 - added a tape pause function
