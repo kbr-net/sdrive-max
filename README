@@ -21,7 +21,8 @@ What do you need?
 
   The other lines are always the same, as far as i could see
   (TFT-Data 2-9, -Ctrl. A0-A4, SD 10-13). In doubt, ask!
-- a diode 1N4148 or similar
+- a diode 1N4148 or similar - Update!
+  better use a schottky diode
 - a micro SD-Card(SD or SDHC)
 - some cable and connectors to Atari's SIO-Port
 - avrdude Software for firmware programming
@@ -35,7 +36,9 @@ Wirering Arduino <-> Atari-SIO:
 * +5V <-> Pin 10 (+5V/Ready)
 
 *Optional, if you want power from Atari, but then you can't use Display
- while Atari ist powered off!
+ while Atari ist powered off! - Update!
+ Not recommended, because the Atari is specified at 50mA max., and Sdrive-MAX
+ needs about 150mA!
 
 Firmware programming:
 
@@ -45,24 +48,29 @@ That's it!
 
 Display usage:
 
-- on first start follow touching the calibration crosses. You can redo this
+- On first start follow touching the calibration crosses. You can redo this
   at any time by hold touching during startup. This have to be also done,
   if you have changed the display rotation.
-- press drive buttons in the middle to select the actual boot drive (D1:)
+- Press drive buttons in the middle to select the actual boot drive (D1:)
   (on startup always the internal drive D0: with SDRIVE.ATR loaded is selected
   for old sdrive(-ng) compatibility)
-- press drive buttons on the left do deactivate the drive
-- press dirve buttons on the right at the disk logo to insert an image
+- Press drive buttons on the left do deactivate the drive
+- Press dirve buttons on the right at the disk logo to insert an image
 - D0: can only be selected as boot drive, not changed
-- press on the New button will create a new image on the selected drive
+- If you want to boot from an external drive, select an empty drive slot as D1:!
+- Press on the New button will create a new image on the selected drive
   during the next format command
-- press on the output window at bottom will open SIO debug mode. To close
+- Press on the output window at bottom will open SIO debug mode. To close
   press anywhere on the screen
-- file select window should be self descripting
-- to save selected images on EEPROM, press the Cfg button, highlight
+- File select window should be self descripting
+- To save selected images on EEPROM, press the Cfg button, highlight
   the SaveIm button, and press Save
-- if you want also to boot from drive 1 by default, highlight the BootD1
+- If you want also to boot from drive 1 by default, highlight the BootD1
   button too before pessing Save
+- The "1050" option in Cfg menu uses timing for 1050 drive on ATX files,
+  instead of 810
+- Do not power off, while the red signal on top left of the screen appears,
+  then the write cache was not written to SD!
 
 Tape operation:
 
@@ -77,6 +85,7 @@ Tape operation:
 - to stop hold down the Start button until the next block loading
 - the tape is automatically rewind, so you could start again from beginning
   at this point
+- press the Turbo button, if you want to enable a 1000 baud transmission
 - exit ends the tape emulation
 
 (by KBr from forum64.de)
