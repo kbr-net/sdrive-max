@@ -9,15 +9,8 @@
 //#pragma once
 //#include <stdint.h>
 
-#if ! defined(ILI9329) && ! defined(HX8347G) && ! defined(ILI9340)
+#if defined(ILI9341) || defined(HX8347I)
 //Touch For New ILI9341 TP
-/* no more needed, will be calibrated now
-#define TS_MINX 120
-#define TS_MAXX 900
-
-#define TS_MINY 75
-#define TS_MAXY 880
-*/
 
 #define XP	PC2		//must be an analog port
 #define XP_PORT	PORTC
@@ -37,22 +30,7 @@
 #define YM_DDR	DDRC
 
 #else
-//Touch For ILI9329 or HX8347G
-/*
-#ifdef HX8347G
-#define TS_MINX 100
-#define TS_MAXX 850
-
-#define TS_MINY 110
-#define TS_MAXY 850
-#else
-#define TS_MINX 120
-#define TS_MAXX 920
-
-#define TS_MINY 110
-#define TS_MAXY 940
-#endif
-*/
+//Touch For ILI9329, ILI9340 or HX8347G
 
 #define XP	PC1		//must be an analog port
 #define XP_PORT	PORTC
