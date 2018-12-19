@@ -9,6 +9,7 @@ v1.0:
 - fixed bug on file change(ATX)
 - added red signal(near motor signal on top/left) if write cache not written
 - improved SIO highspeed and fixed write problem
+- added support for HX8347I displays
 
 v0.9:
 - added a tape pause function
