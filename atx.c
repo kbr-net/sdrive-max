@@ -40,10 +40,10 @@
 #define MS_CRC_CALCULATION_1050  2
 // number of milliseconds drive takes to step 1 track
 #define MS_TRACK_STEP_810        5.3
-#define MS_TRACK_STEP_1050       10.2
+#define MS_TRACK_STEP_1050       12.41
 // number of milliseconds drive head takes to settle after track stepping
 #define MS_HEAD_SETTLE_810       0
-#define MS_HEAD_SETTLE_1050      20
+#define MS_HEAD_SETTLE_1050      40
 // mask for checking FDC status "data lost" bit
 #define MASK_FDC_DLOST           0x04
 // mask for checking FDC status "missing" bit
