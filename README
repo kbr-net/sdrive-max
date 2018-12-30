@@ -21,6 +21,9 @@ What do you need?
 
   The other lines are always the same, as far as i could see
   (TFT-Data 2-9, -Ctrl. A0-A4, SD 10-13). In doubt, ask!
+
+  Update! Other displays with one of the following chip are now also supported:
+  ILI9329, ILI9340, HX8347G, HX8347I
 - a diode 1N4148 or similar - Update!
   better use a schottky diode
 - a micro SD-Card(SD or SDHC)
@@ -36,9 +39,11 @@ Wirering Arduino <-> Atari-SIO:
 * +5V <-> Pin 10 (+5V/Ready)
 
 *Optional, if you want power from Atari, but then you can't use Display
- while Atari ist powered off! - Update!
- Not recommended, because the Atari is specified at 50mA max., and Sdrive-MAX
- needs about 150mA!
+ while Atari ist powered off!
+ Update! We strongly recommend to use an external power supply, because the
+ Atari is specified at 50mA max., and Sdrive-MAX needs about 150mA!
+ Voltage drop on the SIO lines will make curious problems especially in
+ conjunction with other devices!
 
 Firmware programming:
 
