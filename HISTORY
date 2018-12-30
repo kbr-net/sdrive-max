@@ -1,4 +1,17 @@
-v0.9;
+v1.0:
+- added an optional screen blanker after about 30 seconds idleing
+- debouncing touchscreen calibration and signal green on press
+- added config switch for 1050 mode for ATX files(else 810 mode by default)
+- all drives could now be used for ATX files
+- 810 firmware retry logic(ATX)
+- fixed missing sector handling(ATX)
+- fixed issue with double tracks(ATX)
+- fixed bug on file change(ATX)
+- added red signal(near motor signal on top/left) if write cache not written
+- improved SIO highspeed and fixed write problem
+- added support for HX8347I displays
+
+v0.9:
 - added a tape pause function
 - prevent hang on restore images
 - fixed display bug on insert image

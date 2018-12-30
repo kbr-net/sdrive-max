@@ -19,6 +19,8 @@ extern char atari_sector_buffer[];
 extern struct FileInfoStruct FileInfo;
 extern virtual_disk_t vDisk[];
 //extern struct GlobalSystemValues GS;
+extern const char system_name[] PROGMEM;
+extern const char system_version[] PROGMEM;
 
 unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
@@ -27,7 +29,7 @@ unsigned int nfiles = 0;
 unsigned int file_selected = -1;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
-const char PROGMEM known_extensions[][3] = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
+const char known_extensions[][3] PROGMEM = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
 struct TSPoint p;
 
 void main_page();
@@ -38,12 +40,12 @@ unsigned int debug_page();
 
 struct display tft;
 
-unsigned char EEMEM cfg = 0xfb;	//config byte on eeprom, initial value is all on except boot_d1
-struct file_save EEMEM image_store[DEVICESNUM-1] = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
-extern u16 EEMEM MINX;
-extern u16 EEMEM MINY;
-extern u16 EEMEM MAXX;
-extern u16 EEMEM MAXY;
+unsigned char cfg EEMEM = 0xf3;	//config byte on eeprom, initial value is all on except boot_d1 and 1050
+struct file_save image_store[DEVICESNUM-1] EEMEM = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
+extern u16 MINX EEMEM;
+extern u16 MINY EEMEM;
+extern u16 MAXX EEMEM;
+extern u16 MAXY EEMEM;
 
 
 unsigned int action_b0 (struct button *b) {
@@ -72,7 +74,6 @@ unsigned int action_b1_4 (struct button *b) {
 unsigned int action_tape (struct button *b) {
 	actual_page = PAGE_FILE;
 	tape_mode = 1;
-	tape_flags.turbo = 0;	//start with no turbo
 	sei();
 	tft.pages[actual_page].draw();
 	return(0);
@@ -304,10 +305,10 @@ unsigned int action_save_cfg () {
 	unsigned char rot = tft.cfg.rot;
 
 	*(char*)&tft.cfg = 0;	//clear first
-	for(i = 0; i < 4; i++) {
+	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
-		if(i < 3)	//not save last(SaveIm) button, only load ptr
+		if(i < tft.pages[actual_page].nbuttons-3)	//not save last(SaveIm) button, only load ptr
 			*(char*)&tft.cfg |= flags->selected << i;
 	}
 	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
@@ -347,6 +348,8 @@ unsigned int action_cal () {
 		while(isTouching());	//wait for release
 		while(!isTouching());
 		p = getRawPoint();
+		Draw_H_Line(x-10,x+10,y,Green);
+		Draw_V_Line(x,y-10,y+10,Green);
 		switch (i) {
 			case 0:
 				px1 = p.x;
@@ -372,6 +375,7 @@ unsigned int action_cal () {
 		}
 		//print_I(10,50,1,White,Black,p.x);
 		//print_I(40,50,1,White,Black,p.y);
+		_delay_ms(500);		//debounce
 	}
 
 	while(isTouching());
@@ -443,15 +447,10 @@ const struct button PROGMEM buttons_cfg[] = {
 	{"Rotate",15,45,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"Scroll",15,85,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"BootD1",15,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"SaveIm",15,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-/* all 8 needs too much RAM!!!
-	{"empty3",15,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty4",15,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty5",15,205,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty6",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty7",115,125,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-	{"empty8",115,165,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
-*/
+	{"1050",15,165,70,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"Blank",15,205,80,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	//!!leave this buttons at the end, then we can loop thru the previous!!
+	{"SaveIm",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"Save",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_save_cfg},
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
@@ -576,8 +575,8 @@ void main_page () {
 	TFT_fill(Black);
 
 	//Header
-	print_str_P(20, 10, 2, Orange, Black, PSTR("SDrive-MAX"));
-	print_str_P(160, 18, 1, Orange, Black, PSTR("by KBr V0.9"));
+	print_str_P(20, 10, 2, Orange, Black, system_name); //"SDrive-MAX"
+	print_str_P(160, 18, 1, Orange, Black, system_version); //"by KBr V1.0"
 	Draw_H_Line(0,tft.width,30,Orange);
 
 	draw_Buttons();
@@ -611,11 +610,11 @@ void config_page () {
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
-	for(i = 0; i < 4; i++) {
+	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
 		flags->selected = (*(char*)&tft.cfg >> i) & 1;
-		if(i == 3)
+		if(i == tft.pages[actual_page].nbuttons-3)
 			flags->selected = 0;
 	}
 	draw_Buttons();

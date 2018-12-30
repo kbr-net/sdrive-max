@@ -25,6 +25,9 @@
 #include "avrlibtypes.h"
 #include "atx.h"
 #include "fat.h"
+#include "tft.h"
+
+extern struct display tft;
 
 void waitForAngularPosition(u16 pos) {
     // if the position is less than the current timer, we need to wait for a rollover 
@@ -46,6 +49,7 @@ u16 getCurrentHeadPosition() {
     return TCNT1 / 2;
 }
 
+#ifndef __AVR__ // note that byte swapping is not needed on AVR platforms, so we remove the functions to conserve resources
 void byteSwapAtxFileHeader(struct atxFileHeader * header) {
     // AVR implementation is a NO-OP
 }
@@ -64,4 +68,9 @@ void byteSwapAtxSectorHeader(struct atxSectorHeader * header) {
 
 void byteSwapAtxTrackChunk(struct atxTrackChunk *header) {
     // AVR implementation is a NO-OP
+}
+#endif
+
+u08 is_1050() {
+    return(tft.cfg.drive_type);
 }

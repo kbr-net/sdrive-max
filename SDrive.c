@@ -27,11 +27,18 @@
 #include "atx.h"
 #include "tape.h"
 
-//#define DATE		"20140519"
-#define SWVERSIONMAJOR	0
-#define SWVERSIONMINOR	9
-//#define DEVID		0x53444e47
-//#define DEVID		0x474e4453	// SDNG reverse!
+#define SWVERSIONMAJOR  1
+#define SWVERSIONMINOR  0
+
+//workaround to get version numbers converted to strings
+#define STR_A(x)        #x
+#define STR(x)  STR_A(x)
+
+const char system_name[] PROGMEM = "SDrive-MAX";
+const char system_version[] PROGMEM = "by KBr V" STR(SWVERSIONMAJOR) "." STR(SWVERSIONMINOR);
+const char system_info[] PROGMEM = "SDrive" STR(SWVERSIONMAJOR) STR(SWVERSIONMINOR) " " STR(DATE) " by KBr"; //SDriveVersion info
+
+#define DISPLAY_IDLE 2000000
 
 #define TWOBYTESTOWORD(ptr)	*((u16*)(ptr))
 #define FOURBYTESTOLONG(ptr)	*((u32*)(ptr))
@@ -58,7 +65,7 @@
 
 #define US_POKEY_DIV_MAX		(255-6)		//pokeydiv 249 => avrspeed 255 (vic nemuze)
 
-const unsigned char PROGMEM atari_speed_table[] = {
+const unsigned char atari_speed_table[] PROGMEM = {
 	//avr-UBRR	//pokeydiv: Baud Atari, AVR
 	15,		//0: 127842, 125000
 	17,		//1: 111862, 111111
@@ -76,8 +83,6 @@ const unsigned char PROGMEM atari_speed_table[] = {
 
 unsigned char debug = 0;
 unsigned char mmc_sector_buffer[512];	// one SD sector
-u32 n_actual_mmc_sector;
-unsigned char n_actual_mmc_sector_needswrite;
 unsigned char atari_sector_buffer[256];
 u08 atari_sector_status = 0xff;
 u16 last_angle_returned;
@@ -94,25 +99,11 @@ struct FileInfoStruct FileInfo;			//< file information for last file accessed
 extern struct display tft;
 extern unsigned char actual_page;
 extern unsigned char file_selected;
-extern struct file_save EEMEM image_store[];
+extern struct file_save image_store[] EEMEM;
 
-//workaround to get version numbers converted to strings
-#define STR_A(x)	#x
-#define STR(x)	STR_A(x)
-
-const uint8_t PROGMEM system_info[] = "SDrive" STR(SWVERSIONMAJOR) STR(SWVERSIONMINOR) " " STR(DATE) " by KBr";	//SDriveVersion info
-
-//uint8_t EEMEM system_info[]="SDrive03 20140519 by kbr";	//SDriveVersion info
-//                                 VVYYYYMMDD
-//                                 VV cislo nove oficialne vydane verze, meni se jen pri vydani noveho oficialniho firmware
-//									  s rozsirenymi/zmenenymi funkcemi zpetne nekompatibilni
-//									  rostouci posloupnost 01 .. 09 0A 0B .. 0Z .. 0a 0b .. 0y 0z 10 11 ..... zz
-
-//nasledujici parametry se daji modifiovat pres EEPROM configure
-//                              |filenameext|
-uint8_t EEMEM system_atr_name[]="SDRIVE  ATR";  //8+3 zamerne deklarovano za system_info,aby bylo pripadne v dosahu pres get status
+uint8_t system_atr_name[] EEMEM = "SDRIVE  ATR";  //8+3 zamerne deklarovano za system_info,aby bylo pripadne v dosahu pres get status
 //
-uint8_t EEMEM system_fastsio_pokeydiv_default=US_POKEY_DIV_DEFAULT;
+uint8_t system_fastsio_pokeydiv_default EEMEM = US_POKEY_DIV_DEFAULT;
 
 /*
 1) 720*128=92160	   (  90,000KB)
@@ -133,7 +124,7 @@ uint8_t EEMEM system_fastsio_pokeydiv_default=US_POKEY_DIV_DEFAULT;
 #define IMSIZE7	2948736
 #define IMSIZES 7
 
-uint8_t EEMEM system_percomtable[]= {
+uint8_t system_percomtable[] EEMEM = {
 	0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
 	0x28,0x01,0x00,0x1A,0x00,0x04,0x00,0x80, IMSIZE2&0xff,(IMSIZE2>>8)&0xff,(IMSIZE2>>16)&0xff,(IMSIZE2>>24)&0xff,
 	0x28,0x01,0x00,0x12,0x00,0x04,0x01,0x00, IMSIZE3&0xff,(IMSIZE3>>8)&0xff,(IMSIZE3>>16)&0xff,(IMSIZE3>>24)&0xff,
@@ -311,7 +302,9 @@ void Clear_atari_sector_buffer_256()
 ////some more globals
 struct sio_cmd cmd_buf;
 unsigned char virtual_drive_number;
+unsigned char last_drive_accessed = 0;
 unsigned char motor = 0;
+unsigned long sleep = 0;
 //Parameters
 struct SDriveParameters sdrparams;
 
@@ -323,11 +316,44 @@ void sio_debug (char status) {
 	outbox(DebugBuffer);
 }
 
+//screen blanker(uses AVR timer 2)
+#define blanker_on()	TIMSK2 & _BV(TOIE2)
+
+unsigned char blank_count = 0;
+
+void blanker_start () {
+	TFT_fill(Black);
+	TIMSK2 |= _BV(TOIE2);	//interrupt enable
+	TCCR2B |= _BV(CS22) | _BV(CS21) | _BV(CS20);	//start, prescaler 1024
+}
+
+void blanker_stop () {
+	TIMSK2 &= ~_BV(TOIE2);	//interrupt disable
+	TCCR2B = 0;		//stop
+	tft.pages[actual_page].draw();	//redraw page
+}
+
+ISR(TIMER2_OVF_vect) {
+	blank_count++;
+	if (blank_count % 64 == 0) {
+		unsigned int x = rand() % 120;
+		unsigned int y = rand() % 300;
+		//unsigned int col = rand() * rand();
+
+		TFT_fill(Black);
+		print_str_P(x,y,2,Orange,Black, system_name);
+	}
+}
+
+//drive motor simulation
 void motor_on () {
-	TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
-							// 16MHz/64 = 250KHz(4µs)
-	motor = 1;
-	Draw_Circle(5,5,3,1,Green);
+	//if not currently running...
+	if (!motor) {
+		TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
+								// 16MHz/64 = 250KHz(4µs)
+		Draw_Circle(5,5,3,1,Green);
+	}
+	motor = 1;	//mark motor on and reset counter
 }
 
 void motor_off () {
@@ -357,8 +383,8 @@ int main(void)
 	//Analog comperator 
 	ACSR |= _BV(ACIC) | _BV(ACD);	// set input capture to AC, and disable it
 					// (ICP pin has conflict with touchscreen otherwise, and saves power)
-	DIDR0 = 0b11111;		// disable digital input on analog pins(PC0-PC5), saves also power
-					// (are only used as output, btw. PC5 as interrupt)
+	DIDR0 = 0b1111;			// disable digital input on analog pins(PC0-PC4), saves also power
+					// (are only used as output, excluding PC5(CMD))
 
 	//init timer
 	GTCCR |= _BV(PSRSYNC);          // Prescaler reset
@@ -545,6 +571,10 @@ ST_IDLE:
 		char *name;
 
 		if (isTouching()) {
+			if(blanker_on()) {
+				blanker_stop();
+				goto bad_touch;
+			}
 			b = check_Buttons();
 			if (b) {
 				//get pointers
@@ -632,9 +662,10 @@ ST_IDLE:
 				}
 				sfp = atari_sector_buffer;
 				//if matched, wait for button release
-				while (isTouching());
+bad_touch:			while (isTouching());
 				_delay_ms(50);	//wait a little for debounce
 			}
+			sleep = 0;	//reset display blank timer
 		}
 
 		if(tape_flags.run) {
@@ -687,6 +718,17 @@ ST_IDLE:
 		else
 			autowritecounter++;
 
+		if(tft.cfg.blank && actual_page != PAGE_DEBUG) {
+			if (sleep > DISPLAY_IDLE) {
+				if (!blanker_on() ) {
+					//start blanker via timer 2
+					blanker_start();
+				}
+			}
+			else
+				sleep++;
+		}
+
 	} //while
 	return(0);
 } //main
@@ -699,6 +741,9 @@ ISR(PCINT1_vect)
 	if(CMD_PORT & (1<<CMD_PIN))	//do nothing on high
 		return;
 
+	if(blanker_on())		//this is not optimal here, should be
+		blanker_stop();		// done after ACK
+
 	FileInfo.vDisk = vp;		//restore vDisk pointer
 
 	cmd_buf.cmd = 0;		//clear cmd to allow read from atari
@@ -707,6 +752,7 @@ ISR(PCINT1_vect)
 
 	vp = FileInfo.vDisk;		//save actual vDisk pointer
 	FileInfo.vDisk = &tmpvDisk;	//set vDisk pointer to tmp
+	sleep = 0;			//reset display blank timer
 }
 
 //////process command frame
@@ -724,7 +770,7 @@ void process_command ()
 		err=USART_Get_Buffer_And_Check((unsigned char*)&cmd_buf,4,CMD_STATE_L);
 
 		//It was due to timeout?
-		if (err&0x02) {
+		if (err==0x02) {
 			outbox_P(PSTR("SIO:CMD Timeout"));
 			return; //exit. If Atari is off, it will hang here otherwise
 		}
@@ -734,11 +780,15 @@ void process_command ()
 
 		Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
 		wait_cmd_LH();	//Wait until the signal command rises to H
-		////dou to LED function never needed, i think
+		////due to LED function never needed, i think
 		//Delay100us();	//T2=100   (After lifting the command and before the ACK)
 
 		if(err)
 		{
+			if (debug) {
+				sprintf_P(atari_sector_buffer, PSTR("SIO-Error: %i"), err);
+				outbox(atari_sector_buffer);
+			}
 			if (fastsio_pokeydiv!=US_POKEY_DIV_STANDARD)
 			{
 				//Convert from standard to fast or vice versa
@@ -1174,9 +1224,12 @@ percom_prepared:
 			break;
 
 
+		case 0x52:	//read
+			motor_on();	//on write turn on motor not until
+					// received data(timing problem on
+					// SIO highspeed!)
 		case 0x50:	//write
 		case 0x57:	//write (verify)
-		case 0x52:	//read
 		    {
 			unsigned short proceeded_bytes;
 			//set the standard SD Sector Size for returning data,
@@ -1194,12 +1247,17 @@ percom_prepared:
 			if(n_sector==0)
 				goto Send_ERR_and_DATA;
 
-			motor_on();
 			if( !(FileInfo.vDisk->flags & FLAGS_XEXLOADER) )
 			{
                 if(FileInfo.vDisk->flags & FLAGS_ATXTYPE)
                 {
-                    if (!loadAtxSector(virtual_drive_number, n_sector, &atari_sector_size, &atari_sector_status)) {
+		    //Load track info table on each drive change, it's fast enough and needs only one buffer.
+		    //Good for now, if more then read is implemented, this should be done before!
+		    if (last_drive_accessed != virtual_drive_number) {
+			loadAtxFile();	// TODO: check return value
+			last_drive_accessed = virtual_drive_number;
+		    }
+                    if (!loadAtxSector(n_sector, &atari_sector_size, &atari_sector_status)) {
                         goto Send_ERR_and_DATA;
                     }
                 }
@@ -1240,6 +1298,7 @@ percom_prepared:
                         {
                             break;
                         }
+			motor_on();
 
                         //if ( get_readonly() )
                         //	 goto Send_ERR_and_DATA;; //READ ONLY
@@ -2209,11 +2268,8 @@ Command_EC_F0_FF_found:
 						atari_sector_buffer[10] == 'X' )
 					{
 						//ATX
-						if (drive > 2) {	// support first 2 drives only because of to less RAM!
-							outbox_P(PSTR("only 2 drives!"));
-							break;
-						}
-						loadAtxFile(drive);	// TODO: check return value
+						//Load track info initially once, if no drive change occurs.
+						loadAtxFile();	// TODO: check return value
 						FileInfo.vDisk->flags|=(FLAGS_DRIVEON|FLAGS_ATXTYPE);
 					}
 					else

@@ -25,7 +25,7 @@ void TFT_init()
     delay_ms(60);
 #endif
 
-#ifdef HX8347G
+#if defined HX8347G || defined HX8347I
     //set later after scroll init
     //TFT_write_cmd(0x01);	//scroll mode on
     //TFT_write(0x08);
@@ -55,7 +55,7 @@ void TFT_init()
 }
 
 void TFT_on() {
-#ifdef HX8347G
+#if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x28);	//gate output and display on
     TFT_write(0x3c);
     //TFT_write_cmd(0x22);	//GRAM
@@ -66,7 +66,7 @@ void TFT_on() {
 }
 
 void TFT_off() {
-#ifdef HX8347G
+#if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x28);	//gate output and display off
     TFT_write(0x00);
     //TFT_write_cmd(0x22);	//GRAM
@@ -74,6 +74,27 @@ void TFT_off() {
     TFT_write_cmd(ILI9341_DISPLAY_OFF);
     //TFT_write_cmd(ILI9341_GRAM);
 #endif
+}
+
+// enter/release display sleep mode
+void TFT_sleep_on() {
+#if defined HX8347G || defined HX8347I
+    TFT_write_cmd(0x1f);	//set standby mode
+    TFT_write(0xd5);
+#else
+    TFT_write_cmd(ILI9341_ENTER_SLEEP_MODE);
+#endif
+    delay_ms(120);
+}
+
+void TFT_sleep_off() {
+#if defined HX8347G || defined HX8347I
+    TFT_write_cmd(0x1f);	//set power on and exit standby mode
+    TFT_write(0xd4);
+#else
+    TFT_write_cmd(ILI9341_SLEEP_OUT);
+#endif
+    delay_ms(5);
 }
 
 void TFT_GPIO_init()
@@ -178,18 +199,18 @@ void TFT_write_REG_DATA(unsigned char reg, unsigned char data_value)
 
 unsigned int TFT_getID()
 {
-#ifndef HX8347G
+#if defined HX8347G || defined HX8347I
+	TFT_write_cmd(0x00);	//READ-ID
+#else
 	TFT_write_cmd(0xD3);	//READ-ID4
+#endif
 	TFT_read_data();	//drop first int
 	return(TFT_read_data());
-#else
-	return(0x8347);
-#endif
 }
 
 void TFT_set_rotation(unsigned char value)
 {
-#ifdef HX8347G
+#if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x16);
 #else
     TFT_write_cmd(ILI9341_MAC);
@@ -199,9 +220,7 @@ void TFT_set_rotation(unsigned char value)
     {
         case PORTRAIT_1:
         {
-#ifdef ILI9329
-            TFT_write(0x08);
-#elif defined(HX8347G)
+#if defined ILI9329 || defined HX8347G
             TFT_write(0x08);
 #else
             TFT_write(0x48);
@@ -210,9 +229,7 @@ void TFT_set_rotation(unsigned char value)
         }
         case PORTRAIT_2:
         {
-#ifdef ILI9329
-            TFT_write(0xd8);
-#elif defined(HX8347G)
+#if defined ILI9329 || defined HX8347G
             TFT_write(0xd8);
 #else
             TFT_write(0x98);
@@ -251,7 +268,7 @@ void TFT_set_rotation(unsigned char value)
 
 void TFT_set_display_window(unsigned int x_pos1, unsigned int y_pos1, unsigned int x_pos2, unsigned int y_pos2)
 {
-#ifdef HX8347G
+#if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x02);	//col start
     TFT_write(x_pos1>>8);
     TFT_write_cmd(0x03);
@@ -287,7 +304,7 @@ void TFT_set_display_window(unsigned int x_pos1, unsigned int y_pos1, unsigned i
 }
 
 void TFT_scroll_init(unsigned int tfa, unsigned int vsa, unsigned int bfa) {
-#ifdef HX8347G
+#if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x0e);	//TFA
     TFT_write(tfa>>8);
     TFT_write_cmd(0x0f);
@@ -314,7 +331,7 @@ void TFT_scroll_init(unsigned int tfa, unsigned int vsa, unsigned int bfa) {
 }
 
 void TFT_scroll(unsigned int scroll) {
-#ifdef HX8347G
+#if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x14);
     TFT_write(scroll>>8);
     TFT_write_cmd(0x15);
@@ -767,10 +784,10 @@ void Draw_Circle(signed int xc, signed int yc, signed int radius, unsigned char 
           {
               case YES:
               {
-                  Draw_Line((xc - a), (yc + b), (xc + a), (yc + b), colour);
-                  Draw_Line((xc - a), (yc - b), (xc + a), (yc - b), colour);
-                  Draw_Line((xc - b), (yc + a), (xc + b), (yc + a), colour);
-                  Draw_Line((xc - b), (yc - a), (xc + b), (yc - a), colour);
+                  Draw_H_Line((xc - a), (xc + a), (yc + b), colour);
+                  Draw_H_Line((xc - a), (xc + a), (yc - b), colour);
+                  Draw_H_Line((xc - b), (xc + b), (yc + a), colour);
+                  Draw_H_Line((xc - b), (xc + b), (yc - a), colour);
                   break;
               }
               default:
