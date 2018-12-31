@@ -191,7 +191,7 @@ void drive_led(unsigned char drive, unsigned char on) {
 	if(actual_page != PAGE_MAIN)
 		return;
 
-	struct button *b = &tft.pages[PAGE_MAIN].buttons[drive];
+	const struct button *b = &tft.pages[PAGE_MAIN].buttons[drive];
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 
 	if(flags->selected)
@@ -217,7 +217,7 @@ void drive_led(unsigned char drive, unsigned char on) {
 
 void set_display(unsigned char n)
 {
-	struct button *b;
+	const struct button *b;
 	struct b_flags *flags;
 	char *name;
 	unsigned char i;
@@ -563,9 +563,9 @@ ST_IDLE:
 
 	while(1)
 	{
-		struct button *b;
+		const struct button *b;
 		struct b_flags *flags;
-		unsigned int (*b_func)(struct button *);
+		unsigned int (*b_func)(const struct button *);
 		unsigned int de;
 		unsigned char drive_number;
 		char *name;
@@ -630,7 +630,7 @@ ST_IDLE:
 				}
 				//tape mode?
 				if(actual_page == PAGE_TAPE && name[0] == 'S') {
-					struct button *pb = &tft.pages[actual_page].buttons[1];
+					const struct button *pb = &tft.pages[actual_page].buttons[1];
 					struct b_flags *pause = pgm_read_ptr(&pb->flags);
 					if(tape_flags.run || pause->selected) {	//Stop
 						USART_Init(ATARI_SPEED_STANDARD);
@@ -760,7 +760,7 @@ ISR(PCINT1_vect)
 void process_command ()
 {
 	u32 *asb32_p = (u32*) atari_sector_buffer;
-	struct button *bp;
+	const struct button *bp;
 	char *name;
 	unsigned char drive;
 

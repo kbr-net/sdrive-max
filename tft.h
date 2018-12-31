@@ -20,13 +20,13 @@ struct button {
 	unsigned int bg;	//background/edge color
 	unsigned int fc;	//Font color
 	struct b_flags *flags;
-	unsigned int (*pressed)(struct button *);
+	unsigned int (*pressed)(const struct button *);
 };
 
 //#define nbuttons 6	//now automatically detected
 struct page {
 	void (*draw)(void);
-	struct button *buttons;
+	const struct button *buttons;
 	unsigned char nbuttons;
 };
 
@@ -62,4 +62,4 @@ void outbox(char *);
 
 void tft_Setup();
 
-struct button * check_Buttons();
+const struct button * check_Buttons();

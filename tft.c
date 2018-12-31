@@ -48,13 +48,13 @@ extern u16 MAXX EEMEM;
 extern u16 MAXY EEMEM;
 
 
-unsigned int action_b0 (struct button *b) {
+unsigned int action_b0 (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	flags->selected = 1;
 	return(0);
 }
 
-unsigned int action_b1_4 (struct button *b) {
+unsigned int action_b1_4 (const struct button *b) {
 
 	if(p.x > 200) {	//file select page
 		actual_page = PAGE_FILE;
@@ -71,7 +71,7 @@ unsigned int action_b1_4 (struct button *b) {
 	return(0);
 }
 
-unsigned int action_tape (struct button *b) {
+unsigned int action_tape (const struct button *b) {
 	actual_page = PAGE_FILE;
 	tape_mode = 1;
 	sei();
@@ -79,7 +79,7 @@ unsigned int action_tape (struct button *b) {
 	return(0);
 }
 
-unsigned int action_tape_turbo (struct button *b) {
+unsigned int action_tape_turbo (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	flags->selected = ~flags->selected;
 	tape_flags.turbo = ~tape_flags.turbo;
@@ -87,7 +87,7 @@ unsigned int action_tape_turbo (struct button *b) {
 	return(0);
 }
 
-unsigned int action_tape_pause (struct button *b) {
+unsigned int action_tape_pause (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	if(flags->selected) {
 		tape_flags.run = 1;
@@ -290,7 +290,7 @@ unsigned int action_cfg () {
 	return(0);
 }
 
-unsigned int action_change (struct button *b) {
+unsigned int action_change (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	//invert selection
 	flags->selected = ~flags->selected;
@@ -299,7 +299,7 @@ unsigned int action_change (struct button *b) {
 }
 
 unsigned int action_save_cfg () {
-	struct button *b;
+	const struct button *b;
 	struct b_flags *flags;
 	unsigned char i;
 	unsigned char rot = tft.cfg.rot;
@@ -372,6 +372,7 @@ unsigned int action_cal () {
 			case 3:
 				px1 = (px1 + p.x) / 2;	//middle
 				py2 = (py2 + p.y) / 2;	//middle
+			;;
 		}
 		//print_I(10,50,1,White,Black,p.x);
 		//print_I(40,50,1,White,Black,p.y);
@@ -384,7 +385,7 @@ unsigned int action_cal () {
 	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);
 	print_str(20, tft.heigth/2-20, 1, White, Black, atari_sector_buffer);
 */
-	//strech values to whole screen size
+	//stretch values to whole screen size
         diff = (px2 - px1)/(tft.width-b*2.0)*tft.width;
         diff -= (px2 - px1);
         diff /= 2;
@@ -471,13 +472,14 @@ struct page pages[] = {
     {file_page, buttons_file, sizeof(buttons_file)/sizeof(struct button)},
     {config_page, buttons_cfg, sizeof(buttons_cfg)/sizeof(struct button)},
     {tape_page, buttons_tape, sizeof(buttons_tape)/sizeof(struct button)},
-    {debug_page, buttons_debug, sizeof(buttons_debug)/sizeof(struct button)}
+    {(void*)debug_page, buttons_debug, sizeof(buttons_debug)/sizeof(struct button)}
 };
 
 struct display tft = {240, 320, {PORTRAIT_2, 0}, pages};
 
 void draw_Buttons () {
-	struct button b,*bp;
+	struct button b;
+	const struct button *bp;
 	unsigned char i,j;
 
 	for(i = 0; i < tft.pages[actual_page].nbuttons; i++) {
@@ -602,7 +604,7 @@ void file_page () {
 }
 
 void config_page () {
-	struct button *b;
+	const struct button *b;
 	struct b_flags *flags;
 	unsigned int i;
 
@@ -663,8 +665,8 @@ void tft_Setup() {
 	}
 }
 
-struct button * check_Buttons() {
-	struct button *b;
+const struct button * check_Buttons() {
+	const struct button *b;
 	unsigned char i;
 	unsigned int x,y,width,heigth;
 
