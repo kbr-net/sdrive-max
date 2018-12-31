@@ -2,7 +2,7 @@
 #include <util/delay.h>
 #include <avr/pgmspace.h>
 #include "display.h"
-#include "font.c"
+#include "font.h"
 
 unsigned int MAX_X = X_max;
 unsigned int MAX_Y = Y_max;

@@ -1,7 +1,3 @@
-//moved to display.c
-//#include "font.c"
-
-
 #define TFT_data_out_port_low                                                            PORTB
 #define TFT_data_out_port_high                                                           PORTD
 
