@@ -718,7 +718,8 @@ bad_touch:			while (isTouching());
 		else
 			autowritecounter++;
 
-		if(tft.cfg.blank && actual_page != PAGE_DEBUG) {
+		//screen blanker? (only on main page)
+		if(tft.cfg.blank && actual_page == PAGE_MAIN) {
 			if (sleep > DISPLAY_IDLE) {
 				if (!blanker_on() ) {
 					//start blanker via timer 2
