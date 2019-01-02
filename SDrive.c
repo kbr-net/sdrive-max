@@ -429,8 +429,12 @@ int main(void)
 	if (r) {				// error on sd-card init
 		sprintf_P((char*)atari_sector_buffer, PSTR("Error init SD: %u"), r);
 		outbox((char*)atari_sector_buffer);
-		sprintf_P((char*)atari_sector_buffer, PSTR("%.08lx %.08lx"),
-		    *(long*)mmc_sector_buffer, *(long*)&mmc_sector_buffer[4]);
+		//set pointers to debug values
+		long *v1 = (long*) &mmc_sector_buffer[0];
+		long *v2 = (long*) &mmc_sector_buffer[4];
+		//extract and join the values
+		sprintf_P((char*)atari_sector_buffer, PSTR("%.08lx %.08lx"), *v1, *v2);
+		//and print it
 		outbox((char*)atari_sector_buffer);
 		//goto SD_CARD_EJECTED;
 		goto ST_IDLE;
