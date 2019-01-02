@@ -90,7 +90,7 @@ u16 last_angle_returned;
 ////does not work correctly any more, don't know why?
 ////But we have enaugh RAM free yet
 //#define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
-char FileFindBuffer[11];
+unsigned char FileFindBuffer[11];
 char DebugBuffer[20];
 
 struct GlobalSystemValues GS;
@@ -683,7 +683,7 @@ bad_touch:			while (isTouching());
 			sei();
 		}
 		//scrolling long filename
-		if (tft.cfg.scroll && actual_page == PAGE_FILE && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
+		if (tft.cfg.scroll && actual_page == PAGE_FILE && file_selected != -1 && strlen((char*)atari_sector_buffer) > 19) {
 			if (select_file_counter == 20000) {
 				if (sfp == atari_sector_buffer) {
 					select_file_counter = 20001;
@@ -692,9 +692,9 @@ bad_touch:			while (isTouching());
 				else {
 					sfp++;
 					Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
-					print_strn(5, 10, 2, Yellow, Black, sfp, 19);
+					print_strn(5, 10, 2, Yellow, Black, (char*)sfp, 19);
 					select_file_counter = 0;
-					if (strlen(sfp) == 19) {
+					if (strlen((char*)sfp) == 19) {
 						sfp = atari_sector_buffer-1;
 						select_file_counter = 20001;
 					}
@@ -786,8 +786,8 @@ void process_command ()
 		if(err)
 		{
 			if (debug) {
-				sprintf_P(atari_sector_buffer, PSTR("SIO-Error: %i"), err);
-				outbox(atari_sector_buffer);
+				sprintf_P((char*)atari_sector_buffer, PSTR("SIO-Error: %i"), err);
+				outbox((char*)atari_sector_buffer);
 			}
 			if (fastsio_pokeydiv!=US_POKEY_DIV_STANDARD)
 			{

@@ -48,7 +48,8 @@ void restorePorts() {
 	YP_DDR |= (1<<YP);	// Y+ (D1): output
 }
 
-EMPTY_INTERRUPT(PCINT0_vect);
+// not used yet
+//EMPTY_INTERRUPT(PCINT0_vect);
 
 void waitTouch() {
 	setIdling();

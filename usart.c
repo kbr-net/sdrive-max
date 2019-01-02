@@ -76,11 +76,13 @@ void USART_Init ( u16 value ) {
 	}
 }
 
+/*
 //maybe usefull for later use
 void USART_Flush() {
 	unsigned char dummy;
 	while (UCSRA & (1<<RXC)) dummy = UDR;     //flush
 }
+*/
 
 void USART_Transmit_Byte( unsigned char data ) {
 	/* Wait for empty transmit buffer */
@@ -158,7 +160,7 @@ u08 USART_Get_buffer_and_check_and_send_ACK_or_NACK(unsigned char *buff, u16 len
 		if (debug) {
 			sio_debug('N');
 			err+=0x30;
-			outbox(&err);
+			outbox((char*)&err);
 		}
 		return 0xff;	//kdyz nesouhlasi checksum
 	}
