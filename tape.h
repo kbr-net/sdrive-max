@@ -1,4 +1,4 @@
-#define block_len 128
+#define BLOCK_LEN 128
 
 struct tape_FUJI_hdr {
 	char chunk_type[4];
