@@ -27,6 +27,7 @@ unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
+unsigned char scroll_file_len;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
 const char known_extensions[][3] PROGMEM = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
@@ -252,18 +253,20 @@ was_root:	//outbox(path);
 		file_selected = -1;
 	}
 	else {	//is a file
+		//save the length for scrolling
+		scroll_file_len = strlen((char*)atari_sector_buffer);
 
 		//print long filename
 		atari_sector_buffer[32] = 0;	//chop
 		outbox(atari_sector_buffer);
-
+/*
 		if(tft.cfg.scroll) {
 			//prepare scrolling filename
 			atari_sector_buffer[19] = 0;	//chop
 			Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
 			print_str(5, 10, 2, Yellow, Black, atari_sector_buffer);
 		}
-
+*/
 		file_selected = file;
 		next_file_idx -= 10;	// the same list again
 	}

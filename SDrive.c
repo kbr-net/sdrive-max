@@ -98,7 +98,7 @@ struct FileInfoStruct FileInfo;			//< file information for last file accessed
 
 extern struct display tft;
 extern unsigned char actual_page;
-extern unsigned char file_selected;
+extern unsigned char scroll_file_len;
 extern struct file_save image_store[] EEMEM;
 
 uint8_t system_atr_name[] EEMEM = "SDRIVE  ATR";  //8+3 zamerne deklarovano za system_info,aby bylo pripadne v dosahu pres get status
@@ -553,7 +553,7 @@ find_sdrive_atr_finished:
 /////////////////////
 
 	unsigned long autowritecounter = 0;
-	unsigned int select_file_counter = 0;
+	unsigned int scroll_file_counter;
 	unsigned char *sfp;	//scrolling filename pointer
 ST_IDLE:
 	sfp = atari_sector_buffer;
@@ -581,6 +581,9 @@ ST_IDLE:
 			}
 			b = check_Buttons();
 			if (b) {
+				//stop scrolling filename
+				scroll_file_len = 0;
+
 				//get pointers
 				flags = pgm_read_ptr(&b->flags);
 				name = pgm_read_ptr(&b->name);
@@ -665,6 +668,7 @@ ST_IDLE:
 					}
 				}
 				sfp = atari_sector_buffer;
+				scroll_file_counter = 20000;
 				//if matched, wait for button release
 bad_touch:			while (isTouching());
 				_delay_ms(50);	//wait a little for debounce
@@ -687,25 +691,42 @@ bad_touch:			while (isTouching());
 			sei();
 		}
 		//scrolling long filename
-		if (tft.cfg.scroll && actual_page == PAGE_FILE && file_selected != -1 && strlen((char*)atari_sector_buffer) > 19) {
-			if (select_file_counter == 20000) {
+		if (tft.cfg.scroll && actual_page == PAGE_FILE && scroll_file_len) {
+			if (scroll_file_counter == 20000) {
+				unsigned char len = 19;
+
+				if (scroll_file_len < 20) {
+					//save length for printing
+					len = scroll_file_len;
+					//disable scrolling after displayed once
+					scroll_file_len = 0;
+				}
+
+				//clear and (re)draw filename
+				Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
+				print_strn(5, 10, 2, Yellow, Black, (char*)sfp, len);
+
+				//reset counter
+				scroll_file_counter = 0;
+
+				//begin of filename?
 				if (sfp == atari_sector_buffer) {
-					select_file_counter = 20001;
-					sfp++;
+					//hold one more time
+					scroll_file_counter = 20001;
 				}
-				else {
-					sfp++;
-					Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
-					print_strn(5, 10, 2, Yellow, Black, (char*)sfp, 19);
-					select_file_counter = 0;
-					if (strlen((char*)sfp) == 19) {
-						sfp = atari_sector_buffer-1;
-						select_file_counter = 20001;
-					}
+
+				//end of filename reached?
+				else if (strlen((char*)sfp) == 19) {
+					//reset pointer
+					sfp = atari_sector_buffer-1;
+					//hold one more time
+					scroll_file_counter = 20001;
 				}
+
+				sfp++;	//increase pointer
 			}
 			else
-				select_file_counter++;
+				scroll_file_counter++;
 		}
 
 		if (autowritecounter>1700000)
@@ -751,6 +772,7 @@ ISR(PCINT1_vect)
 
 	FileInfo.vDisk = vp;		//restore vDisk pointer
 
+	scroll_file_len = 0;		//stop scrolling, because buffer will be used now
 	cmd_buf.cmd = 0;		//clear cmd to allow read from atari
 	process_command();
 	LED_GREEN_OFF(virtual_drive_number);  // LED OFF
