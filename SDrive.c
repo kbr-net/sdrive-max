@@ -767,7 +767,7 @@ void process_command ()
 	u32 *asb32_p = (u32*) atari_sector_buffer;
 	const struct button *bp;
 	char *name;
-	unsigned char drive;
+	unsigned char drive_slot;
 
 	if(!cmd_buf.cmd)
 	{
@@ -822,7 +822,7 @@ change_sio_speed_by_fastsio_active:
 
 /////////////////////////////// disk commands
 
-	drive = cmd_buf.cmd & 0xf;
+	drive_slot = cmd_buf.cmd & 0xf;
 
 	if( cmd_buf.dev>=0x31 && cmd_buf.dev<(0x30+DEVICESNUM) ) //D1: to D4: (yes, from D1: !!!)
 	{
@@ -893,8 +893,7 @@ disk_operations_direct_d0_d4:
 
 				else {
 					// set new file to drive
-					//cmd_buf.cmd = 0xff;
-					cmd_buf.cmd = (0xf0 | virtual_drive_number);
+					drive_slot = virtual_drive_number;
 					//remember direntry
 					cmd_buf.aux = FileInfo.vDisk->file_index;
 					goto Command_EC_F0_FF_found;
@@ -999,8 +998,7 @@ format_medium:
 					goto Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE;
 				else {
 					// set new file to drive
-					//cmd_buf.cmd = 0xff;
-					cmd_buf.cmd = (0xf0 | virtual_drive_number);
+					drive_slot = virtual_drive_number;
 					//remember direntry
 					cmd_buf.aux = FileInfo.vDisk->file_index;
 					goto Command_EC_F0_FF_found;
@@ -2024,7 +2022,7 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 
 			//zmeni command na 0xf0-0xff (pro nastaveni nalezeneho souboru/adresare)				
 			cmd_buf.cmd=(0xf0|cmd_buf.aux1);
-			drive = cmd_buf.aux1;
+			drive_slot = cmd_buf.aux1;
 			cmd_buf.aux1=cmd_buf.aux2=0; //vyhledavat od indexu 0
 			//a pokracuje dal...
 			//commandem ED...
@@ -2039,8 +2037,8 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 				i=cmd_buf.aux;  //zacne hledat od tohoto indexu
 
 				//if we come from cmd 0xEC, set vDisk to drive
-				if (cmd_buf.cmd>=0xf0 && drive < DEVICESNUM) {
-					FileInfo.vDisk = &vDisk[drive];
+				if (cmd_buf.cmd>=0xf0 && drive_slot < DEVICESNUM) {
+					FileInfo.vDisk = &vDisk[drive_slot];
 					//and copy dir_cluster into
 					FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 				}
@@ -2056,10 +2054,10 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 				 if (cmd_buf.cmd>=0xf0)
 				 {
 					//if we come from cmd 0xEC
-					if (drive < DEVICESNUM) {
+					if (drive_slot < DEVICESNUM) {
 						//and cmd is set entry to drive,
 						//set pointer to vDisk
-						FileInfo.vDisk = &vDisk[drive];
+						FileInfo.vDisk = &vDisk[drive_slot];
 						//and copy dir_cluster into
 						FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 						//and let reset the values
@@ -2177,10 +2175,10 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 			{
 			unsigned char ret;
 
-			if ( drive < DEVICESNUM )
+			if ( drive_slot < DEVICESNUM )
 			{
 				//set pointer to corresponding drive
-				FileInfo.vDisk = &vDisk[drive];
+				FileInfo.vDisk = &vDisk[drive_slot];
 				//copy dir_cluster from tmp Struct
 				FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 			}
@@ -2283,11 +2281,11 @@ Set_XEX:					// XEX
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 
-					if(drive && drive < DEVICESNUM) {
+					if(drive_slot && drive_slot < DEVICESNUM) {
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
-						bp = &tft.pages[PAGE_MAIN].buttons[drive];
+						bp = &tft.pages[PAGE_MAIN].buttons[drive_slot];
 						name = pgm_read_ptr(&bp->name);
 						strncpy(&name[3], (char*)atari_sector_buffer, 12);
 						//redraw display only, if we are on
