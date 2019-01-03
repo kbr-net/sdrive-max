@@ -658,7 +658,7 @@ u32 fatFileCreate (char *fileName, u32 fileSize) {
 	for(cl = 0; cl <= (NrOfClusters); ++cl ) {
 		//printf("cl: %i\n", cl);
 
-		prevClust = clusterNo % (BytesPerSector / fatSize);
+		prevClust = (clusterNo % (BytesPerSector / fatSize)) * fatSize;
 		prevFatSect = fatSect;
 
 		if(fatFindFreeAllocUnit( &clusterNo, &fatSect )) {
@@ -670,27 +670,27 @@ u32 fatFileCreate (char *fileName, u32 fileSize) {
 		}
 
 		if(cl < NrOfClusters) {
-			//* ((unsigned short*) (&mmc_sector_buffer[ prevClust * fatSize ])) = 0x1234 ;
+			//* ((unsigned short*) (&mmc_sector_buffer[ prevClust ])) = 0x1234 ;
 			//clusterNo & 0x0000FFFFL;
 			if(SDFlags.Fat32Enabled) {
-				u32 *p =  (u32*) &mmc_sector_buffer[prevClust * fatSize];
+				u32 *p =  (u32*) &mmc_sector_buffer[prevClust];
 				*p = clusterNo & fatMask;
 			}
 			else {
-				u16 *p =  (u16*) &mmc_sector_buffer[prevClust * fatSize];
+				u16 *p =  (u16*) &mmc_sector_buffer[prevClust];
 				*p = clusterNo & fatMask;
 			}
 			//printf("clPtr: %p, prevClust: %lx, fatSize: %i\n", clPtr, prevClust, fatSize);
 		}
 		else {
 			//printf("Last cluster\n");
-			//* (unsigned short*) &mmc_sector_buffer[ prevClust * fatSize ] = 0xFFFF;
+			//* (unsigned short*) &mmc_sector_buffer[ prevClust ] = 0xFFFF;
 			if(SDFlags.Fat32Enabled) {
-				u32 *p =  (u32*) &mmc_sector_buffer[prevClust * fatSize];
+				u32 *p =  (u32*) &mmc_sector_buffer[prevClust];
 				*p = CLUST_EOFE & fatMask ;
 			}
 			else {
-				u16 *p =  (u16*) &mmc_sector_buffer[prevClust * fatSize];
+				u16 *p =  (u16*) &mmc_sector_buffer[prevClust];
 				*p = CLUST_EOFE & fatMask ;
 			}
 		}
