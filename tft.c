@@ -518,21 +518,7 @@ void draw_Buttons () {
 unsigned int outx, outy;
 unsigned char scroll;
 
-/*
-void outbox_P(const char *txt) {
-
-	if (outy > tft.heigth-8) {
-		outy = 284;
-		scroll = 1;
-	}
-	print_str_P(outx,outy,1,White,atari_bg,txt);
-	outy += 8;
-	if (scroll)
-		TFT_scroll(outy);
-}
-*/
-
-void _outbox(char *txt, char P) {
+void _outbox(const char *txt, char P) {
 
 	if (outy > tft.heigth-16) {
 		scroll = 1;
