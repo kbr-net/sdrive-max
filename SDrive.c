@@ -369,6 +369,65 @@ ISR(TIMER1_COMPA_vect) {
 		motor_off();
 }
 
+//set SDRIVE.ATR to D0: without changing actual_drive_number!
+void SET_SDRIVEATR_TO_D0 () {
+
+	//set vDisk Ptr to drive D0:
+	FileInfo.vDisk = &vDisk[0];
+	//reset to root dir
+	FileInfo.vDisk->dir_cluster=RootDirCluster;
+
+	//search and set SDRIVE.ATR image to vD0:
+
+	unsigned short i;
+	unsigned char m;
+
+	i=0;
+	while( fatGetDirEntry(i,0) )
+	{
+		for(m=0;m<11;m++)	//8+3
+		{
+			if(atari_sector_buffer[m]!=eeprom_read_byte(&system_atr_name[m]))
+			{
+				//if char not equal, next entry
+				goto find_sdrive_atr_next_entry;
+			}
+		}
+
+		//found SDRIVE.ATR, set values to vDisk
+		FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
+		FileInfo.vDisk->ncluster=0;
+
+		faccess_offset(FILE_ACCESS_READ,0,16); //read ATR header
+
+		FileInfo.vDisk->flags=FLAGS_DRIVEON;
+		//check for double sectors
+		if ( (atari_sector_buffer[4]|atari_sector_buffer[5])==0x01 )
+			FileInfo.vDisk->flags|=FLAGS_ATRDOUBLESECTORS;
+		//check for medium(enhanced)
+		{
+			unsigned long compute;
+			unsigned long tmp;
+
+			compute = FileInfo.vDisk->size - 16;	//it's always ATR
+			tmp = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
+			compute /=tmp;
+
+			if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE;
+		}
+		return;
+
+find_sdrive_atr_next_entry:
+		i++;
+	} //end while
+
+	//SDRIVE.ATR not found
+	FileInfo.vDisk->flags=0; //set vD0: not active
+	outbox_P(PSTR("SDRIVE.ATR not found"));
+	//goto SD_CARD_EJECTED;
+	//return(1);
+}
+
 //----- Begin Code ------------------------------------------------------------
 int main(void)
 {
@@ -483,70 +542,7 @@ int main(void)
 	//start with root dir
 	tmpvDisk.dir_cluster=RootDirCluster;
 
-SET_SDRIVEATR_TO_D0:	//pro nastaveni SDRIVE.ATR do vD0: bez zmeny actual_drive_number !
-
-	//set vDisk Ptr to drive D0:
-	FileInfo.vDisk = &vDisk[0];
-	//reset to root dir
-	FileInfo.vDisk->dir_cluster=RootDirCluster;
-	//Vyhledani a nastaveni image SDRIVE.ATR do vD0:
-	{
-		unsigned short i;
-		unsigned char m;
-
-		i=0;
-		while( fatGetDirEntry(i,0) )
-		{
-			for(m=0;m<11;m++)	//8+3
-			{
-				if(atari_sector_buffer[m]!=eeprom_read_byte(&system_atr_name[m]))
-				{
-					//odlisny znak
-					goto find_sdrive_atr_next_entry;
-				}
-			}
-
-			//Slava, nasel SDRIVE.ATR
-			FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-			FileInfo.vDisk->ncluster=0;
-			//FileInfo.vDisk->file_index = i; //dela se uvnitr fatGetDirEntry
-
-			faccess_offset(FILE_ACCESS_READ,0,16); //ATR hlavicka vzdy
-
-			FileInfo.vDisk->flags=FLAGS_DRIVEON;
-			if ( (atari_sector_buffer[4]|atari_sector_buffer[5])==0x01 )
-				FileInfo.vDisk->flags|=FLAGS_ATRDOUBLESECTORS;
-
-			{
-				unsigned long compute;
-				unsigned long tmp;
-
-				compute = FileInfo.vDisk->size - 16;		//je to vzdy ATR
-				tmp = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
-				compute /=tmp;
-
-				if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE;
-			}
-			goto find_sdrive_atr_finished;
-			//
-find_sdrive_atr_next_entry:
-			i++;
-		} //end while
-
-		//nenasel SDRIVE.ATR
-		FileInfo.vDisk->flags=0; //ve vD0: neni aktivni disk
-/*
-		//takze nastavi jednotku dle cisla SDrive (1-4)
-		if (actual_drive_number==0)
-		{
-		 //actual_drive_number=(unsigned char)4-((unsigned char)(inb(PINB))&0x03);
-		 actual_drive_number=0;
-		}
-*/
-		outbox_P(PSTR("SDRIVE.ATR not found"));
-		//goto SD_CARD_EJECTED;
-	}
-find_sdrive_atr_finished:
+	SET_SDRIVEATR_TO_D0();
 
 	set_display(actual_drive_number);
 
@@ -605,7 +601,7 @@ ST_IDLE:
 					actual_drive_number = drive_number;
 					//if(name[1] == '0')
 					if(drive_number == 0)
-						goto SET_SDRIVEATR_TO_D0;
+						SET_SDRIVEATR_TO_D0();
 					set_display(actual_drive_number);
 				}
 				if(de) {	//if a direntry was returned
@@ -1753,12 +1749,15 @@ Send_ERR_and_DATA:
 			//musi ulozit pripadny nacacheovany sektor
 			mmcWriteCachedFlush(); //pokud ceka nejaky sektor na zapis, zapise ho
 
-			Delay800us();	//t5
-			send_CMPL();
-			
-			//if ( cmd_buf.aux1==0 ) goto SD_CARD_EJECTED;
-			if ( cmd_buf.aux1==0 ) goto *0x0000;
-			//goto SET_SDRIVEATR_TO_D0; //bez zmeny actual_drive XXX BROCKEN!!!
+			if (cmd_buf.aux1) {
+				SET_SDRIVEATR_TO_D0(); //bez zmeny actual_drive
+				send_CMPL();
+			}
+			else {
+				Delay800us();	//t5
+				send_CMPL();
+				goto *0x0000;
+			}
 			break;
 
 
