@@ -257,8 +257,9 @@ was_root:	//outbox(path);
 		scroll_file_len = strlen((char*)atari_sector_buffer);
 
 		//print long filename
-		atari_sector_buffer[32] = 0;	//chop
-		outbox(atari_sector_buffer);
+		//atari_sector_buffer[32] = 0;	//chop
+		//outbox(atari_sector_buffer);
+		outbox_multi(atari_sector_buffer, scroll_file_len);
 /*
 		if(tft.cfg.scroll) {
 			//prepare scrolling filename
@@ -553,6 +554,21 @@ void outbox_P(const char *txt) {
 
 void outbox (char *txt) {
 	_outbox(txt,0);
+}
+
+#define LINE_LENGTH 34
+
+void outbox_multi (char *txt, unsigned char len) {
+	char *lineptr = txt;
+	char linebuf[LINE_LENGTH];
+
+	while(len > LINE_LENGTH) {	//each line
+		strncpy(linebuf, lineptr, LINE_LENGTH);
+		_outbox(linebuf,0);
+		len -= LINE_LENGTH;
+		lineptr += LINE_LENGTH;
+	}
+	_outbox(lineptr,0);	//print the rest
 }
 
 void main_page () {

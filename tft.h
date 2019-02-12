@@ -59,6 +59,7 @@ void draw_Buttons ();
 
 void outbox_P(const char *);
 void outbox(char *);
+void outbox_multi(char *, unsigned char);
 
 void tft_Setup();
 
