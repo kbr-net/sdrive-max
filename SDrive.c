@@ -28,7 +28,7 @@
 #include "tape.h"
 
 #define SWVERSIONMAJOR  1
-#define SWVERSIONMINOR  0
+#define SWVERSIONMINOR  1
 
 //workaround to get version numbers converted to strings
 #define STR_A(x)        #x
@@ -90,7 +90,7 @@ u16 last_angle_returned;
 ////does not work correctly any more, don't know why?
 ////But we have enaugh RAM free yet
 //#define FileFindBuffer (atari_sector_buffer+256-11)		//pri vyhledavani podle nazvu
-char FileFindBuffer[11];
+unsigned char FileFindBuffer[11];
 char DebugBuffer[20];
 
 struct GlobalSystemValues GS;
@@ -98,7 +98,7 @@ struct FileInfoStruct FileInfo;			//< file information for last file accessed
 
 extern struct display tft;
 extern unsigned char actual_page;
-extern unsigned char file_selected;
+extern unsigned char scroll_file_len;
 extern struct file_save image_store[] EEMEM;
 
 uint8_t system_atr_name[] EEMEM = "SDRIVE  ATR";  //8+3 zamerne deklarovano za system_info,aby bylo pripadne v dosahu pres get status
@@ -191,7 +191,7 @@ void drive_led(unsigned char drive, unsigned char on) {
 	if(actual_page != PAGE_MAIN)
 		return;
 
-	struct button *b = &tft.pages[PAGE_MAIN].buttons[drive];
+	const struct button *b = &tft.pages[PAGE_MAIN].buttons[drive];
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 
 	if(flags->selected)
@@ -217,7 +217,7 @@ void drive_led(unsigned char drive, unsigned char on) {
 
 void set_display(unsigned char n)
 {
-	struct button *b;
+	const struct button *b;
 	struct b_flags *flags;
 	char *name;
 	unsigned char i;
@@ -369,6 +369,65 @@ ISR(TIMER1_COMPA_vect) {
 		motor_off();
 }
 
+//set SDRIVE.ATR to D0: without changing actual_drive_number!
+void SET_SDRIVEATR_TO_D0 () {
+
+	//set vDisk Ptr to drive D0:
+	FileInfo.vDisk = &vDisk[0];
+	//reset to root dir
+	FileInfo.vDisk->dir_cluster=RootDirCluster;
+
+	//search and set SDRIVE.ATR image to vD0:
+
+	unsigned short i;
+	unsigned char m;
+
+	i=0;
+	while( fatGetDirEntry(i,0) )
+	{
+		for(m=0;m<11;m++)	//8+3
+		{
+			if(atari_sector_buffer[m]!=eeprom_read_byte(&system_atr_name[m]))
+			{
+				//if char not equal, next entry
+				goto find_sdrive_atr_next_entry;
+			}
+		}
+
+		//found SDRIVE.ATR, set values to vDisk
+		FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
+		FileInfo.vDisk->ncluster=0;
+
+		faccess_offset(FILE_ACCESS_READ,0,16); //read ATR header
+
+		FileInfo.vDisk->flags=FLAGS_DRIVEON;
+		//check for double sectors
+		if ( (atari_sector_buffer[4]|atari_sector_buffer[5])==0x01 )
+			FileInfo.vDisk->flags|=FLAGS_ATRDOUBLESECTORS;
+		//check for medium(enhanced)
+		{
+			unsigned long compute;
+			unsigned long tmp;
+
+			compute = FileInfo.vDisk->size - 16;	//it's always ATR
+			tmp = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
+			compute /=tmp;
+
+			if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE;
+		}
+		return;
+
+find_sdrive_atr_next_entry:
+		i++;
+	} //end while
+
+	//SDRIVE.ATR not found
+	FileInfo.vDisk->flags=0; //set vD0: not active
+	outbox_P(PSTR("SDRIVE.ATR not found"));
+	//goto SD_CARD_EJECTED;
+	//return(1);
+}
+
 //----- Begin Code ------------------------------------------------------------
 int main(void)
 {
@@ -429,8 +488,12 @@ int main(void)
 	if (r) {				// error on sd-card init
 		sprintf_P((char*)atari_sector_buffer, PSTR("Error init SD: %u"), r);
 		outbox((char*)atari_sector_buffer);
-		sprintf_P((char*)atari_sector_buffer, PSTR("%.08lx %.08lx"),
-		    *(long*)mmc_sector_buffer, *(long*)&mmc_sector_buffer[4]);
+		//set pointers to debug values
+		long *v1 = (long*) &mmc_sector_buffer[0];
+		long *v2 = (long*) &mmc_sector_buffer[4];
+		//extract and join the values
+		sprintf_P((char*)atari_sector_buffer, PSTR("%.08lx %.08lx"), *v1, *v2);
+		//and print it
 		outbox((char*)atari_sector_buffer);
 		//goto SD_CARD_EJECTED;
 		goto ST_IDLE;
@@ -479,77 +542,14 @@ int main(void)
 	//start with root dir
 	tmpvDisk.dir_cluster=RootDirCluster;
 
-SET_SDRIVEATR_TO_D0:	//pro nastaveni SDRIVE.ATR do vD0: bez zmeny actual_drive_number !
-
-	//set vDisk Ptr to drive D0:
-	FileInfo.vDisk = &vDisk[0];
-	//reset to root dir
-	FileInfo.vDisk->dir_cluster=RootDirCluster;
-	//Vyhledani a nastaveni image SDRIVE.ATR do vD0:
-	{
-		unsigned short i;
-		unsigned char m;
-
-		i=0;
-		while( fatGetDirEntry(i,0) )
-		{
-			for(m=0;m<11;m++)	//8+3
-			{
-				if(atari_sector_buffer[m]!=eeprom_read_byte(&system_atr_name[m]))
-				{
-					//odlisny znak
-					goto find_sdrive_atr_next_entry;
-				}
-			}
-
-			//Slava, nasel SDRIVE.ATR
-			FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-			FileInfo.vDisk->ncluster=0;
-			//FileInfo.vDisk->file_index = i; //dela se uvnitr fatGetDirEntry
-
-			faccess_offset(FILE_ACCESS_READ,0,16); //ATR hlavicka vzdy
-
-			FileInfo.vDisk->flags=FLAGS_DRIVEON;
-			if ( (atari_sector_buffer[4]|atari_sector_buffer[5])==0x01 )
-				FileInfo.vDisk->flags|=FLAGS_ATRDOUBLESECTORS;
-
-			{
-				unsigned long compute;
-				unsigned long tmp;
-
-				compute = FileInfo.vDisk->size - 16;		//je to vzdy ATR
-				tmp = (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
-				compute /=tmp;
-
-				if(compute>720) FileInfo.vDisk->flags|=FLAGS_ATRMEDIUMSIZE;
-			}
-			goto find_sdrive_atr_finished;
-			//
-find_sdrive_atr_next_entry:
-			i++;
-		} //end while
-
-		//nenasel SDRIVE.ATR
-		FileInfo.vDisk->flags=0; //ve vD0: neni aktivni disk
-/*
-		//takze nastavi jednotku dle cisla SDrive (1-4)
-		if (actual_drive_number==0)
-		{
-		 //actual_drive_number=(unsigned char)4-((unsigned char)(inb(PINB))&0x03);
-		 actual_drive_number=0;
-		}
-*/
-		outbox_P(PSTR("SDRIVE.ATR not found"));
-		//goto SD_CARD_EJECTED;
-	}
-find_sdrive_atr_finished:
+	SET_SDRIVEATR_TO_D0();
 
 	set_display(actual_drive_number);
 
 /////////////////////
 
 	unsigned long autowritecounter = 0;
-	unsigned int select_file_counter = 0;
+	unsigned int scroll_file_counter;
 	unsigned char *sfp;	//scrolling filename pointer
 ST_IDLE:
 	sfp = atari_sector_buffer;
@@ -563,9 +563,9 @@ ST_IDLE:
 
 	while(1)
 	{
-		struct button *b;
+		const struct button *b;
 		struct b_flags *flags;
-		unsigned int (*b_func)(struct button *);
+		unsigned int (*b_func)(const struct button *);
 		unsigned int de;
 		unsigned char drive_number;
 		char *name;
@@ -577,6 +577,9 @@ ST_IDLE:
 			}
 			b = check_Buttons();
 			if (b) {
+				//stop scrolling filename
+				scroll_file_len = 0;
+
 				//get pointers
 				flags = pgm_read_ptr(&b->flags);
 				name = pgm_read_ptr(&b->name);
@@ -598,7 +601,7 @@ ST_IDLE:
 					actual_drive_number = drive_number;
 					//if(name[1] == '0')
 					if(drive_number == 0)
-						goto SET_SDRIVEATR_TO_D0;
+						SET_SDRIVEATR_TO_D0();
 					set_display(actual_drive_number);
 				}
 				if(de) {	//if a direntry was returned
@@ -630,7 +633,7 @@ ST_IDLE:
 				}
 				//tape mode?
 				if(actual_page == PAGE_TAPE && name[0] == 'S') {
-					struct button *pb = &tft.pages[actual_page].buttons[1];
+					const struct button *pb = &tft.pages[actual_page].buttons[1];
 					struct b_flags *pause = pgm_read_ptr(&pb->flags);
 					if(tape_flags.run || pause->selected) {	//Stop
 						USART_Init(ATARI_SPEED_STANDARD);
@@ -661,6 +664,7 @@ ST_IDLE:
 					}
 				}
 				sfp = atari_sector_buffer;
+				scroll_file_counter = 20000;
 				//if matched, wait for button release
 bad_touch:			while (isTouching());
 				_delay_ms(50);	//wait a little for debounce
@@ -683,25 +687,42 @@ bad_touch:			while (isTouching());
 			sei();
 		}
 		//scrolling long filename
-		if (tft.cfg.scroll && actual_page == PAGE_FILE && file_selected != -1 && strlen(atari_sector_buffer) > 19) {
-			if (select_file_counter == 20000) {
+		if (tft.cfg.scroll && actual_page == PAGE_FILE && scroll_file_len) {
+			if (scroll_file_counter == 20000) {
+				unsigned char len = 19;
+
+				if (scroll_file_len < 20) {
+					//save length for printing
+					len = scroll_file_len;
+					//disable scrolling after displayed once
+					scroll_file_len = 0;
+				}
+
+				//clear and (re)draw filename
+				Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
+				print_strn(5, 10, 2, Yellow, Black, (char*)sfp, len);
+
+				//reset counter
+				scroll_file_counter = 0;
+
+				//begin of filename?
 				if (sfp == atari_sector_buffer) {
-					select_file_counter = 20001;
-					sfp++;
+					//hold one more time
+					scroll_file_counter = 20001;
 				}
-				else {
-					sfp++;
-					Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
-					print_strn(5, 10, 2, Yellow, Black, sfp, 19);
-					select_file_counter = 0;
-					if (strlen(sfp) == 19) {
-						sfp = atari_sector_buffer-1;
-						select_file_counter = 20001;
-					}
+
+				//end of filename reached?
+				else if (strlen((char*)sfp) == 19) {
+					//reset pointer
+					sfp = atari_sector_buffer-1;
+					//hold one more time
+					scroll_file_counter = 20001;
 				}
+
+				sfp++;	//increase pointer
 			}
 			else
-				select_file_counter++;
+				scroll_file_counter++;
 		}
 
 		if (autowritecounter>1700000)
@@ -718,7 +739,8 @@ bad_touch:			while (isTouching());
 		else
 			autowritecounter++;
 
-		if(tft.cfg.blank && actual_page != PAGE_DEBUG) {
+		//screen blanker? (only on main page)
+		if(tft.cfg.blank && actual_page == PAGE_MAIN) {
 			if (sleep > DISPLAY_IDLE) {
 				if (!blanker_on() ) {
 					//start blanker via timer 2
@@ -746,6 +768,7 @@ ISR(PCINT1_vect)
 
 	FileInfo.vDisk = vp;		//restore vDisk pointer
 
+	scroll_file_len = 0;		//stop scrolling, because buffer will be used now
 	cmd_buf.cmd = 0;		//clear cmd to allow read from atari
 	process_command();
 	LED_GREEN_OFF(virtual_drive_number);  // LED OFF
@@ -760,9 +783,9 @@ ISR(PCINT1_vect)
 void process_command ()
 {
 	u32 *asb32_p = (u32*) atari_sector_buffer;
-	struct button *bp;
+	const struct button *bp;
 	char *name;
-	unsigned char drive;
+	unsigned char drive_slot;
 
 	if(!cmd_buf.cmd)
 	{
@@ -786,8 +809,8 @@ void process_command ()
 		if(err)
 		{
 			if (debug) {
-				sprintf_P(atari_sector_buffer, PSTR("SIO-Error: %i"), err);
-				outbox(atari_sector_buffer);
+				sprintf_P((char*)atari_sector_buffer, PSTR("SIO-Error: %i"), err);
+				outbox((char*)atari_sector_buffer);
 			}
 			if (fastsio_pokeydiv!=US_POKEY_DIV_STANDARD)
 			{
@@ -817,7 +840,7 @@ change_sio_speed_by_fastsio_active:
 
 /////////////////////////////// disk commands
 
-	drive = cmd_buf.cmd & 0xf;
+	drive_slot = cmd_buf.cmd & 0xf;
 
 	if( cmd_buf.dev>=0x31 && cmd_buf.dev<(0x30+DEVICESNUM) ) //D1: to D4: (yes, from D1: !!!)
 	{
@@ -888,8 +911,7 @@ disk_operations_direct_d0_d4:
 
 				else {
 					// set new file to drive
-					//cmd_buf.cmd = 0xff;
-					cmd_buf.cmd = (0xf0 | virtual_drive_number);
+					drive_slot = virtual_drive_number;
 					//remember direntry
 					cmd_buf.aux = FileInfo.vDisk->file_index;
 					goto Command_EC_F0_FF_found;
@@ -994,8 +1016,7 @@ format_medium:
 					goto Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE;
 				else {
 					// set new file to drive
-					//cmd_buf.cmd = 0xff;
-					cmd_buf.cmd = (0xf0 | virtual_drive_number);
+					drive_slot = virtual_drive_number;
 					//remember direntry
 					cmd_buf.aux = FileInfo.vDisk->file_index;
 					goto Command_EC_F0_FF_found;
@@ -1728,12 +1749,15 @@ Send_ERR_and_DATA:
 			//musi ulozit pripadny nacacheovany sektor
 			mmcWriteCachedFlush(); //pokud ceka nejaky sektor na zapis, zapise ho
 
-			Delay800us();	//t5
-			send_CMPL();
-			
-			//if ( cmd_buf.aux1==0 ) goto SD_CARD_EJECTED;
-			if ( cmd_buf.aux1==0 ) goto *0x0000;
-			//goto SET_SDRIVEATR_TO_D0; //bez zmeny actual_drive XXX BROCKEN!!!
+			if (cmd_buf.aux1) {
+				SET_SDRIVEATR_TO_D0(); //bez zmeny actual_drive
+				send_CMPL();
+			}
+			else {
+				Delay800us();	//t5
+				send_CMPL();
+				goto *0x0000;
+			}
 			break;
 
 
@@ -2019,7 +2043,7 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 
 			//zmeni command na 0xf0-0xff (pro nastaveni nalezeneho souboru/adresare)				
 			cmd_buf.cmd=(0xf0|cmd_buf.aux1);
-			drive = cmd_buf.aux1;
+			drive_slot = cmd_buf.aux1;
 			cmd_buf.aux1=cmd_buf.aux2=0; //vyhledavat od indexu 0
 			//a pokracuje dal...
 			//commandem ED...
@@ -2034,8 +2058,8 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 				i=cmd_buf.aux;  //zacne hledat od tohoto indexu
 
 				//if we come from cmd 0xEC, set vDisk to drive
-				if (cmd_buf.cmd>=0xf0 && drive < DEVICESNUM) {
-					FileInfo.vDisk = &vDisk[drive];
+				if (cmd_buf.cmd>=0xf0 && drive_slot < DEVICESNUM) {
+					FileInfo.vDisk = &vDisk[drive_slot];
 					//and copy dir_cluster into
 					FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 				}
@@ -2051,10 +2075,10 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 				 if (cmd_buf.cmd>=0xf0)
 				 {
 					//if we come from cmd 0xEC
-					if (drive < DEVICESNUM) {
+					if (drive_slot < DEVICESNUM) {
 						//and cmd is set entry to drive,
 						//set pointer to vDisk
-						FileInfo.vDisk = &vDisk[drive];
+						FileInfo.vDisk = &vDisk[drive_slot];
 						//and copy dir_cluster into
 						FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 						//and let reset the values
@@ -2172,10 +2196,10 @@ Command_ED_found:	//sem skoci z commandu ED kdyz najde hledane filename a chce v
 			{
 			unsigned char ret;
 
-			if ( drive < DEVICESNUM )
+			if ( drive_slot < DEVICESNUM )
 			{
 				//set pointer to corresponding drive
-				FileInfo.vDisk = &vDisk[drive];
+				FileInfo.vDisk = &vDisk[drive_slot];
 				//copy dir_cluster from tmp Struct
 				FileInfo.vDisk->dir_cluster=tmpvDisk.dir_cluster;
 			}
@@ -2278,11 +2302,11 @@ Set_XEX:					// XEX
 						FileInfo.vDisk->flags|=FLAGS_DRIVEON|FLAGS_XEXLOADER|FLAGS_ATRMEDIUMSIZE;
 					}
 
-					if(drive && drive < DEVICESNUM) {
+					if(drive_slot && drive_slot < DEVICESNUM) {
 						//set new filename to button
 						fatGetDirEntry(cmd_buf.aux,0);
 						pretty_name((char*) atari_sector_buffer);
-						bp = &tft.pages[PAGE_MAIN].buttons[drive];
+						bp = &tft.pages[PAGE_MAIN].buttons[drive_slot];
 						name = pgm_read_ptr(&bp->name);
 						strncpy(&name[3], (char*)atari_sector_buffer, 12);
 						//redraw display only, if we are on

@@ -27,6 +27,7 @@ unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
+unsigned char scroll_file_len;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
 const char known_extensions[][3] PROGMEM = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
@@ -48,13 +49,13 @@ extern u16 MAXX EEMEM;
 extern u16 MAXY EEMEM;
 
 
-unsigned int action_b0 (struct button *b) {
+unsigned int action_b0 (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	flags->selected = 1;
 	return(0);
 }
 
-unsigned int action_b1_4 (struct button *b) {
+unsigned int action_b1_4 (const struct button *b) {
 
 	if(p.x > 200) {	//file select page
 		actual_page = PAGE_FILE;
@@ -71,7 +72,7 @@ unsigned int action_b1_4 (struct button *b) {
 	return(0);
 }
 
-unsigned int action_tape (struct button *b) {
+unsigned int action_tape (const struct button *b) {
 	actual_page = PAGE_FILE;
 	tape_mode = 1;
 	sei();
@@ -79,7 +80,7 @@ unsigned int action_tape (struct button *b) {
 	return(0);
 }
 
-unsigned int action_tape_turbo (struct button *b) {
+unsigned int action_tape_turbo (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	flags->selected = ~flags->selected;
 	tape_flags.turbo = ~tape_flags.turbo;
@@ -87,7 +88,7 @@ unsigned int action_tape_turbo (struct button *b) {
 	return(0);
 }
 
-unsigned int action_tape_pause (struct button *b) {
+unsigned int action_tape_pause (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	if(flags->selected) {
 		tape_flags.run = 1;
@@ -252,18 +253,21 @@ was_root:	//outbox(path);
 		file_selected = -1;
 	}
 	else {	//is a file
+		//save the length for scrolling
+		scroll_file_len = strlen((char*)atari_sector_buffer);
 
 		//print long filename
-		atari_sector_buffer[32] = 0;	//chop
-		outbox(atari_sector_buffer);
-
+		//atari_sector_buffer[32] = 0;	//chop
+		//outbox(atari_sector_buffer);
+		outbox_multi(atari_sector_buffer, scroll_file_len);
+/*
 		if(tft.cfg.scroll) {
 			//prepare scrolling filename
 			atari_sector_buffer[19] = 0;	//chop
 			Draw_Rectangle(5,10,tft.width-1,26,1,SQUARE,Black,Black);
 			print_str(5, 10, 2, Yellow, Black, atari_sector_buffer);
 		}
-
+*/
 		file_selected = file;
 		next_file_idx -= 10;	// the same list again
 	}
@@ -290,7 +294,7 @@ unsigned int action_cfg () {
 	return(0);
 }
 
-unsigned int action_change (struct button *b) {
+unsigned int action_change (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	//invert selection
 	flags->selected = ~flags->selected;
@@ -299,7 +303,7 @@ unsigned int action_change (struct button *b) {
 }
 
 unsigned int action_save_cfg () {
-	struct button *b;
+	const struct button *b;
 	struct b_flags *flags;
 	unsigned char i;
 	unsigned char rot = tft.cfg.rot;
@@ -372,6 +376,7 @@ unsigned int action_cal () {
 			case 3:
 				px1 = (px1 + p.x) / 2;	//middle
 				py2 = (py2 + p.y) / 2;	//middle
+			;;
 		}
 		//print_I(10,50,1,White,Black,p.x);
 		//print_I(40,50,1,White,Black,p.y);
@@ -384,7 +389,7 @@ unsigned int action_cal () {
 	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);
 	print_str(20, tft.heigth/2-20, 1, White, Black, atari_sector_buffer);
 */
-	//strech values to whole screen size
+	//stretch values to whole screen size
         diff = (px2 - px1)/(tft.width-b*2.0)*tft.width;
         diff -= (px2 - px1);
         diff /= 2;
@@ -471,13 +476,14 @@ struct page pages[] = {
     {file_page, buttons_file, sizeof(buttons_file)/sizeof(struct button)},
     {config_page, buttons_cfg, sizeof(buttons_cfg)/sizeof(struct button)},
     {tape_page, buttons_tape, sizeof(buttons_tape)/sizeof(struct button)},
-    {debug_page, buttons_debug, sizeof(buttons_debug)/sizeof(struct button)}
+    {(void*)debug_page, buttons_debug, sizeof(buttons_debug)/sizeof(struct button)}
 };
 
 struct display tft = {240, 320, {PORTRAIT_2, 0}, pages};
 
 void draw_Buttons () {
-	struct button b,*bp;
+	struct button b;
+	const struct button *bp;
 	unsigned char i,j;
 
 	for(i = 0; i < tft.pages[actual_page].nbuttons; i++) {
@@ -516,21 +522,7 @@ void draw_Buttons () {
 unsigned int outx, outy;
 unsigned char scroll;
 
-/*
-void outbox_P(const char *txt) {
-
-	if (outy > tft.heigth-8) {
-		outy = 284;
-		scroll = 1;
-	}
-	print_str_P(outx,outy,1,White,atari_bg,txt);
-	outy += 8;
-	if (scroll)
-		TFT_scroll(outy);
-}
-*/
-
-void _outbox(char *txt, char P) {
+void _outbox(const char *txt, char P) {
 
 	if (outy > tft.heigth-16) {
 		scroll = 1;
@@ -562,6 +554,21 @@ void outbox_P(const char *txt) {
 
 void outbox (char *txt) {
 	_outbox(txt,0);
+}
+
+#define LINE_LENGTH 34
+
+void outbox_multi (char *txt, unsigned char len) {
+	char *lineptr = txt;
+	char linebuf[LINE_LENGTH];
+
+	while(len > LINE_LENGTH) {	//each line
+		strncpy(linebuf, lineptr, LINE_LENGTH);
+		_outbox(linebuf,0);
+		len -= LINE_LENGTH;
+		lineptr += LINE_LENGTH;
+	}
+	_outbox(lineptr,0);	//print the rest
 }
 
 void main_page () {
@@ -602,7 +609,7 @@ void file_page () {
 }
 
 void config_page () {
-	struct button *b;
+	const struct button *b;
 	struct b_flags *flags;
 	unsigned int i;
 
@@ -663,8 +670,8 @@ void tft_Setup() {
 	}
 }
 
-struct button * check_Buttons() {
-	struct button *b;
+const struct button * check_Buttons() {
+	const struct button *b;
 	unsigned char i;
 	unsigned int x,y,width,heigth;
 

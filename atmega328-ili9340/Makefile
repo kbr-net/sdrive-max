@@ -14,7 +14,8 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2     -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct
+//CFLAGS += -Wall -Wpadded -Wshadow -Wa,-gdwarf2     -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct
+CFLAGS += -Wall -Wshadow -Wa,-gdwarf2 -DF_CPU=16000000UL -Os -funsigned-char -fpack-struct
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += -ffunction-sections -mrelax -mcall-prologues
 

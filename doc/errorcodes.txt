@@ -9,3 +9,9 @@ FAT:
 1	error reading master bootblock
 2	error reading partition bootblock
 3	filesystem not supported
+
+SIO:
+1	CMD changed to high during data reception
+2	timeout
+3	usart frame error
+4	usart data overrun

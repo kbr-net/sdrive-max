@@ -1,7 +1,3 @@
-//moved to display.c
-//#include "font.c"
-
-
 #define TFT_data_out_port_low                                                            PORTB
 #define TFT_data_out_port_high                                                           PORTD
 
@@ -207,7 +203,7 @@ void Draw_Circle(signed int xc, signed int yc, signed int radius, unsigned char 
 void Draw_Font_Pixel(unsigned int x_pos, unsigned int y_pos, unsigned int colour, unsigned char pixel_size);
 void print_char(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, unsigned char ch);
 void print_str_P(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, const char *ch);
-void print_str(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, char *ch);
+void print_str(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, const char *ch);
 void print_strn(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, char *ch, unsigned char n);
 void set_text_pos (unsigned int x, unsigned int y);
 void print_ln_P(unsigned char font_size, unsigned int colour, unsigned int back_colour, const char *ch);

@@ -305,11 +305,16 @@ struct fsinfo {
 
 // Structure of a dos directory entry.
 struct direntry {
-	char		deName[8];      // filename, blank filled
 #define SLOT_EMPTY      0x00            // slot has never been used
 #define SLOT_E5         0x05            // the real value is 0xE5
 #define SLOT_DELETED    0xE5            // file in this slot deleted
-	char		deExtension[3]; // extension, blank filled
+	union {
+		struct {
+			char	deName[8];      // filename, blank filled
+			char	deExtension[3]; // extension, blank filled
+		};
+		char	deNameAndExt[11];	// filename + extension
+	};
 	unsigned char	deAttributes;   // file attributes
 #define ATTR_NORMAL     0x00            // normal file
 #define ATTR_READONLY   0x01            // file is readonly

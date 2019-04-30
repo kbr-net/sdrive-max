@@ -2,7 +2,7 @@
 #include <util/delay.h>
 #include <avr/pgmspace.h>
 #include "display.h"
-#include "font.c"
+#include "font.h"
 
 unsigned int MAX_X = X_max;
 unsigned int MAX_Y = Y_max;
@@ -906,7 +906,7 @@ void print_str_P(unsigned int x_pos, unsigned int y_pos, unsigned char font_size
      }
 }
 
-void print_str(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, char *ch)
+void print_str(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, const char *ch)
 {
      do
      {

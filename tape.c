@@ -15,18 +15,20 @@ extern void Clear_atari_sector_buffer();
 unsigned short block;
 
 unsigned int send_tape_block (unsigned int offset) {
-	unsigned char *p = atari_sector_buffer+block_len-1;
+	unsigned char *p = atari_sector_buffer+BLOCK_LEN-1;
 	unsigned char i,r;
 
         if (offset < FileInfo.vDisk->size) {	//data record
-		sprintf_P((char*)atari_sector_buffer,PSTR("Block %u / %u "),offset/block_len+1,(FileInfo.vDisk->size-1)/block_len+1);
-		print_str(35,135,2,Yellow,window_bg, atari_sector_buffer);
+		sprintf_P((char*)atari_sector_buffer,PSTR("Block %u / %u "),offset/BLOCK_LEN+1,(FileInfo.vDisk->size-1)/BLOCK_LEN+1);
+		print_str(35,135,2,Yellow,window_bg, (char*) atari_sector_buffer);
 		//read block
-                r = faccess_offset(FILE_ACCESS_READ,offset,block_len);
+                r = faccess_offset(FILE_ACCESS_READ,offset,BLOCK_LEN);
 		//shift buffer 3 bytes right
-		for(i = 0; i < block_len; i++)
-			*(p+3) = *p--;
-		if(r < block_len) {	//no full record?
+		for(i = 0; i < BLOCK_LEN; i++) {
+			*(p+3) = *p;
+			p--;
+		}
+		if(r < BLOCK_LEN) {	//no full record?
 			atari_sector_buffer[2] = 0xfa;	//mark partial record
 			atari_sector_buffer[130] = r;	//set size in last byte
 		}
@@ -37,14 +39,14 @@ unsigned int send_tape_block (unsigned int offset) {
         }
 	else {	//this is the last/end record
 		print_str_P(35,135,2,Yellow,window_bg, PSTR("End  "));
-		Clear_atari_sector_buffer(block_len+3);
+		Clear_atari_sector_buffer(BLOCK_LEN+3);
 		atari_sector_buffer[2] = 0xfe;	//mark end record
 		offset = 0;
 	}
 	atari_sector_buffer[0] = 0x55;	//sync marker
 	atari_sector_buffer[1] = 0x55;
-	USART_Send_Buffer(atari_sector_buffer,block_len+3);
-	USART_Transmit_Byte(get_checksum(atari_sector_buffer,block_len+3));
+	USART_Send_Buffer(atari_sector_buffer,BLOCK_LEN+3);
+	USART_Transmit_Byte(get_checksum(atari_sector_buffer,BLOCK_LEN+3));
 	_delay_ms(300);	//PRG(0-N) + PRWT(0.25s) delay
 	return(offset);
 }
@@ -97,7 +99,7 @@ unsigned int send_FUJI_tape_block (unsigned int offset) {
 
         if (offset < FileInfo.vDisk->size) {	//data record
 		sprintf_P((char*)atari_sector_buffer,PSTR("Block %u     "),block);
-		print_str(35,135,2,Yellow,window_bg, atari_sector_buffer);
+		print_str(35,135,2,Yellow,window_bg, (char*) atari_sector_buffer);
 		//read block
 		offset += sizeof(struct tape_FUJI_hdr);	//skip chunk hdr
                 r = faccess_offset(FILE_ACCESS_READ,offset,len);
