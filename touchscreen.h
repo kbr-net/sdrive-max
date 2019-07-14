@@ -9,7 +9,7 @@
 //#pragma once
 //#include <stdint.h>
 
-#if defined(ILI9341) || defined(HX8347I)
+#if defined(ILI9341) || defined(HX8347I) || defined(HX8347D)
 //Touch For New ILI9341 TP
 
 #define XP	PC2		//must be an analog port

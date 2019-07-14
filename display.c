@@ -25,7 +25,7 @@ void TFT_init()
     delay_ms(60);
 #endif
 
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     //set later after scroll init
     //TFT_write_cmd(0x01);	//scroll mode on
     //TFT_write(0x08);
@@ -55,7 +55,7 @@ void TFT_init()
 }
 
 void TFT_on() {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     TFT_write_cmd(0x28);	//gate output and display on
     TFT_write(0x3c);
     //TFT_write_cmd(0x22);	//GRAM
@@ -66,7 +66,7 @@ void TFT_on() {
 }
 
 void TFT_off() {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     TFT_write_cmd(0x28);	//gate output and display off
     TFT_write(0x00);
     //TFT_write_cmd(0x22);	//GRAM
@@ -78,7 +78,7 @@ void TFT_off() {
 
 // enter/release display sleep mode
 void TFT_sleep_on() {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     TFT_write_cmd(0x1f);	//set standby mode
     TFT_write(0xd5);
 #else
@@ -88,7 +88,7 @@ void TFT_sleep_on() {
 }
 
 void TFT_sleep_off() {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     TFT_write_cmd(0x1f);	//set power on and exit standby mode
     TFT_write(0xd4);
 #else
@@ -199,7 +199,7 @@ void TFT_write_REG_DATA(unsigned char reg, unsigned char data_value)
 
 unsigned int TFT_getID()
 {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
 	TFT_write_cmd(0x00);	//READ-ID
 #else
 	TFT_write_cmd(0xD3);	//READ-ID4
@@ -210,7 +210,7 @@ unsigned int TFT_getID()
 
 void TFT_set_rotation(unsigned char value)
 {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     TFT_write_cmd(0x16);
 #else
     TFT_write_cmd(ILI9341_MAC);
@@ -220,7 +220,7 @@ void TFT_set_rotation(unsigned char value)
     {
         case PORTRAIT_1:
         {
-#if defined ILI9329 || defined HX8347G
+#if defined ILI9329 || defined HX8347G || defined HX8347D
             TFT_write(0x08);
 #else
             TFT_write(0x48);
@@ -229,7 +229,7 @@ void TFT_set_rotation(unsigned char value)
         }
         case PORTRAIT_2:
         {
-#if defined ILI9329 || defined HX8347G
+#if defined ILI9329 || defined HX8347G || defined HX8347D
             TFT_write(0xd8);
 #else
             TFT_write(0x98);
@@ -268,7 +268,7 @@ void TFT_set_rotation(unsigned char value)
 
 void TFT_set_display_window(unsigned int x_pos1, unsigned int y_pos1, unsigned int x_pos2, unsigned int y_pos2)
 {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     TFT_write_cmd(0x02);	//col start
     TFT_write(x_pos1>>8);
     TFT_write_cmd(0x03);
@@ -304,7 +304,7 @@ void TFT_set_display_window(unsigned int x_pos1, unsigned int y_pos1, unsigned i
 }
 
 void TFT_scroll_init(unsigned int tfa, unsigned int vsa, unsigned int bfa) {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     TFT_write_cmd(0x0e);	//TFA
     TFT_write(tfa>>8);
     TFT_write_cmd(0x0f);
@@ -331,7 +331,7 @@ void TFT_scroll_init(unsigned int tfa, unsigned int vsa, unsigned int bfa) {
 }
 
 void TFT_scroll(unsigned int scroll) {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined HX8347D
     TFT_write_cmd(0x14);
     TFT_write(scroll>>8);
     TFT_write_cmd(0x15);
