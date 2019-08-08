@@ -17,7 +17,7 @@ void TFT_init()
 //    TFT_write_cmd(ILI9341_RESET);
 //    TFT_write_cmd(ILI9341_DISPLAY_INVERSION_ON);
 //    TFT_write(0x00);
-#elif ILI9340
+#elif defined(ILI9340) & ! defined(INVERSE)
 	delay_ms(200);
     TFT_write_cmd(ILI9341_DISPLAY_INVERSION_ON);
 //    TFT_write(0x00);
