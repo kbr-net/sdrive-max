@@ -116,7 +116,7 @@ struct TSPoint p;
 struct TSPoint getPoint () {
 	cli();			//disable interrupts
 	setIdling();
-#if defined(HX8347G)
+#if defined(HX8347G) || defined(ILI9329i)
 	p.x = map(readTouch(1), TS_MINX, TS_MAXX, 0, MAX_X);
 	p.y = map(readTouch(0), TS_MINY, TS_MAXY, 0, MAX_Y);
 #else
@@ -132,7 +132,7 @@ struct TSPoint getRawPoint () {
 	cli();
 	setIdling();
 
-#if defined(HX8347G)
+#if defined(HX8347G) || defined(ILI9329i)
 	p.x = readTouch(1);
 	p.y = readTouch(0);
 #else
