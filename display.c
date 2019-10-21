@@ -45,204 +45,204 @@ void TFT_init()
 #elif defined ILI9325
 
     // set SRAM internal timing
-    TFT_write_cmd(0x00E5);
+    TFT_write_cmd(0xE5);
     TFT_write_data(0x78F0);
 
     // set Driver Output Control
-    TFT_write_cmd(0x0001);
+    TFT_write_cmd(0x01);
     TFT_write_data(0x0000);
 
     // set 1 line inversion
-    TFT_write_cmd(0x0002);
+    TFT_write_cmd(0x02);
     TFT_write_data(0x0300);
 
     // set GRAM write direction and BGR=1.
-    TFT_write_cmd(0x0003);
+    TFT_write_cmd(0x03);
     TFT_write_data(0x1030);
 
     // Resize register
-    TFT_write_cmd(0x0004);
+    TFT_write_cmd(0x04);
     TFT_write_data(0x0000);
 
     // .kbv 16bits Data Format Selection
-    TFT_write_cmd(0x0005);
+    TFT_write_cmd(0x05);
     TFT_write_data(0x0000);
 
     // set the back porch and front porch
-    TFT_write_cmd(0x0008);
+    TFT_write_cmd(0x08);
     TFT_write_data(0x0207);
 
     // set non-display area refresh cycle ISC[3:0]
-    TFT_write_cmd(0x0009);
+    TFT_write_cmd(0x09);
     TFT_write_data(0x0000);
 
     // FMARK function
-    TFT_write_cmd(0x000A);
+    TFT_write_cmd(0x0A);
     TFT_write_data(0x0000);
 
     // RGB interface setting
-    TFT_write_cmd(0x000C);
+    TFT_write_cmd(0x0C);
     TFT_write_data(0x0000);
 
     // Frame marker Position
-    TFT_write_cmd(0x000D);
+    TFT_write_cmd(0x0D);
     TFT_write_data(0x0000);
 
     // RGB interface polarity
-    TFT_write_cmd(0x000F);
+    TFT_write_cmd(0x0F);
     TFT_write_data(0x0000);
 
     // ----------- Power On sequence -----------
 
     // SAP, BT[3:0], AP, DSTB, SLP, STB
-    TFT_write_cmd(0x0010);
+    TFT_write_cmd(0x10);
     TFT_write_data(0x0000);
 
     // DC1[2:0], DC0[2:0], VC[2:0]
-    TFT_write_cmd(0x0011);
+    TFT_write_cmd(0x11);
     TFT_write_data(0x0007);
 
     // VREG1OUT voltage
-    TFT_write_cmd(0x0012);
+    TFT_write_cmd(0x12);
     TFT_write_data(0x0000);
 
     // VDV[4:0] for VCOM amplitude
-    TFT_write_cmd(0x0013);
+    TFT_write_cmd(0x13);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0007);
+    TFT_write_cmd(0x07);
     TFT_write_data(0x0001);
 
     // Dis-charge capacitor power voltage
     delay_ms(200);
 
     // SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=0, STB=0
-    TFT_write_cmd(0x0010);
+    TFT_write_cmd(0x10);
     TFT_write_data(0x1690);
 
     // DC1=2, DC0=2, VC=7
-    TFT_write_cmd(0x0011);
+    TFT_write_cmd(0x11);
     TFT_write_data(0x0227);
 
     // wait_ms 50ms
     delay_ms(50);
 
     // VCIRE=1, PON=0, VRH=5
-    TFT_write_cmd(0x0012);
+    TFT_write_cmd(0x12);
     TFT_write_data(0x000D);
 
     // wait_ms 50ms
     delay_ms(50);
 
     // VDV=28 for VCOM amplitude
-    TFT_write_cmd(0x0013);
+    TFT_write_cmd(0x13);
     TFT_write_data(0x1200);
 
     // VCM=10 for VCOMH
-    TFT_write_cmd(0x0029);
+    TFT_write_cmd(0x29);
     TFT_write_data(0x000A);
 
     // Set Frame Rate
-    TFT_write_cmd(0x002B);
+    TFT_write_cmd(0x2B);
     TFT_write_data(0x000D);
 
     // wait_ms 50ms
     delay_ms(50);
 
     // GRAM horizontal Address
-    TFT_write_cmd(0x0020);
+    TFT_write_cmd(0x20);
     TFT_write_data(0x0000);
 
     // GRAM Vertical Address
-    TFT_write_cmd(0x0021);
+    TFT_write_cmd(0x21);
     TFT_write_data(0x0000);
 
     // ----------- Adjust the Gamma Curve ----------
-    TFT_write_cmd(0x0030);
+    TFT_write_cmd(0x30);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0031);
+    TFT_write_cmd(0x31);
     TFT_write_data(0x0404);
 
-    TFT_write_cmd(0x0032);
+    TFT_write_cmd(0x32);
     TFT_write_data(0x0003);
 
-    TFT_write_cmd(0x0035);
+    TFT_write_cmd(0x35);
     TFT_write_data(0x0405);
 
-    TFT_write_cmd(0x0036);
+    TFT_write_cmd(0x36);
     TFT_write_data(0x0808);
 
-    TFT_write_cmd(0x0037);
+    TFT_write_cmd(0x37);
     TFT_write_data(0x0407);
 
-    TFT_write_cmd(0x0038);
+    TFT_write_cmd(0x38);
     TFT_write_data(0x0303);
 
-    TFT_write_cmd(0x0039);
+    TFT_write_cmd(0x39);
     TFT_write_data(0x0707);
 
-    TFT_write_cmd(0x003C);
+    TFT_write_cmd(0x3C);
     TFT_write_data(0x0504);
 
-    TFT_write_cmd(0x003D);
+    TFT_write_cmd(0x3D);
     TFT_write_data(0x0808);
 
     //------------------ Set GRAM area ---------------
 
     // Gate Scan Line GS=0 [0xA700]
     // Gate Scan Line GS=320 [0x2700]
-    TFT_write_cmd(0x0060);
+    TFT_write_cmd(0x60);
     TFT_write_data(0x2700);
 
     // NDL,VLE, REV .kbv
-    TFT_write_cmd(0x0061);
+    TFT_write_cmd(0x61);
     TFT_write_data(0x0001);
 
     // set scrolling line
-    TFT_write_cmd(0x006A);
+    TFT_write_cmd(0x6A);
     TFT_write_data(0x0000);
 
     //-------------- Partial Display Control ---------
-    TFT_write_cmd(0x0080);
+    TFT_write_cmd(0x80);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0081);
+    TFT_write_cmd(0x81);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0082);
+    TFT_write_cmd(0x82);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0083);
+    TFT_write_cmd(0x83);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0084);
+    TFT_write_cmd(0x84);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0085);
+    TFT_write_cmd(0x85);
     TFT_write_data(0x0000);
 
     //-------------- Panel Control -------------------
-    TFT_write_cmd(0x0090);
+    TFT_write_cmd(0x90);
     TFT_write_data(0x0010);
 
-    TFT_write_cmd(0x0092);
+    TFT_write_cmd(0x92);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0093);
+    TFT_write_cmd(0x93);
     TFT_write_data(0x0003);
 
-    TFT_write_cmd(0x0095);
+    TFT_write_cmd(0x95);
     TFT_write_data(0x0110);
 
-    TFT_write_cmd(0x0097);
+    TFT_write_cmd(0x97);
     TFT_write_data(0x0000);
 
-    TFT_write_cmd(0x0098);
+    TFT_write_cmd(0x98);
     TFT_write_data(0x0000);
 
     // 262K color and display ON
-    TFT_write_cmd(0x0007);
+    TFT_write_cmd(0x07);
     TFT_write_data(0x0133);
 
     // ------------- Initialization Done -------------
@@ -265,7 +265,7 @@ void TFT_on() {
     TFT_write(0x3c);
     //TFT_write_cmd(0x22);	//GRAM
 #elif defined ILI9325
-    TFT_write_cmd(0x0007);
+    TFT_write_cmd(0x07);
     TFT_write_data(0x0133);
 #else
     TFT_write_cmd(ILI9341_DISPLAY_ON);
@@ -279,7 +279,7 @@ void TFT_off() {
     TFT_write(0x00);
     //TFT_write_cmd(0x22);	//GRAM
 #elif defined ILI9325
-    TFT_write_cmd(0x0007);
+    TFT_write_cmd(0x07);
     TFT_write_data(0x0000);
 #else
     TFT_write_cmd(ILI9341_DISPLAY_OFF);
@@ -294,7 +294,7 @@ void TFT_sleep_on() {
     TFT_write(0xd5);
 #elif defined ILI9325
     // SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=1, STB=0
-    TFT_write_cmd(0x0010);
+    TFT_write_cmd(0x10);
     TFT_write_data(0x1692);
 #else
     TFT_write_cmd(ILI9341_ENTER_SLEEP_MODE);
@@ -308,7 +308,7 @@ void TFT_sleep_off() {
     TFT_write(0xd4);
 #elif defined ILI9325
     // SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=0, STB=0
-    TFT_write_cmd(0x0010);
+    TFT_write_cmd(0x10);
     TFT_write_data(0x1690);
 #else
     TFT_write_cmd(ILI9341_SLEEP_OUT);
@@ -445,10 +445,10 @@ void TFT_set_rotation(unsigned char value)
             TFT_write(0x08);
 #elif defined ILI9325
     // Gate Scan Line GS=0 [0xA700]
-    TFT_write_cmd(0x0060);
+    TFT_write_cmd(0x60);
     TFT_write_data(0xa700);
     // set Driver Output Control SS=1
-    TFT_write_cmd(0x0001);
+    TFT_write_cmd(0x01);
     TFT_write_data(0x0100);
 #else
             TFT_write(0x48);
@@ -461,10 +461,10 @@ void TFT_set_rotation(unsigned char value)
             TFT_write(0xd8);
 #elif defined ILI9325
             // Gate Scan Line GS=320 [0xA700]
-            TFT_write_cmd(0x0060);
+            TFT_write_cmd(0x60);
             TFT_write_data(0x2700);
             // set Driver Output Control SS=0
-            TFT_write_cmd(0x0001);
+            TFT_write_cmd(0x01);
             TFT_write_data(0x0000);
 #else
             TFT_write(0x98);
@@ -576,6 +576,7 @@ void TFT_scroll_init(unsigned int tfa, unsigned int vsa, unsigned int bfa) {
     TFT_write(0x08);
 #elif defined ILI9325
     //nothing
+    //not supported by this chip
 #else
     TFT_write_cmd(ILI9341_VERTICAL_SCROLLING_DEFINITION);
     TFT_write_data(tfa);	//TFA
@@ -592,6 +593,7 @@ void TFT_scroll(unsigned int scroll) {
     TFT_write(scroll);
 #elif defined ILI9325
     //nothing
+    //not supported by this chip
 #else
     TFT_write_cmd(ILI9341_VERTICAL_SCROLLING_START_ADDRESS);
     TFT_write_data(scroll);
