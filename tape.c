@@ -85,8 +85,10 @@ unsigned int load_FUJI_file () {
 }
 
 unsigned int send_FUJI_tape_block (unsigned int offset) {
-	unsigned char r;
-	unsigned int gap, len;
+	unsigned short r;
+	unsigned short gap, len;
+	unsigned short buflen = 256;
+	unsigned char first = 1;
 	struct tape_FUJI_hdr *hdr = (struct tape_FUJI_hdr *)atari_sector_buffer;
 
 	//read header
@@ -102,17 +104,27 @@ unsigned int send_FUJI_tape_block (unsigned int offset) {
 		print_str(35,135,2,Yellow,window_bg, (char*) atari_sector_buffer);
 		//read block
 		offset += sizeof(struct tape_FUJI_hdr);	//skip chunk hdr
-                r = faccess_offset(FILE_ACCESS_READ,offset,len);
-		offset += r;
 		block++;
-		USART_Send_Buffer(atari_sector_buffer,len);
-		if(atari_sector_buffer[2] == 0xfe) {
-			//most multi stage loaders starting over by self
-			// so do not stop here!
-			//tape_flags.run = 0;
-			block = 1;
-			_delay_ms(200);	//add an end gap to be sure
+		while(len) {
+			if(len > 256)
+				len -= 256;
+			else {
+				buflen = len;
+				len = 0;
+			}
+			r = faccess_offset(FILE_ACCESS_READ,offset,buflen);
+			offset += r;
+			USART_Send_Buffer(atari_sector_buffer,buflen);
+			if(first && atari_sector_buffer[2] == 0xfe) {
+				//most multi stage loaders starting over by self
+				// so do not stop here!
+				//tape_flags.run = 0;
+				block = 1;
+			}
+			first = 0;
 		}
+		if(block == 1)
+			_delay_ms(200);	//add an end gap to be sure
 	}
 	else {
 		block = 1;
