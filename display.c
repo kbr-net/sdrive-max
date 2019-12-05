@@ -12,13 +12,9 @@ void TFT_init()
     TFT_GPIO_init();
 
     TFT_reset();
-#ifdef ILI9329
+#ifdef INVERSE
     delay_ms(200);
 //    TFT_write_cmd(ILI9341_RESET);
-//    TFT_write_cmd(ILI9341_DISPLAY_INVERSION_ON);
-//    TFT_write(0x00);
-#elif defined(ILI9340) & ! defined(INVERSE)
-	delay_ms(200);
     TFT_write_cmd(ILI9341_DISPLAY_INVERSION_ON);
 //    TFT_write(0x00);
 #else
@@ -220,7 +216,7 @@ void TFT_set_rotation(unsigned char value)
     {
         case PORTRAIT_1:
         {
-#if defined ILI9329 || defined HX8347G || defined HX8347D
+#if defined HX8347G || defined HX8347I || defined HX8347D
             TFT_write(0x08);
 #else
             TFT_write(0x48);
@@ -229,7 +225,7 @@ void TFT_set_rotation(unsigned char value)
         }
         case PORTRAIT_2:
         {
-#if defined ILI9329 || defined HX8347G || defined HX8347D
+#if defined HX8347G || defined HX8347I || defined HX8347D
             TFT_write(0xd8);
 #else
             TFT_write(0x98);
