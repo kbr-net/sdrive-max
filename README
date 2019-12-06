@@ -13,6 +13,7 @@ What do you need?
 - an Elegoo 2,8" TFT-Touchscreen Shield or similar with ILI9341 compatible
   controller using 8bit parallel mode(i think, that one from the adafruit
   project is the same). Touchlines must be wired as followed:
+  Update! Touchlines are now auto detected!
 
   X+ <-> 8
   X- <-> A2

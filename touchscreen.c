@@ -23,15 +23,113 @@ extern unsigned int MAX_X;
 extern unsigned int MAX_Y;
 extern struct display tft;
 
+unsigned char E_XP EEMEM = 0xff;
+unsigned char XP;			//must be an analog port(PORTC)
+#define XP_DDR DDRC			//fixed
+#define XP_PORT PORTC			//fixed
+
+unsigned char E_XM EEMEM = 0xff;
+unsigned char XM;			//PB0, PD7
+u16 E_XM_PIN EEMEM = 0xffff;
+unsigned char *XM_PIN;			//for isTouching()
+#define XM_DDR *(XM_PIN+1)
+#define XM_PORT *(XM_PIN+2)
+
+unsigned char E_YP EEMEM = 0xff;
+unsigned char YP;			//PB1, PD6
+u16 E_YP_PIN EEMEM = 0xffff;
+unsigned char *YP_PIN;
+#define YP_DDR *(YP_PIN+1)
+#define YP_PORT *(YP_PIN+2)
+
+unsigned char E_YM EEMEM = 0xff;
+unsigned char YM;			//must be an analog port(PORTC)
+#define YM_DDR DDRC			//fixed
+#define YM_PORT PORTC			//fixed
+
 int map(long x, long in_min, long in_max, long out_min, long out_max) {
 	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+unsigned char TS_init() {
+	unsigned char apin, dpin;
+	unsigned char found = 0;
+	unsigned char *port, *ddr;
+	unsigned char apins[2], dpins[2], *pinregs[2];
+	unsigned short val, vals[2];
+
+	//A/D-converter enable, no irq, prescaler 128 -> 125 KHz
+	ADCSRA = 0x87;
+
+	if (eeprom_read_byte(&E_XP) == 0xff) {	//not already detected?
+
+		PORTC |= 0x0f;	//enable pullup
+
+		for (apin = PC0; apin < PC4; apin++) {
+			ADMUX = (0x40 | apin);	//select analog pin, reference 5 V,
+						//right aligned
+			//first check PB0 and PB1
+			port = (unsigned char *) _SFR_MEM_ADDR(PORTB);
+			ddr = (unsigned char *) _SFR_MEM_ADDR(DDRB);
+
+			for (dpin = 0; dpin < 7; dpin++) {
+				if (dpin == 2) {	//change from PORTB to PORTD
+					port = (unsigned char *) _SFR_MEM_ADDR(PORTD);
+					ddr = (unsigned char *) _SFR_MEM_ADDR(DDRD);
+				}
+				*ddr |= (1<<dpin);	//output
+				*port &= ~(1<<dpin);	//low
+				_delay_ms(1);		//wait a little bit,
+							//otherwise we messure
+							//the falling edge!
+				ADCSRA |= (1<<ADSC);	//A/D-converter start
+				//wait until ready
+				while (ADCSRA&(1<<ADSC));
+				val = ADC;
+				*ddr &= ~(1<<dpin);	//input
+				*port |= (1<<dpin);	//pullup
+
+				if (val < 100 && found < 2) {
+					vals[found] = val;
+					apins[found] = apin;
+					dpins[found] = dpin;
+					pinregs[found] = port - 2;
+					found++;
+				}
+			}
+		}
+
+		if (found == 2) {
+			unsigned char i;
+			//the lower value is the X direction
+			i = (vals[0] > vals[1]) ? 1 : 0;
+
+			eeprom_update_byte(&E_XP, apins[i]);
+			eeprom_update_byte(&E_XM, dpins[i]);
+			eeprom_update_byte(&E_YP, dpins[!i]);
+			eeprom_update_byte(&E_YM, apins[!i]);
+			eeprom_update_word(&E_XM_PIN, (u16) pinregs[i]);
+			eeprom_update_word(&E_YP_PIN, (u16) pinregs[!i]);
+		}
+		else
+			return(0);
+	}// if
+
+	XP = eeprom_read_byte(&E_XP);
+	XM = eeprom_read_byte(&E_XM);
+	YP = eeprom_read_byte(&E_YP);
+	YM = eeprom_read_byte(&E_YM);
+	XM_PIN = (unsigned char *) eeprom_read_word(&E_XM_PIN);
+	YP_PIN = (unsigned char *) eeprom_read_word(&E_YP_PIN);
+
+	return(1);
 }
 
 // prepare ports for touchscreen lines
 static void setIdling() {
 	XM_DDR &= ~(1<<XM); XM_PORT |= (1<<XM);		// X- = Hi-Z
-	YM_PORT &= ~(1<<YM);				// Y- = L
-	XP_DDR &= ~(1<<XP); XP_PORT &= ~(1<<XP);	// X+ = Z
+	YM_PORT &= ~(1<<YM);				// Y- = L	analog
+	XP_DDR &= ~(1<<XP); XP_PORT &= ~(1<<XP);	// X+ = Z	analog
 	YP_PORT &= ~(1<<YP);				// Y+ = L
 	//_delay_us(0.5);
 	_delay_us(10);	//need more time, otherwise one bad touch occurs
@@ -79,16 +177,13 @@ void waitTouch() {
 char isTouching() {
 	cli();		// no interrupts during change of port directions!
 	setIdling();
-	char ret=!(XM_PIN & (1<<XM));	// read press condition(TRUE when LOW)
+	char ret=!(*XM_PIN & (1<<XM));	// read press condition(TRUE when LOW)
 	restorePorts();
 	sei();
 	return ret;
 }
 
 uint16_t readTouch(uint8_t b) {
-	// A/D-converter enable, no irq, prescaler 128 -> 125 KHz
-	ADCSRA=0x87;
-
 	if (b) {					// Y messure
 		XM_DDR &=~(1<<XM); XM_PORT &=~(1<<XM);	// X- = Z
 		YM_DDR |= (1<<YM); YM_PORT &=~(1<<YM);	// Y- = L
@@ -107,38 +202,29 @@ uint16_t readTouch(uint8_t b) {
 	ADCSRA |= (1<<ADSC);		// A/D-converter start
 	while (ADCSRA&(1<<ADSC));	// wait until ready
 	uint16_t ret=ADC;
-	//restorePorts();
 	return ret;
 }
 
-struct TSPoint p;
-
 struct TSPoint getPoint () {
+	struct TSPoint p;
+
 	cli();			//disable interrupts
-	setIdling();
-#if defined(HX8347G)
-	p.x = map(readTouch(1), TS_MINX, TS_MAXX, 0, MAX_X);
-	p.y = map(readTouch(0), TS_MINY, TS_MAXY, 0, MAX_Y);
-#else
+
 	p.x = map(readTouch(0), TS_MINX, TS_MAXX, 0, MAX_X);
 	p.y = map(readTouch(1), TS_MINY, TS_MAXY, 0, MAX_Y);
-#endif
+
 	restorePorts();
 	sei();
 	return(p);
 }
 
 struct TSPoint getRawPoint () {
-	cli();
-	setIdling();
+	struct TSPoint p;
 
-#if defined(HX8347G)
-	p.x = readTouch(1);
-	p.y = readTouch(0);
-#else
+	cli();
+
 	p.x = readTouch(0);
 	p.y = readTouch(1);
-#endif
 
 	restorePorts();
 	sei();

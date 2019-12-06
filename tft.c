@@ -31,7 +31,6 @@ unsigned char scroll_file_len;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
 const char known_extensions[][3] PROGMEM = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
-struct TSPoint p;
 
 void main_page();
 void file_page();
@@ -40,6 +39,7 @@ void tape_page();
 unsigned int debug_page();
 
 struct display tft;
+struct TSPoint p;
 
 unsigned char cfg EEMEM = 0xf3;	//config byte on eeprom, initial value is all on except boot_d1 and 1050
 struct file_save image_store[DEVICESNUM-1] EEMEM = {[0 ... DEVICESNUM-2] = { 0xffffffff, 0xffff }};
@@ -407,14 +407,15 @@ unsigned int action_cal () {
 	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);
 	print_str(20, tft.heigth/2, 1, White, Black, atari_sector_buffer);
 
+	//wait for one more touch to continue
+	while(!isTouching());
+
 	//write it to EEPROM
 	eeprom_update_word(&MINX, px1);
 	eeprom_update_word(&MAXX, px2);
 	eeprom_update_word(&MINY, py1);
 	eeprom_update_word(&MAXY, py2);
 
-	//wait for one more touch to continue
-	while(!isTouching());
 	return(0);
 }
 
@@ -655,18 +656,21 @@ unsigned int debug_page () {
 
 void tft_Setup() {
 	unsigned int id;
+	unsigned char ts_found;
 
+	ts_found = TS_init();
 	TFT_init();
 	*(char *)&tft.cfg = eeprom_read_byte(&cfg);
 	TFT_set_rotation(tft.cfg.rot);
 	id = TFT_getID();
 	sprintf_P(atari_sector_buffer, PSTR("TFT-ID: %.04x"), id);
-	//outbox(atari_sector_buffer);
 	print_str(20, 290, 2, White, Black, atari_sector_buffer);
-	//check if touchscreen needs calibration
-	if(eeprom_read_word(&MINX) == 0xffff || isTouching() ) {
-		TFT_on();
-		action_cal();
+	if(ts_found) {
+		//check if touchscreen needs calibration
+		if( (eeprom_read_word(&MINX) == 0xffff) || isTouching() ) {
+			TFT_on();
+			action_cal();
+		}
 	}
 }
 
@@ -676,8 +680,8 @@ const struct button * check_Buttons() {
 	unsigned int x,y,width,heigth;
 
 	p = getPoint();
-	//print_I(30,292,1,White,atari_bg,p.x);
-	//print_I(60,292,1,White,atari_bg,p.y);
+	//sprintf_P(atari_sector_buffer, PSTR("%i %i"), p.x, p.y);
+	//print_str(20, 265, 1, White, Black, atari_sector_buffer);
 	for(i = 0; i < tft.pages[actual_page].nbuttons; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		x = pgm_read_word(&b->x);
