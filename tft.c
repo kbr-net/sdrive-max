@@ -434,7 +434,7 @@ const struct button PROGMEM buttons_main[] = {
 	{"Tape:",80,200,80,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_tape},
 	{"New",240-61,200,50,30,Grey,Black,Green,&(struct b_flags){ROUND,1,0},press},
 	{"Cfg",240-61,240,50,30,Grey,Black,Blue,&(struct b_flags){ROUND,1,0},action_cfg},
-	{"Outbox",10,280,240-11,320-1,0,0,0,&(struct b_flags){0,0,0},debug_page}
+	{"",10,280,240-11,320-1,0,0,0,&(struct b_flags){0,0,0},debug_page}
 };
 
 const struct button PROGMEM buttons_file[] = {
@@ -444,7 +444,7 @@ const struct button PROGMEM buttons_file[] = {
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel},
 	{"Next",164,205,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files},
 	{"Last",164,245,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},list_files_last},
-	{"File",15,45,150,240,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_select}
+	{"",15,45,150,240,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_select}
 };
 
 //keep the order analog to struct tft.cfg, otherwise read/write function
@@ -469,7 +469,7 @@ const struct button PROGMEM buttons_tape[] = {
 };
 
 const struct button PROGMEM buttons_debug[] = {
-	{"Back",0,0,240,280,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_cancel}
+	{"",0,0,240,280,Grey,Black,White,&(struct b_flags){ROUND,0,0},action_cancel}
 };
 
 struct page pages[] = {
