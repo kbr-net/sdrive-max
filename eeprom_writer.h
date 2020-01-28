@@ -29,3 +29,9 @@ unsigned char SDrive_eep_bin[] = {
   0xff, 0xff, 0xff, 0xff, 0xff
 };
 unsigned int SDrive_eep_bin_len = 329;
+unsigned char *E_XM = (unsigned char *) 0x013f;
+unsigned char *E_XM_PIN = (unsigned char *) 0x013d;
+unsigned char *E_XP = (unsigned char *) 0x0140;
+unsigned char *E_YM = (unsigned char *) 0x0139;
+unsigned char *E_YP = (unsigned char *) 0x013c;
+unsigned char *E_YP_PIN = (unsigned char *) 0x013a;

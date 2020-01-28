@@ -52,68 +52,12 @@ int map(long x, long in_min, long in_max, long out_min, long out_max) {
 }
 
 unsigned char TS_init() {
-	unsigned char apin, dpin;
-	unsigned char found = 0;
-	unsigned char *port, *ddr;
-	unsigned char apins[2], dpins[2], *pinregs[2];
-	unsigned short val, vals[2];
-
 	//A/D-converter enable, no irq, prescaler 128 -> 125 KHz
 	ADCSRA = 0x87;
 
-	if (eeprom_read_byte(&E_XP) == 0xff) {	//not already detected?
-
-		PORTC |= 0x0f;	//enable pullup
-
-		for (apin = PC0; apin < PC4; apin++) {
-			ADMUX = (0x40 | apin);	//select analog pin, reference 5 V,
-						//right aligned
-			//first check PB0 and PB1
-			port = (unsigned char *) _SFR_MEM_ADDR(PORTB);
-			ddr = (unsigned char *) _SFR_MEM_ADDR(DDRB);
-
-			for (dpin = 0; dpin < 7; dpin++) {
-				if (dpin == 2) {	//change from PORTB to PORTD
-					port = (unsigned char *) _SFR_MEM_ADDR(PORTD);
-					ddr = (unsigned char *) _SFR_MEM_ADDR(DDRD);
-				}
-				*ddr |= (1<<dpin);	//output
-				*port &= ~(1<<dpin);	//low
-				_delay_ms(1);		//wait a little bit,
-							//otherwise we messure
-							//the falling edge!
-				ADCSRA |= (1<<ADSC);	//A/D-converter start
-				//wait until ready
-				while (ADCSRA&(1<<ADSC));
-				val = ADC;
-				*ddr &= ~(1<<dpin);	//input
-				*port |= (1<<dpin);	//pullup
-
-				if (val < 100 && found < 2) {
-					vals[found] = val;
-					apins[found] = apin;
-					dpins[found] = dpin;
-					pinregs[found] = port - 2;
-					found++;
-				}
-			}
-		}
-
-		if (found == 2) {
-			unsigned char i;
-			//the lower value is the X direction
-			i = (vals[0] > vals[1]) ? 1 : 0;
-
-			eeprom_update_byte(&E_XP, apins[i]);
-			eeprom_update_byte(&E_XM, dpins[i]);
-			eeprom_update_byte(&E_YP, dpins[!i]);
-			eeprom_update_byte(&E_YM, apins[!i]);
-			eeprom_update_word(&E_XM_PIN, (u16) pinregs[i]);
-			eeprom_update_word(&E_YP_PIN, (u16) pinregs[!i]);
-		}
-		else
-			return(0);
-	}// if
+	if (eeprom_read_byte(&E_XP) == 0xff) {	//not detected?
+		return(0);
+	}
 
 	XP = eeprom_read_byte(&E_XP);
 	XM = eeprom_read_byte(&E_XM);
