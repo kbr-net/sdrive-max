@@ -114,7 +114,9 @@ int main () {
 	for(i=0; i < SDrive_eep_bin_len; i++) {
 		Draw_H_Bar(10,229,150,10,(i/(SDrive_eep_bin_len/219.0)),Yellow,Blue,Grey,1);
 		if (eeprom_read_byte((unsigned char*)i) != SDrive_eep_bin[i]) {
-			print_str(10,180,1,Red,Black,"Verify Error!");
+			sprintf(txt, "Verify error at 0x%03x: %02x != %02x", i,
+				eeprom_read_byte((unsigned char*)i), SDrive_eep_bin[i]);
+			print_str(10,180,1,Red,Black,txt);
 			return(1);
 		}
 		//_delay_ms(10);
