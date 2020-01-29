@@ -25,6 +25,80 @@ const struct init_cmds hx_init_cmds[] PROGMEM = {
 };
 #endif
 
+#if defined ILI9325
+struct init_cmds {
+	unsigned char cmd;
+	unsigned short data;
+};
+
+const struct init_cmds ili9325_init_cmds[] PROGMEM = {
+	{0xe5, 0x78f0},	// set SRAM internal timing
+	{0x01, 0x0000},	// set Driver Output Control
+	{0x02, 0x0300},	// set 1 line inversion
+	{0x03, 0x1030},	// set GRAM write direction and BGR=1.
+	{0x04, 0x0000},	// Resize register
+	{0x05, 0x0000},	// .kbv 16bits Data Format Selection
+	{0x08, 0x0207},	// set the back porch and front porch
+	{0x09, 0x0000},	// set non-display area refresh cycle ISC[3:0]
+	{0x0a, 0x0000},	// FMARK function
+	{0x0c, 0x0000},	// RGB interface setting
+	{0x0d, 0x0000},	// Frame marker Position
+	{0x0f, 0x0000},	// RGB interface polarity
+	// ----------- Power On sequence -----------
+	{0x10, 0x0000},	// SAP, BT[3:0], AP, DSTB, SLP, STB
+	{0x11, 0x0007},	// DC1[2:0], DC0[2:0], VC[2:0]
+	{0x12, 0x0000},	// VREG1OUT voltage
+	{0x13, 0x0000},	// VDV[4:0] for VCOM amplitude
+	{0x07, 0x0001},
+	{0x00, 200},	//delay 200ms, Dis-charge capacitor power voltage
+	{0x10, 0x1690},	// SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=0, STB=0
+	{0x11, 0x0227},	// DC1=2, DC0=2, VC=7
+	{0x00, 50},
+	{0x12, 0x000d},	// VCIRE=1, PON=0, VRH=5
+	{0x00, 50},
+	{0x13, 0x1200},	// VDV=28 for VCOM amplitude
+	{0x29, 0x000a},	// VCM=10 for VCOMH
+	{0x2b, 0x000d},	// Set Frame Rate
+	{0x00, 50},
+	//not needed here, is set on each write
+	//{0x20, 0x0000},	// GRAM horizontal Address
+	//{0x21, 0x0000},	// GRAM Vertical Address
+	// ----------- Adjust the Gamma Curve ----------
+	{0x30, 0x0000},
+	{0x31, 0x0404},
+	{0x32, 0x0003},
+	{0x35, 0x0405},
+	{0x36, 0x0808},
+	{0x37, 0x0407},
+	{0x38, 0x0303},
+	{0x39, 0x0707},
+	{0x3c, 0x0504},
+	{0x3d, 0x0808},
+	//------------------ Set GRAM area ---------------
+	// Gate Scan Line GS=0 [0xA700]
+	// Gate Scan Line GS=320 [0x2700]
+	{0x60, 0x2700},
+	{0x61, 0x0001},	// NDL,VLE, REV .kbv
+	{0x6a, 0x0000},	// set scrolling line
+	//-------------- Partial Display Control ---------
+	{0x80, 0x0000},
+	{0x81, 0x0000},
+	{0x82, 0x0000},
+	{0x83, 0x0000},
+	{0x84, 0x0000},
+	{0x85, 0x0000},
+	//-------------- Panel Control -------------------
+	{0x90, 0x0010},
+	{0x92, 0x0000},
+	{0x93, 0x0003},
+	{0x95, 0x0110},
+	{0x97, 0x0000},
+	{0x98, 0x0000}
+	//not needed here, is set on TFT_on()
+	//{0x07, 0x0133}	// 262K color and display ON
+};
+#endif
+
 void TFT_init()
 {
     TFT_GPIO_init();
@@ -51,207 +125,21 @@ void TFT_init()
     }
     //TFT_write_cmd(0x22);	//GRAM
 #elif defined ILI9325
+    unsigned char i;
+    unsigned char cmd;
+    unsigned short data;
 
-    // set SRAM internal timing
-    TFT_write_cmd(0xE5);
-    TFT_write_data(0x78F0);
-
-    // set Driver Output Control
-    TFT_write_cmd(0x01);
-    TFT_write_data(0x0000);
-
-    // set 1 line inversion
-    TFT_write_cmd(0x02);
-    TFT_write_data(0x0300);
-
-    // set GRAM write direction and BGR=1.
-    TFT_write_cmd(0x03);
-    TFT_write_data(0x1030);
-
-    // Resize register
-    TFT_write_cmd(0x04);
-    TFT_write_data(0x0000);
-
-    // .kbv 16bits Data Format Selection
-    TFT_write_cmd(0x05);
-    TFT_write_data(0x0000);
-
-    // set the back porch and front porch
-    TFT_write_cmd(0x08);
-    TFT_write_data(0x0207);
-
-    // set non-display area refresh cycle ISC[3:0]
-    TFT_write_cmd(0x09);
-    TFT_write_data(0x0000);
-
-    // FMARK function
-    TFT_write_cmd(0x0A);
-    TFT_write_data(0x0000);
-
-    // RGB interface setting
-    TFT_write_cmd(0x0C);
-    TFT_write_data(0x0000);
-
-    // Frame marker Position
-    TFT_write_cmd(0x0D);
-    TFT_write_data(0x0000);
-
-    // RGB interface polarity
-    TFT_write_cmd(0x0F);
-    TFT_write_data(0x0000);
-
-    // ----------- Power On sequence -----------
-
-    // SAP, BT[3:0], AP, DSTB, SLP, STB
-    TFT_write_cmd(0x10);
-    TFT_write_data(0x0000);
-
-    // DC1[2:0], DC0[2:0], VC[2:0]
-    TFT_write_cmd(0x11);
-    TFT_write_data(0x0007);
-
-    // VREG1OUT voltage
-    TFT_write_cmd(0x12);
-    TFT_write_data(0x0000);
-
-    // VDV[4:0] for VCOM amplitude
-    TFT_write_cmd(0x13);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x07);
-    TFT_write_data(0x0001);
-
-    // Dis-charge capacitor power voltage
-    delay_ms(200);
-
-    // SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=0, STB=0
-    TFT_write_cmd(0x10);
-    TFT_write_data(0x1690);
-
-    // DC1=2, DC0=2, VC=7
-    TFT_write_cmd(0x11);
-    TFT_write_data(0x0227);
-
-    // wait_ms 50ms
-    delay_ms(50);
-
-    // VCIRE=1, PON=0, VRH=5
-    TFT_write_cmd(0x12);
-    TFT_write_data(0x000D);
-
-    // wait_ms 50ms
-    delay_ms(50);
-
-    // VDV=28 for VCOM amplitude
-    TFT_write_cmd(0x13);
-    TFT_write_data(0x1200);
-
-    // VCM=10 for VCOMH
-    TFT_write_cmd(0x29);
-    TFT_write_data(0x000A);
-
-    // Set Frame Rate
-    TFT_write_cmd(0x2B);
-    TFT_write_data(0x000D);
-
-    // wait_ms 50ms
-    delay_ms(50);
-
-    // GRAM horizontal Address
-    TFT_write_cmd(0x20);
-    TFT_write_data(0x0000);
-
-    // GRAM Vertical Address
-    TFT_write_cmd(0x21);
-    TFT_write_data(0x0000);
-
-    // ----------- Adjust the Gamma Curve ----------
-    TFT_write_cmd(0x30);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x31);
-    TFT_write_data(0x0404);
-
-    TFT_write_cmd(0x32);
-    TFT_write_data(0x0003);
-
-    TFT_write_cmd(0x35);
-    TFT_write_data(0x0405);
-
-    TFT_write_cmd(0x36);
-    TFT_write_data(0x0808);
-
-    TFT_write_cmd(0x37);
-    TFT_write_data(0x0407);
-
-    TFT_write_cmd(0x38);
-    TFT_write_data(0x0303);
-
-    TFT_write_cmd(0x39);
-    TFT_write_data(0x0707);
-
-    TFT_write_cmd(0x3C);
-    TFT_write_data(0x0504);
-
-    TFT_write_cmd(0x3D);
-    TFT_write_data(0x0808);
-
-    //------------------ Set GRAM area ---------------
-
-    // Gate Scan Line GS=0 [0xA700]
-    // Gate Scan Line GS=320 [0x2700]
-    TFT_write_cmd(0x60);
-    TFT_write_data(0x2700);
-
-    // NDL,VLE, REV .kbv
-    TFT_write_cmd(0x61);
-    TFT_write_data(0x0001);
-
-    // set scrolling line
-    TFT_write_cmd(0x6A);
-    TFT_write_data(0x0000);
-
-    //-------------- Partial Display Control ---------
-    TFT_write_cmd(0x80);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x81);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x82);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x83);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x84);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x85);
-    TFT_write_data(0x0000);
-
-    //-------------- Panel Control -------------------
-    TFT_write_cmd(0x90);
-    TFT_write_data(0x0010);
-
-    TFT_write_cmd(0x92);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x93);
-    TFT_write_data(0x0003);
-
-    TFT_write_cmd(0x95);
-    TFT_write_data(0x0110);
-
-    TFT_write_cmd(0x97);
-    TFT_write_data(0x0000);
-
-    TFT_write_cmd(0x98);
-    TFT_write_data(0x0000);
-
-    // 262K color and display ON
-    TFT_write_cmd(0x07);
-    TFT_write_data(0x0133);
+    for(i = 0; i < sizeof(ili9325_init_cmds)/3; i++) {
+	cmd = pgm_read_byte(&ili9325_init_cmds[i].cmd);
+	data = pgm_read_word(&ili9325_init_cmds[i].data);
+	if(cmd == 0) {
+		while(data--)
+			delay_ms(1);
+		continue;
+	}
+	TFT_write_cmd(cmd);
+	TFT_write_data(data);
+    }
 
     // ------------- Initialization Done -------------
 
