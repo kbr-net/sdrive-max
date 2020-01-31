@@ -29,6 +29,27 @@
 #define YM_PORT	PORTC
 #define YM_DDR	DDRC
 
+#elif defined ILI9325
+//Touch For ILI9325
+//More configuration exists !!
+
+#define XP	PC2		//must be an analog port
+#define XP_PORT	PORTC
+#define XP_DDR	DDRC
+
+#define XM	PD6
+#define XM_PORT	PORTD
+#define XM_DDR	DDRD
+#define XM_PIN	PIND		//for isTouching()
+
+#define YP	PD7
+#define YP_PORT	PORTD
+#define YP_DDR	DDRD
+
+#define YM	PC1		//must be an analog port
+#define YM_PORT	PORTC
+#define YM_DDR	DDRC
+
 #else
 //Touch For ILI9329, ILI9340 or HX8347G
 
