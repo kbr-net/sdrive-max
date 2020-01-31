@@ -13,4 +13,4 @@ helptest:
 	xa -o $@.com $@.xa
 
 clean:
-	rm *.com
+	rm -f *.com
