@@ -46,7 +46,7 @@ void TS_detect() {
 		port = (unsigned char *) _SFR_MEM_ADDR(PORTB);
 		ddr = (unsigned char *) _SFR_MEM_ADDR(DDRB);
 
-		for (dpin = 0; dpin < 7; dpin++) {
+		for (dpin = 0; dpin < 8; dpin++) {
 			if (dpin == 2) {	//change from PORTB to PORTD
 				port = (unsigned char *) _SFR_MEM_ADDR(PORTD);
 				ddr = (unsigned char *) _SFR_MEM_ADDR(DDRD);
