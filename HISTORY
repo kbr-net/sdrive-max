@@ -2,6 +2,7 @@ v1.2:
 - touchscreen auto detection added
 - usage without display
 - fixed buffer overflow on tape blocks > 256 bytes
+- added support for ILI9325 displays without scroll feature(willy)
 
 v1.1:
 - screen blanker only on main page
