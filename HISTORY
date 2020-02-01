@@ -1,3 +1,8 @@
+v1.2:
+- touchscreen auto detection added
+- usage without display
+- fixed buffer overflow on tape blocks > 256 bytes
+
 v1.1:
 - screen blanker only on main page
 - fixed display bug after formatting new image

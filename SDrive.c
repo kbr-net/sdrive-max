@@ -28,7 +28,7 @@
 #include "tape.h"
 
 #define SWVERSIONMAJOR  1
-#define SWVERSIONMINOR  1
+#define SWVERSIONMINOR  2c
 
 //workaround to get version numbers converted to strings
 #define STR_A(x)        #x
@@ -708,7 +708,7 @@ bad_touch:			while (isTouching());
 				//begin of filename?
 				if (sfp == atari_sector_buffer) {
 					//hold one more time
-					scroll_file_counter = 20001;
+					scroll_file_counter = 20002;
 				}
 
 				//end of filename reached?
@@ -716,13 +716,15 @@ bad_touch:			while (isTouching());
 					//reset pointer
 					sfp = atari_sector_buffer-1;
 					//hold one more time
-					scroll_file_counter = 20001;
+					scroll_file_counter = 20002;
 				}
 
 				sfp++;	//increase pointer
 			}
-			else
+			else {
 				scroll_file_counter++;
+				scroll_file_counter++;
+			}
 		}
 
 		if (autowritecounter>1700000)
