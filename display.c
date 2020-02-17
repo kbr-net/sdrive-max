@@ -25,7 +25,7 @@ const struct init_cmds hx_init_cmds[] PROGMEM = {
 };
 #endif
 
-#if defined ILI9325
+#if defined ILI9325 || defined RM68090
 struct init_cmds {
 	unsigned char cmd;
 	unsigned short data;
@@ -124,7 +124,7 @@ void TFT_init()
 	TFT_write(pgm_read_byte(&hx_init_cmds[i].data));
     }
     //TFT_write_cmd(0x22);	//GRAM
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     unsigned char i;
     unsigned char cmd;
     unsigned short data;
@@ -140,9 +140,9 @@ void TFT_init()
 	TFT_write_cmd(cmd);
 	TFT_write_data(data);
     }
+    delay_ms(100);
 
     // ------------- Initialization Done -------------
-
 
 #else
     TFT_write_cmd(ILI9341_PIXEL_FORMAT);
@@ -160,7 +160,7 @@ void TFT_on() {
     TFT_write_cmd(0x28);	//gate output and display on
     TFT_write(0x3c);
     //TFT_write_cmd(0x22);	//GRAM
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     TFT_write_cmd(0x07);
     TFT_write_data(0x0133);
 #else
@@ -174,7 +174,7 @@ void TFT_off() {
     TFT_write_cmd(0x28);	//gate output and display off
     TFT_write(0x00);
     //TFT_write_cmd(0x22);	//GRAM
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     TFT_write_cmd(0x07);
     TFT_write_data(0x0000);
 #else
@@ -188,7 +188,7 @@ void TFT_sleep_on() {
 #if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x1f);	//set standby mode
     TFT_write(0xd5);
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     // SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=1, STB=0
     TFT_write_cmd(0x10);
     TFT_write_data(0x1692);
@@ -202,7 +202,7 @@ void TFT_sleep_off() {
 #if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x1f);	//set power on and exit standby mode
     TFT_write(0xd4);
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     // SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=0, STB=0
     TFT_write_cmd(0x10);
     TFT_write_data(0x1690);
@@ -265,6 +265,9 @@ void TFT_write_cmd(unsigned char value)
 {
     TFT_ctrl_port &= ~(1 << TFT_RS_pin);
     TFT_ctrl_port &= ~(1 << TFT_CS_pin);
+#if defined RM68090
+    TFT_write_bus(0x00);
+#endif
     TFT_write_bus(value);
     TFT_ctrl_port |= (1 << TFT_CS_pin);
 }
@@ -313,7 +316,7 @@ void TFT_write_REG_DATA(unsigned char reg, unsigned char data_value)
 
 unsigned int TFT_getID()
 {
-#if defined HX8347G || defined HX8347I || defined ILI9325
+#if defined HX8347G || defined HX8347I || defined ILI9325 || defined RM68090
 	TFT_write_cmd(0x00);	//READ-ID
 #else
 	TFT_write_cmd(0xD3);	//READ-ID4
@@ -326,7 +329,7 @@ void TFT_set_rotation(unsigned char value)
 {
 #if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x16);
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     //nothing there
 #else
     TFT_write_cmd(ILI9341_MAC);
@@ -338,7 +341,7 @@ void TFT_set_rotation(unsigned char value)
         {
 #if defined ILI9329 || defined HX8347G
             TFT_write(0x08);
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     // Gate Scan Line GS=0 [0xA700]
     TFT_write_cmd(0x60);
     TFT_write_data(0xa700);
@@ -354,7 +357,7 @@ void TFT_set_rotation(unsigned char value)
         {
 #if defined ILI9329 || defined HX8347G
             TFT_write(0xd8);
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
             // Gate Scan Line GS=320 [0xA700]
             TFT_write_cmd(0x60);
             TFT_write_data(0x2700);
@@ -421,7 +424,7 @@ void TFT_set_display_window(unsigned int x_pos1, unsigned int y_pos1, unsigned i
 
     TFT_write_cmd(0x22);	//GRAM
 
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     TFT_write_cmd(0x50);   //Horizontal adress start
     TFT_write_data(x_pos1);
     TFT_write_cmd(0x51);   //Horizontal adress stop
@@ -469,7 +472,7 @@ void TFT_scroll_init(unsigned int tfa, unsigned int vsa, unsigned int bfa) {
 
     TFT_write_cmd(0x01);	//scroll mode on
     TFT_write(0x08);
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     //nothing
     //not supported by this chip
 #else
@@ -486,7 +489,7 @@ void TFT_scroll(unsigned int scroll) {
     TFT_write(scroll>>8);
     TFT_write_cmd(0x15);
     TFT_write(scroll);
-#elif defined ILI9325
+#elif defined ILI9325 || defined RM68090
     //nothing
     //not supported by this chip
 #else
