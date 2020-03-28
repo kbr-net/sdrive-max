@@ -13,14 +13,19 @@ extern struct FileInfoStruct FileInfo;
 extern void Clear_atari_sector_buffer();
 
 unsigned short block;
+unsigned short baud;
 
+void set_tape_baud () {
+	//UBRR = (F_CPU/16/BAUD)-1 +U2X
+	USART_Init(F_CPU/16/(baud/2)-1);
+}
 unsigned int send_tape_block (unsigned int offset) {
 	unsigned char *p = atari_sector_buffer+BLOCK_LEN-1;
 	unsigned char i,r;
 
         if (offset < FileInfo.vDisk->size) {	//data record
 		sprintf_P((char*)atari_sector_buffer,PSTR("Block %u / %u "),offset/BLOCK_LEN+1,(FileInfo.vDisk->size-1)/BLOCK_LEN+1);
-		print_str(35,135,2,Yellow,window_bg, (char*) atari_sector_buffer);
+		print_str(35,132,2,Yellow,window_bg, (char*) atari_sector_buffer);
 		//read block
                 r = faccess_offset(FILE_ACCESS_READ,offset,BLOCK_LEN);
 		//shift buffer 3 bytes right
@@ -38,7 +43,7 @@ unsigned int send_tape_block (unsigned int offset) {
 		offset += r;
         }
 	else {	//this is the last/end record
-		print_str_P(35,135,2,Yellow,window_bg, PSTR("End  "));
+		print_str_P(35,132,2,Yellow,window_bg, PSTR("End  "));
 		Clear_atari_sector_buffer(BLOCK_LEN+3);
 		atari_sector_buffer[2] = 0xfe;	//mark end record
 		offset = 0;
@@ -51,12 +56,11 @@ unsigned int send_tape_block (unsigned int offset) {
 	return(offset);
 }
 
-unsigned int load_FUJI_file () {
-	unsigned int offset = 0;
+void check_for_FUJI_file () {
 	struct tape_FUJI_hdr *hdr = (struct tape_FUJI_hdr *)atari_sector_buffer;
 	char *p = hdr->chunk_type;
 
-	faccess_offset(FILE_ACCESS_READ,offset,sizeof(struct tape_FUJI_hdr));
+	faccess_offset(FILE_ACCESS_READ,0,sizeof(struct tape_FUJI_hdr));
 	if (    p[0] == 'F' &&          //search for FUJI header
 		p[1] == 'U' &&
 		p[2] == 'J' &&
@@ -66,22 +70,16 @@ unsigned int load_FUJI_file () {
 	}
 	else {
 		tape_flags.FUJI = 0;
-		return(0);
 	}
 
-        while (offset < FileInfo.vDisk->size) {
-		offset += sizeof(struct tape_FUJI_hdr) + hdr->chunk_length;
-		faccess_offset(FILE_ACCESS_READ,offset,sizeof(struct tape_FUJI_hdr));
-		if (    p[0] == 'd' &&          //search for data header
-			p[1] == 'a' &&
-			p[2] == 't' &&
-			p[3] == 'a' )
-		{
-			block = 1;
-			return(offset);
-		}
-	}
-	return(0);
+	if(tape_flags.turbo)	//set fix to
+		baud = 1000; //1000 baud
+	else
+		baud = 600;
+	set_tape_baud();
+
+	block = 0;
+	return;
 }
 
 unsigned int send_FUJI_tape_block (unsigned int offset) {
@@ -90,21 +88,52 @@ unsigned int send_FUJI_tape_block (unsigned int offset) {
 	unsigned short buflen = 256;
 	unsigned char first = 1;
 	struct tape_FUJI_hdr *hdr = (struct tape_FUJI_hdr *)atari_sector_buffer;
+	char *p = hdr->chunk_type;
 
-	//read header
-	faccess_offset(FILE_ACCESS_READ,offset,sizeof(struct tape_FUJI_hdr));
+        while (offset < FileInfo.vDisk->size) {
+		//read header
+		faccess_offset(FILE_ACCESS_READ,offset,
+			sizeof(struct tape_FUJI_hdr));
+		len = hdr->chunk_length;
+
+		if (    p[0] == 'd' &&          //is a data header?
+			p[1] == 'a' &&
+			p[2] == 't' &&
+			p[3] == 'a' )
+		{
+			block++;
+			break;
+		}
+		else if(p[0] == 'b' &&          //is a baud header?
+			p[1] == 'a' &&
+			p[2] == 'u' &&
+			p[3] == 'd' )
+		{
+			if(tape_flags.turbo)	//ignore baud hdr
+				continue;
+			baud = hdr->irg_length;
+			set_tape_baud();
+		}
+		offset += sizeof(struct tape_FUJI_hdr) + len;
+	}
+
 	gap = hdr->irg_length;	//save GAP
 	len = hdr->chunk_length;
+	sprintf_P((char*)atari_sector_buffer,
+		PSTR("Baud: %u Length: %u Gap: %u    "),baud, len, gap);
+	print_str(15,153,1,Green,window_bg, (char*) atari_sector_buffer);
 
 	while(gap--)
 		_delay_ms(1);	//wait GAP
 
         if (offset < FileInfo.vDisk->size) {	//data record
-		sprintf_P((char*)atari_sector_buffer,PSTR("Block %u     "),block);
-		print_str(35,135,2,Yellow,window_bg, (char*) atari_sector_buffer);
+		sprintf_P((char*)atari_sector_buffer,
+			PSTR("Block %u     "),block);
+		print_str(35,132,2,Yellow,window_bg,
+			(char*) atari_sector_buffer);
+
 		//read block
 		offset += sizeof(struct tape_FUJI_hdr);	//skip chunk hdr
-		block++;
 		while(len) {
 			if(len > 256)
 				len -= 256;
@@ -119,15 +148,15 @@ unsigned int send_FUJI_tape_block (unsigned int offset) {
 				//most multi stage loaders starting over by self
 				// so do not stop here!
 				//tape_flags.run = 0;
-				block = 1;
+				block = 0;
 			}
 			first = 0;
 		}
-		if(block == 1)
+		if(block == 0)
 			_delay_ms(200);	//add an end gap to be sure
 	}
 	else {
-		block = 1;
+		//block = 0;
 		offset = 0;
 	}
 	return(offset);

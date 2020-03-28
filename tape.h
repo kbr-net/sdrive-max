@@ -14,5 +14,5 @@ struct t_flags {
 } tape_flags;
 
 unsigned int send_tape_block (unsigned int offset);
-unsigned int load_FUJI_file ();
+void check_for_FUJI_file ();
 unsigned int send_FUJI_tape_block (unsigned int offset);

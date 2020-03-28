@@ -1,4 +1,3 @@
-
 // SDrive
 // Bob!k & Raster, C.P.U., 2008
 // Ehanced by kbr, 2015, 2017
@@ -636,31 +635,25 @@ ST_IDLE:
 					const struct button *pb = &tft.pages[actual_page].buttons[1];
 					struct b_flags *pause = pgm_read_ptr(&pb->flags);
 					if(tape_flags.run || pause->selected) {	//Stop
-						USART_Init(ATARI_SPEED_STANDARD);
 						tape_flags.run = 0;
 						tape_offset = 0;
 						flags->selected = 0;
 						//clear also the Pause Button
 						pause->selected = 0;
-						print_str_P(35,135,2,Yellow,window_bg, PSTR("Stopped...   "));
+						print_str_P(35,132,2,Yellow,window_bg, PSTR("Stopped...   "));
 						draw_Buttons();
 					}
 					else {		//Start
 						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-						tape_offset = load_FUJI_file();
-						//USART_Init(1666); //600 baud (U2X==0)
-						if(tape_flags.turbo)
-							USART_Init(1999); //1000 baud
-						else
-							USART_Init(3332); //600 baud
+						check_for_FUJI_file();
 						tape_flags.run = 1;
 						flags->selected = 1;
-						print_str_P(35,135,2,Yellow,window_bg, PSTR("Sync Wait...   "));
+						print_str_P(35,132,2,Yellow,window_bg, PSTR("Sync Wait...   "));
 						draw_Buttons();
-						if(!tape_flags.FUJI)
-							_delay_ms(10000);	//sync wait
-						else
-							outbox_P(PSTR("FUJI"));
+						if(!tape_flags.FUJI) {
+							//sync wait
+							_delay_ms(10000);
+						}
 					}
 				}
 				sfp = atari_sector_buffer;
