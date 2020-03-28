@@ -89,9 +89,9 @@ u16 loadAtxFile() {
     }
 
     // enhanced density is 26 sectors per track, single and double density are 18
-    gSectorsPerTrack = (fileHeader->density == 1) ? (u08) 26 : (u08) 18;
+    gSectorsPerTrack = (fileHeader->density == eMEDIUM) ? (u08) 26 : (u08) 18;
     // single and enhanced density are 128 bytes per sector, double density is 256
-    gBytesPerSector = (fileHeader->density == 1) ? (u16) 256 : (u16) 128;
+    gBytesPerSector = (fileHeader->density == eDOUBLE) ? (u16) 256 : (u16) 128;
 
     // calculate track offsets
     u32 startOffset = fileHeader->startData;
