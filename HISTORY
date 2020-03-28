@@ -2,7 +2,10 @@ v1.2:
 - touchscreen auto detection added
 - usage without display
 - fixed buffer overflow on tape blocks > 256 bytes
+- support reading baud from CAS file
 - added support for ILI9325 displays without scroll feature(willy)
+- added support for RM68090 display(vladkvladk)
+- fixed ATX image density detection, ED images may now load
 
 v1.1:
 - screen blanker only on main page
