@@ -7,6 +7,7 @@ v1.2:
 - added support for RM68090 display(vladkvladk)
 - fixed ATX image density detection, ED images may now load
 - support DD and QD image creation on "New" button
+- fixed bug format image on insert after "New" button cleared
 
 v1.1:
 - screen blanker only on main page

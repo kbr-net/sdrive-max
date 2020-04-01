@@ -508,9 +508,6 @@ int main(void)
 	 u08 i;
 	 for(i=0; i<DEVICESNUM; i++) vDisk[i].flags=0;
 	}
-	//FileInfo.vDisk->flags=0;		//special_xex_loader=0;
-
-	//actual_drive_number=0;	//pro bootovani z jednotky vD0:
 
 	r = fatInit();
 	if (r)
@@ -613,6 +610,8 @@ ST_IDLE:
 					}
 					//or set cmd to change image
 					else {
+						//reset flag to be sure, if ATRNEW was set
+						vDisk[drive_number].flags = 0;
 						cmd_buf.cmd = (0xF0 | drive_number);
 						cmd_buf.aux = de;
 					}
@@ -1747,8 +1746,8 @@ Send_ERR_and_DATA:
 			if ( cmd_buf.aux1 >= DEVICESNUM ) goto Send_ERR_and_Delay;
 			vDisk[cmd_buf.aux1].flags &= ~FLAGS_DRIVEON; //vDisk[cmd_buf.aux1].flags &= ~FLAGS_DRIVEON;
 			//check for new flag and delete it
-			if (FileInfo.vDisk->flags & FLAGS_ATRNEW)
-				FileInfo.vDisk->flags &= ~FLAGS_ATRNEW;
+			if (vDisk[cmd_buf.aux1].flags & FLAGS_ATRNEW)
+				vDisk[cmd_buf.aux1].flags &= ~FLAGS_ATRNEW;
 			bp = &tft.pages[PAGE_MAIN].buttons[cmd_buf.aux1];
 			name = pgm_read_ptr(&bp->name);
 			strncpy_P(&name[3], PSTR("<empty>     "), 12);
