@@ -393,6 +393,19 @@ struct winentry {
 #define FLAGS_DRIVEON		0x01
 
 // Stuctures
+struct PercomStruct {
+	unsigned char tracks;
+	unsigned char steprate;
+	unsigned char sectorshi;
+	unsigned char sectorslo;
+	unsigned char heads;
+	unsigned char method;
+	unsigned char bpshi;
+	unsigned char bpslo;
+	unsigned char control;
+	unsigned char unused[3];
+};
+
 typedef struct				//4+4+4+4+2+4+1=23
 {
 	u32 start_cluster;		//< file starting cluster
@@ -409,8 +422,7 @@ struct FileInfoStruct
 	unsigned char Attr;		//< file attr for last file accessed
 	unsigned short Date;		//< last update date
 	unsigned short Time;		//< last update time
-	unsigned char percomstate;	//=0 default, 1=percomwrite ok (single sectors), 2=percomwrite ok (double sectors), 3=percomwrite bad
-	//
+	unsigned char percomstate;      //=0 default, 1=percomwrite ok (single sectors), 3=percomwrite bad
 	virtual_disk_t *vDisk;
 };
 
