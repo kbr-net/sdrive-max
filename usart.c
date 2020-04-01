@@ -126,7 +126,7 @@ u08 USART_Get_Buffer_And_Check(unsigned char *buff, u16 len, u08 cmd_state) {
 		{
 			//pokud by prisel command L nebo stisknuta klavesa, prerusi prijem
 			if ( get_cmd_H()!=cmd_state ) return 0x01;
-			if ( timeout > 125000 ) return 0x02;
+			if ( timeout > 150000 ) return 0x02;
 			timeout++;
 		} while ( !(UCSRA & (1<<RXC)) );
 		// Get status and received data from buffer
