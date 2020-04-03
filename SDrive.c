@@ -889,7 +889,10 @@ disk_operations_direct_d0_d4:
 		   {	//Beginning of the section over two cases, 0x21,0x22
 			u08 formaterror;
 			struct PercomStruct *percom = (struct PercomStruct *) atari_sector_buffer;
-			unsigned char doublesector = percom->bpshi;
+			unsigned char doublesector = 0;
+			if (FileInfo.percomstate == 1) {
+				doublesector = percom->bpshi;
+			}
 
 			{
 			 u32 singlesize = IMSIZE1;
@@ -900,8 +903,9 @@ disk_operations_direct_d0_d4:
 				send_ACK();
 				LED_RED_ON(virtual_drive_number); // LED on
 				motor_on();
-				//we have percom and double sectors?
-				if ((FileInfo.percomstate == 1) && doublesector) {
+				//we have double sectors?
+				if (doublesector) {
+					//so we must have percom. Check heads
 					if (percom->heads == 0)
 						err = newFile(IMSIZE3);	//double
 					else if (percom->heads == 1)
@@ -1121,22 +1125,28 @@ device_command_accepted:
 			bytes 9-11 Drive interface type string "IDE"
 			*/
 
-			if ((FileInfo.vDisk->flags & FLAGS_ATRNEW))     //we have no image yet!
 			{
-				//return values from buffer,
-				//they are already there after percom write,
-				//some OS's seems to check them
-				goto percom_prepared;
-			}
-			else
-			{
+				u32 fs = FileInfo.vDisk->size;
+
+				if ((FileInfo.vDisk->flags & FLAGS_ATRNEW))     //we have no image yet!
+				{
+					if (FileInfo.percomstate == 1) {
+						//return values from buffer,
+						//they are already there after percom write,
+						//some OS's seems to check them
+						goto percom_prepared;
+					}
+					else {
+						//return default values for single size
+						fs = IMSIZE1;
+					}
+				}
+
 				u08 *ptr;
 				u08 isxex;
 				u16 secsize;
-				u32 fs;
 
 				isxex = ( FileInfo.vDisk->flags & FLAGS_XEXLOADER );
-				fs=FileInfo.vDisk->size;
 				secsize=(FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
 				ptr = system_percomtable;
 
@@ -1193,6 +1203,19 @@ percom_prepared:
 			{
 				break;
 			}
+
+/* for debugging only
+			sprintf_P(DebugBuffer, PSTR("%02x %02x %02x %02x %02x %02x %02x"),
+				atari_sector_buffer[0],
+				atari_sector_buffer[1],
+				atari_sector_buffer[2],
+				atari_sector_buffer[3],
+				atari_sector_buffer[4],
+				atari_sector_buffer[5],
+				atari_sector_buffer[6],
+				atari_sector_buffer[7]);
+			outbox(DebugBuffer);
+*/
 
 			if ((FileInfo.vDisk->flags & FLAGS_ATRNEW))     //we have no image yet!
 			{
