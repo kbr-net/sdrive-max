@@ -5,7 +5,7 @@ v1.2:
 - support reading baud from CAS file
 - added support for ILI9325 displays without scroll feature(willy)
 - added support for RM68090 display(vladkvladk)
-- fixed ATX image density detection, ED images may now load
+- added ATX support for ED images
 - support DD and QD image creation on "New" button
 - fixed bug format image on insert after "New" button cleared
 
