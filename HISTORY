@@ -8,6 +8,8 @@ v1.2:
 - added ATX support for ED images
 - support DD and QD image creation on "New" button
 - fixed bug format image on insert after "New" button cleared
+- added a button ">>>", to quickly change current drive to next image
+  in directory
 
 v1.1:
 - screen blanker only on main page

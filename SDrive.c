@@ -600,6 +600,13 @@ ST_IDLE:
 						SET_SDRIVEATR_TO_D0();
 					set_display(actual_drive_number);
 				}
+				//select next file in directory
+				if(name[0] == '>') {
+					de = vDisk[drive_number].file_index;
+					de++;
+					//set dir_cluster from current drive slot
+					FileInfo.vDisk->dir_cluster = vDisk[drive_number].dir_cluster;
+				}
 				if(de) {	//if a direntry was returned
 					cli();
 					//was it the deactivation flag?

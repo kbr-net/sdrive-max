@@ -28,6 +28,7 @@
 #define window_bg 0x528a
 
 #define White                                                                            0xFFFF
+#define Light_White                                                                      0xFFDF
 #define Black                                                                            0x0000
 //#define Grey                                                                             0xF7DE
 #define Grey                                                                             0xCE59

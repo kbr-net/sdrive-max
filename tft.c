@@ -433,6 +433,7 @@ const struct button PROGMEM buttons_main[] = {
 	{"D4:<empty>     ",10,160,240-21,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_b1_4},
 	{"Tape:",80,200,80,30,Grey,Black,Black,&(struct b_flags){ROUND,1,0},action_tape},
 	{"New",240-61,200,50,30,Grey,Black,Green,&(struct b_flags){ROUND,1,0},press},
+	{">>>",10,240,50,30,Grey_Blue,Black,Light_White,&(struct b_flags){ROUND,1,0},press},
 	{"Cfg",240-61,240,50,30,Grey,Black,Blue,&(struct b_flags){ROUND,1,0},action_cfg},
 	{"",10,280,240-11,320-1,0,0,0,&(struct b_flags){0,0,0},debug_page}
 };
