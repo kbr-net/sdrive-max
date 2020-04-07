@@ -961,6 +961,10 @@ format_medium:
 
 				FileInfo.percomstate=0; //after the first format percom has no effect
 
+				//write protect?
+				if (FileInfo.Attr & ATTR_READONLY)
+					goto Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE;
+
 				//XEX can not be formatted
 				if (FileInfo.vDisk->flags & FLAGS_XEXLOADER)
 				{
@@ -1337,7 +1341,8 @@ percom_prepared:
 			motor_on();
 
                         //if ( get_readonly() )
-                        //	 goto Send_ERR_and_DATA;; //READ ONLY
+			if (FileInfo.Attr & ATTR_READONLY)
+				goto Send_ERR_and_DATA; //READ ONLY
 
                         proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
                         if(proceeded_bytes==0)
@@ -1486,6 +1491,8 @@ Send_ERR_and_DATA:
 			 FileInfo.vDisk->flags &= (~FLAGS_WRITEERROR);
 			}
 			//if (get_readonly()) atari_sector_buffer[0]|=0x08;	//write protected bit
+			if (FileInfo.Attr & ATTR_READONLY)
+				atari_sector_buffer[0] |= 0x08;	//write protected bit
 
 			atari_sector_buffer[1] = atari_sector_status;
 			atari_sector_buffer[2] = 0xe0; 		//(244s) timeout pro nejdelsi operaci

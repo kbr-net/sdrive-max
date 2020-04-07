@@ -11,6 +11,7 @@ v1.2:
 - added a button ">>>", to quickly change current drive to next image
   in directory
 - added ATX motor start delay for more compatiblity
+- honor read only flag of image file
 
 v1.1:
 - screen blanker only on main page
