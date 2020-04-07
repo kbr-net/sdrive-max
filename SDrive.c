@@ -27,7 +27,7 @@
 #include "tape.h"
 
 #define SWVERSIONMAJOR  1
-#define SWVERSIONMINOR  2c
+#define SWVERSIONMINOR  2
 
 //workaround to get version numbers converted to strings
 #define STR_A(x)        #x
