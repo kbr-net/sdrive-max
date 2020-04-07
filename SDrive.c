@@ -1,4 +1,3 @@
-
 // SDrive
 // Bob!k & Raster, C.P.U., 2008
 // Ehanced by kbr, 2015, 2017
@@ -28,7 +27,7 @@
 #include "tape.h"
 
 #define SWVERSIONMAJOR  1
-#define SWVERSIONMINOR  1
+#define SWVERSIONMINOR  2
 
 //workaround to get version numbers converted to strings
 #define STR_A(x)        #x
@@ -349,6 +348,10 @@ ISR(TIMER2_OVF_vect) {
 void motor_on () {
 	//if not currently running...
 	if (!motor) {
+                if(FileInfo.vDisk->flags & FLAGS_ATXTYPE) {
+			//motor start delay is about...
+			_delay_ms(475);
+		}
 		TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
 								// 16MHz/64 = 250KHz(4µs)
 		Draw_Circle(5,5,3,1,Green);
@@ -454,11 +457,11 @@ int main(void)
 
 	fastsio_active=0;
 	bootloader_relocation=0;
-	actual_drive_number=0;	//nastavovano kousek dal (za SET_BOOT_DRIVE)
+	actual_drive_number=0;		//set bit (for SET_BOOT_DRIVE)
 	virtual_drive_number=0;
-	FileInfo.percomstate=0;		//inicializace
-	//fastsio_pokeydiv=US_POKEY_DIV_DEFAULT;		//default fastsio
-	fastsio_pokeydiv=eeprom_read_byte(&system_fastsio_pokeydiv_default); //definovano v EEPROM
+	FileInfo.percomstate=0;         //initialize
+	//default fastsio, defined in EEPROM
+	fastsio_pokeydiv=eeprom_read_byte(&system_fastsio_pokeydiv_default);
 
 	tft_Setup();
 	tft.pages[PAGE_MAIN].draw();	//draw main page
@@ -509,9 +512,6 @@ int main(void)
 	 u08 i;
 	 for(i=0; i<DEVICESNUM; i++) vDisk[i].flags=0;
 	}
-	//FileInfo.vDisk->flags=0;		//special_xex_loader=0;
-
-	//actual_drive_number=0;	//pro bootovani z jednotky vD0:
 
 	r = fatInit();
 	if (r)
@@ -604,6 +604,13 @@ ST_IDLE:
 						SET_SDRIVEATR_TO_D0();
 					set_display(actual_drive_number);
 				}
+				//select next file in directory
+				if(name[0] == '>') {
+					de = vDisk[drive_number].file_index;
+					de++;
+					//set dir_cluster from current drive slot
+					FileInfo.vDisk->dir_cluster = vDisk[drive_number].dir_cluster;
+				}
 				if(de) {	//if a direntry was returned
 					cli();
 					//was it the deactivation flag?
@@ -614,6 +621,8 @@ ST_IDLE:
 					}
 					//or set cmd to change image
 					else {
+						//reset flag to be sure, if ATRNEW was set
+						vDisk[drive_number].flags = 0;
 						cmd_buf.cmd = (0xF0 | drive_number);
 						cmd_buf.aux = de;
 					}
@@ -636,31 +645,25 @@ ST_IDLE:
 					const struct button *pb = &tft.pages[actual_page].buttons[1];
 					struct b_flags *pause = pgm_read_ptr(&pb->flags);
 					if(tape_flags.run || pause->selected) {	//Stop
-						USART_Init(ATARI_SPEED_STANDARD);
 						tape_flags.run = 0;
 						tape_offset = 0;
 						flags->selected = 0;
 						//clear also the Pause Button
 						pause->selected = 0;
-						print_str_P(35,135,2,Yellow,window_bg, PSTR("Stopped...   "));
+						print_str_P(35,132,2,Yellow,window_bg, PSTR("Stopped...   "));
 						draw_Buttons();
 					}
 					else {		//Start
 						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-						tape_offset = load_FUJI_file();
-						//USART_Init(1666); //600 baud (U2X==0)
-						if(tape_flags.turbo)
-							USART_Init(1999); //1000 baud
-						else
-							USART_Init(3332); //600 baud
+						check_for_FUJI_file();
 						tape_flags.run = 1;
 						flags->selected = 1;
-						print_str_P(35,135,2,Yellow,window_bg, PSTR("Sync Wait...   "));
+						print_str_P(35,132,2,Yellow,window_bg, PSTR("Sync Wait...   "));
 						draw_Buttons();
-						if(!tape_flags.FUJI)
-							_delay_ms(10000);	//sync wait
-						else
-							outbox_P(PSTR("FUJI"));
+						if(!tape_flags.FUJI) {
+							//sync wait
+							_delay_ms(10000);
+						}
 					}
 				}
 				sfp = atari_sector_buffer;
@@ -708,7 +711,7 @@ bad_touch:			while (isTouching());
 				//begin of filename?
 				if (sfp == atari_sector_buffer) {
 					//hold one more time
-					scroll_file_counter = 20001;
+					scroll_file_counter = 20002;
 				}
 
 				//end of filename reached?
@@ -716,13 +719,15 @@ bad_touch:			while (isTouching());
 					//reset pointer
 					sfp = atari_sector_buffer-1;
 					//hold one more time
-					scroll_file_counter = 20001;
+					scroll_file_counter = 20002;
 				}
 
 				sfp++;	//increase pointer
 			}
-			else
+			else {
 				scroll_file_counter++;
+				scroll_file_counter++;
+			}
 		}
 
 		if (autowritecounter>1700000)
@@ -893,17 +898,31 @@ disk_operations_direct_d0_d4:
 			//Returns 128 bytes (SD) or 256 bytes (DD) after format. Format ok requires that the first two bytes are $FF. It is said to return bad sector list (never seen one).
 
 		   {	//Beginning of the section over two cases, 0x21,0x22
-		    u08 formaterror;
+			u08 formaterror;
+			struct PercomStruct *percom = (struct PercomStruct *) atari_sector_buffer;
+			unsigned char doublesector = 0;
+			if (FileInfo.percomstate == 1) {
+				doublesector = percom->bpshi;
+			}
 
 			{
 			 u32 singlesize = IMSIZE1;
 			 if (FileInfo.vDisk->flags & FLAGS_ATRNEW) {	//create new image
-				u08 err;
+				//Be aware, newFile() destroys percom data in atari_sector_buffer,
+				//so all later needed values have to be saved before!
+				u08 err = 1;
 				send_ACK();
 				LED_RED_ON(virtual_drive_number); // LED on
 				motor_on();
-				if (FileInfo.percomstate == 2)	//XXX: Could not work until image exists!
-					err = newFile(IMSIZE3);
+				//we have double sectors?
+				if (doublesector) {
+					//so we must have percom. Check heads
+					if (percom->heads == 0)
+						err = newFile(IMSIZE3);	//double
+					else if (percom->heads == 1)
+						err = newFile(IMSIZE4);	//quad
+					//more then 2 heads we cannot handle for now
+				}
 				else
 					err = newFile(singlesize);
 				if(err)
@@ -919,9 +938,9 @@ disk_operations_direct_d0_d4:
 			 }
 			 if ( !(FileInfo.vDisk->flags & FLAGS_XFDTYPE) ) singlesize+=(u32)16; //for ATR add header size(16)
 
-			 if (   ( FileInfo.percomstate==3 ) //He endeavored to write in the wrong way percom
-				|| ( (FileInfo.percomstate==0) && (FileInfo.vDisk->size!=singlesize) ) //No single disk
-			   )
+			 if ( (FileInfo.percomstate == 3) //He endeavored to write in the wrong way percom
+				|| ( (FileInfo.percomstate == 0) && (FileInfo.vDisk->size != singlesize) ) //No single disk
+			    )
 			 {
 				goto Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE;
 			 }
@@ -930,7 +949,7 @@ disk_operations_direct_d0_d4:
 format_new:
 			{
 				unsigned short i,size;
-				if ( FileInfo.percomstate == 2)
+				if (doublesector)
 				{
 					size=256;
 				}
@@ -941,6 +960,10 @@ format_medium:
 				}
 
 				FileInfo.percomstate=0; //after the first format percom has no effect
+
+				//write protect?
+				if (FileInfo.Attr & ATTR_READONLY)
+					goto Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE;
 
 				//XEX can not be formatted
 				if (FileInfo.vDisk->flags & FLAGS_XEXLOADER)
@@ -1025,7 +1048,6 @@ format_medium:
 
 			if (! (FileInfo.vDisk->flags & FLAGS_ATRMEDIUMSIZE))
 			{
-				//FileInfo.percomstate=0;
 				//goto Send_ERR_and_Delay;
 Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE:
 				FileInfo.vDisk->flags |= FLAGS_WRITEERROR;	//set FLAGS_WRITEERROR
@@ -1057,11 +1079,18 @@ Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE:
 			 && (cmd_buf.cmd!=0x4e) && (cmd_buf.cmd!=0x4f)
 			 //&& (cmd_buf.cmd!=0x21) && (cmd_buf.cmd!=0x22) //Already processed before
 		    )
-		    || (FileInfo.vDisk->flags & FLAGS_ATRNEW)	//no other commands on newfile
+		    || //no other commands on newfile except status and percom
+		    (
+			(FileInfo.vDisk->flags & FLAGS_ATRNEW)
+			&& (cmd_buf.cmd!=0x53)
+			&& (cmd_buf.cmd!=0x4e) && (cmd_buf.cmd!=0x4f)
+		    )
 		)
 		{
 			if (cmd_buf.cmd==0x3f && fastsio_pokeydiv!=US_POKEY_DIV_STANDARD) goto device_command_accepted;
 Send_NACK_and_ST_IDLE:
+			if (debug)
+				sio_debug('N');
 			send_NACK();
 			return;
 		}
@@ -1097,121 +1126,90 @@ device_command_accepted:
 
 		case 0x4e:	// read cfg (PERCOM)
 
-/*
-byte 0:    Tracks per side (0x01 for HDD, one "long" track)
-byte 1:    Interface version (0x10)
-byte 2:    Sectors/Track - high byte
-byte 3:    Sectors/Track - low byte
-byte 4:    Side Code (0 - single sided)
-byte 5:    Record method (0=FM, 4=MFM double)
-byte 6:    High byte of Bytes/Sector (0x01 for double density)
-byte 7:    Low byte of Bytes/Sector (0x00 for double density)
-byte 8:    Translation control (0x40)
-	  bit 6: Always 1 (to indicate drive present)
-bytes 9-11 Drive interface type string "IDE"
-*/
+			/*
+			byte 0:    Tracks per side (0x01 for HDD, one "long" track)
+			byte 1:    Interface version (0x10)
+			byte 2:    Sectors/Track - high byte
+			byte 3:    Sectors/Track - low byte
+			byte 4:    Side Code (0 - single sided)
+			byte 5:    Record method (0=FM, 4=MFM double)
+			byte 6:    High byte of Bytes/Sector (0x01 for double density)
+			byte 7:    Low byte of Bytes/Sector (0x00 for double density)
+			byte 8:    Translation control (0x40)
+				  bit 6: Always 1 (to indicate drive present)
+			bytes 9-11 Drive interface type string "IDE"
+			*/
 
-/*
-			atari_sector_buffer[0] = 40; //0x01; // HDD, one track
-			atari_sector_buffer[1] =  0; //0x01; // version 0.1
 			{
-				unsigned long s;
-				// There is no need to substract the header of the ATR, since it will be the same at the div of 40!
-				s= FileInfo.vDisk->size / 40;
-				if (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)
-				 s=(s>>8)+1; //s=s/256; +1, Because the first 3 sectors are 128 and so 384 should be added to the size, and then it will divide 40 and 256, but it will be the first one to the following sectors
-				else
-				 s=(s>>7); //s=s/128;
-				atari_sector_buffer[2] = (s>>8) & 0xff;   //hb sectors
-				atari_sector_buffer[3] = ( s & 0xff ); //lb sectors
-				atari_sector_buffer[4] = (s>>16) & 0xff; //nr. of sides - 1  (0=> one side)
+				u32 fs = FileInfo.vDisk->size;
+
+				if ((FileInfo.vDisk->flags & FLAGS_ATRNEW))     //we have no image yet!
+				{
+					if (FileInfo.percomstate == 1) {
+						//return values from buffer,
+						//they are already there after percom write,
+						//some OS's seems to check them
+						goto percom_prepared;
+					}
+					else {
+						//return default values for single size
+						fs = IMSIZE1;
+					}
+				}
+
+				u08 *ptr;
+				u08 isxex;
+				u16 secsize;
+
+				isxex = ( FileInfo.vDisk->flags & FLAGS_XEXLOADER );
+				secsize=(FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
+				ptr = system_percomtable;
+
+				//if ( isxex ) ptr+=(IMSIZES*12);
+
+				do
+				{
+					u08 m;
+					//12 values per row in system_percomtable
+					//0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
+					//...
+					//0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
+					for(m=0;m<12;m++) atari_sector_buffer[m]=eeprom_read_byte(ptr++);
+					if (    (!isxex)
+						// &0xff... Due to the deletion of the eventual 16 ATR headings
+						&& ( FOURBYTESTOLONG(atari_sector_buffer+8)==(fs & 0xffffff80) )
+						&& ( atari_sector_buffer[6]==(secsize>>8) ) //sectorsize hb
+					)
+					{
+						//File size and sector consent
+						goto percom_prepared;
+					}
+				} while (atari_sector_buffer[0]!=0x01);
+
+				//no known floppy format, set size and number of sectors
+				atari_sector_buffer[6]=(secsize>>8);	//hb
+				atari_sector_buffer[7]=(secsize&0xff);	//db
+
+				if ( isxex )
+				{
+					secsize=125; //-=3; //=125
+					fs+=(u32)46125;	//((u32)0x171*(u32)125);
+				}
+				if ( FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS )
+				{
+					fs+=(u32)(3*128); //+384bytes for the first three sectors of 128bytes
+				}
+
+				fs /= ((u32)secsize); //convert filesize to sectors
+
+				atari_sector_buffer[2] = ((fs>>8) & 0xff);	//hb sectors
+				atari_sector_buffer[3] = (fs & 0xff );		//lb sectors
+				atari_sector_buffer[4] = ((fs>>16) & 0xff);	//sides - 1  (0=> one side)
 			}
-			//[5] =0 for single, =4 for mediumtype or doublesize sectors
-			atari_sector_buffer[5] = (FileInfo.vDisk->flags & (FLAGS_ATRMEDIUMSIZE|FLAGS_ATRDOUBLESECTORS))? 0x04 : 0x00;
-			if (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)
-			{
-				atari_sector_buffer[6]=0x01;	//sector size HB
-				atari_sector_buffer[7]=0x00;	//sector size LB
-			}
-			else
-			{
-				atari_sector_buffer[6]=0x00;	//sector size HB
-				atari_sector_buffer[7]=0x80;	//sector size LB
-			}
-			atari_sector_buffer[8]  = 0x01;	//0x01; //0x40; // drive exist
-			atari_sector_buffer[9]  = 'S';	//0x41;	//0xc0; //'I'; 
-			atari_sector_buffer[10] = 'D';	//0x00;	//0xf2; //'D'; 
-			atari_sector_buffer[11] = 'r';	//0x00;	//0x42; //'E'; 
-*/
-			//XXXXXXXXXXXXXXXXXXXXXX
-		{
-			u08 *ptr;
-			u08 isxex;
-			u16 secsize;
-			u32 fs;
-
-			isxex = ( FileInfo.vDisk->flags & FLAGS_XEXLOADER );
-
-			fs=FileInfo.vDisk->size;
-
-			secsize=(FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
-			
-			ptr = system_percomtable;
-
-			//if ( isxex ) ptr+=(IMSIZES*12);
-
-			do
-			{
-			 u08 m;
-			 //12 values per row in system_percomtable
-			 //0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
-			 //...
-			 //0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
-			 for(m=0;m<12;m++) atari_sector_buffer[m]=eeprom_read_byte(ptr++);
-			 if (    (!isxex) 
-				  && ( FOURBYTESTOLONG(atari_sector_buffer+8)==(fs & 0xffffff80) )  // &0xff... Due to the deletion of the eventual 16 ATR headings
-				  && ( atari_sector_buffer[6]==(secsize>>8) ) //sectorsize hb
-				)
-			 {
-			  //File size and sector consent
-			   goto percom_prepared;
-			 }
-			} while (atari_sector_buffer[0]!=0x01);
-
-			//no known floppy format, set size and number of sectors
-			atari_sector_buffer[6]=(secsize>>8);	//hb
-			atari_sector_buffer[7]=(secsize&0xff);	//db
-
-			if ( isxex )
-			{
-			 secsize=125; //-=3; //=125
-			 fs+=(u32)46125;		//((u32)0x171*(u32)125);
-			}
-			if ( FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS )
-			{
-			 fs+=(u32)(3*128); //+384bytes for the first three sectors of 128bytes
-			}
-
-			//FOURBYTESTOLONG(atari_sector_buffer+8)=fs; //DEBUG !!!!!!!!!!!
-
-			fs/=((u32)secsize); //convert filesize to sectors
-
-			atari_sector_buffer[2] = ((fs>>8) & 0xff);	//hb sectors
-			atari_sector_buffer[3] = (fs & 0xff );		//lb sectors
-			atari_sector_buffer[4] = ((fs>>16) & 0xff);	//sides - 1  (0=> one side)
-
 percom_prepared:
-//*
-			atari_sector_buffer[8]  = 0x01;	//0x01; //0x40; // drive exist
-			atari_sector_buffer[9]  = 'S';	//0x41;	//0xc0; //'I'; 
-			atari_sector_buffer[10] = 'D';	//0x00;	//0xf2; //'D'; 
-			atari_sector_buffer[11] = 'r';	//0x00;	//0x42; //'E'; 
-// */
-		}
+				USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(12);
 
-			USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(12);
-
-			break;
+				break;
 
 
 		case 0x4f:	// write cfg (PERCOM)
@@ -1221,25 +1219,46 @@ percom_prepared:
 				break;
 			}
 
+/* for debugging only
+			sprintf_P(DebugBuffer, PSTR("%02x %02x %02x %02x %02x %02x %02x"),
+				atari_sector_buffer[0],
+				atari_sector_buffer[1],
+				atari_sector_buffer[2],
+				atari_sector_buffer[3],
+				atari_sector_buffer[4],
+				atari_sector_buffer[5],
+				atari_sector_buffer[6],
+				atari_sector_buffer[7]);
+			outbox(DebugBuffer);
+*/
+
+			if ((FileInfo.vDisk->flags & FLAGS_ATRNEW))     //we have no image yet!
+			{
+				//XXX: Todo, check for matching image size
+			}
+			else
 			//check, if the size in percom is equal to the image size
 			{
 				u32 s;
-				s = ((u32)atari_sector_buffer[0])
-					 * ( (u32) ( (((u16)atari_sector_buffer[2])<<8) + ((u16)atari_sector_buffer[3]) ) )
-					 * (((u32)atari_sector_buffer[4])+1)
-					 * ( (u32) ( (((u16)atari_sector_buffer[6])<<8) + ((u16)atari_sector_buffer[7]) ) );
+				s = ((u32)atari_sector_buffer[0])	//tracks
+					//sectors
+					* ( (u32) ( (((u16)atari_sector_buffer[2])<<8) + ((u16)atari_sector_buffer[3]) ) )
+					//heads
+					* (((u32)atari_sector_buffer[4])+1)
+					//bytes per sector
+					* ( (u32) ( (((u16)atari_sector_buffer[6])<<8) + ((u16)atari_sector_buffer[7]) ) );
+
 				if ( !(FileInfo.vDisk->flags & FLAGS_XFDTYPE) ) s+=16; //16bytes ATR header
 				if ( FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS ) s-=384;	//3 single sectors at begin of DD
 				if (s!=FileInfo.vDisk->size)
 				{
-					FileInfo.percomstate=3;	//percom write bad
+					FileInfo.percomstate = 3;	//percom write bad
 					//goto Send_ERR_and_Delay;
 					goto Send_CMPL_and_Delay; //Percom write is ok but values do not match
 				}
 			}
 
-			FileInfo.percomstate=1;		//ok
-			if ( (atari_sector_buffer[6]|atari_sector_buffer[7])==0x01) FileInfo.percomstate++; //=2 ok (double)
+			FileInfo.percomstate=1;         //ok
 
 			goto Send_CMPL_and_Delay;
 			break;
@@ -1322,7 +1341,8 @@ percom_prepared:
 			motor_on();
 
                         //if ( get_readonly() )
-                        //	 goto Send_ERR_and_DATA;; //READ ONLY
+			if (FileInfo.Attr & ATTR_READONLY)
+				goto Send_ERR_and_DATA; //READ ONLY
 
                         proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
                         if(proceeded_bytes==0)
@@ -1471,6 +1491,8 @@ Send_ERR_and_DATA:
 			 FileInfo.vDisk->flags &= (~FLAGS_WRITEERROR);
 			}
 			//if (get_readonly()) atari_sector_buffer[0]|=0x08;	//write protected bit
+			if (FileInfo.Attr & ATTR_READONLY)
+				atari_sector_buffer[0] |= 0x08;	//write protected bit
 
 			atari_sector_buffer[1] = atari_sector_status;
 			atari_sector_buffer[2] = 0xe0; 		//(244s) timeout pro nejdelsi operaci
@@ -1765,8 +1787,8 @@ Send_ERR_and_DATA:
 			if ( cmd_buf.aux1 >= DEVICESNUM ) goto Send_ERR_and_Delay;
 			vDisk[cmd_buf.aux1].flags &= ~FLAGS_DRIVEON; //vDisk[cmd_buf.aux1].flags &= ~FLAGS_DRIVEON;
 			//check for new flag and delete it
-			if (FileInfo.vDisk->flags & FLAGS_ATRNEW)
-				FileInfo.vDisk->flags &= ~FLAGS_ATRNEW;
+			if (vDisk[cmd_buf.aux1].flags & FLAGS_ATRNEW)
+				vDisk[cmd_buf.aux1].flags &= ~FLAGS_ATRNEW;
 			bp = &tft.pages[PAGE_MAIN].buttons[cmd_buf.aux1];
 			name = pgm_read_ptr(&bp->name);
 			strncpy_P(&name[3], PSTR("<empty>     "), 12);

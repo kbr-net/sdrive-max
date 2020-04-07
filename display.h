@@ -28,6 +28,7 @@
 #define window_bg 0x528a
 
 #define White                                                                            0xFFFF
+#define Light_White                                                                      0xFFDF
 #define Black                                                                            0x0000
 //#define Grey                                                                             0xF7DE
 #define Grey                                                                             0xCE59
@@ -186,19 +187,19 @@ void TFT_set_display_window(unsigned int x_pos1, unsigned int y_pos1, unsigned i
 void TFT_scroll_init(unsigned int tfa, unsigned int vsa, unsigned int bfa);
 void TFT_scroll(unsigned int scroll);
 void TFT_fill(unsigned int colour);
-void TFT_fill_area(signed int x1, signed int y1, signed int x2, signed int y2, unsigned int colour);
+void TFT_fill_area(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, unsigned int colour);
 unsigned int TFT_BGR2RGB(unsigned int colour);
 unsigned int RGB565_converter(unsigned char r, unsigned char g, unsigned char b);
 void swap(signed int *a, signed int *b);
 void Draw_Pixel(unsigned int x_pos, unsigned int y_pos, unsigned int colour);
 void Draw_Point(unsigned int x_pos, unsigned int y_pos, unsigned char pen_width, unsigned int colour);
-void Draw_Line(signed int x1, signed int y1, signed int x2, signed int y2, unsigned int colour);
-void Draw_V_Line(signed int x1, signed int y1, signed int y2, unsigned colour);
-void Draw_H_Line(signed int x1, signed int x2, signed int y1, unsigned colour);
+void Draw_Line(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, unsigned int colour);
+void Draw_V_Line(unsigned int x1, unsigned int y1, unsigned int y2, unsigned colour);
+void Draw_H_Line(unsigned int x1, unsigned int x2, unsigned int y1, unsigned colour);
 void Draw_Triangle(signed int x1, signed int y1, signed int x2, signed int y2, signed int x3, signed int y3, unsigned char fill, unsigned int colour);
-void Draw_Rectangle(signed int x1, signed int y1, signed int x2, signed int y2, unsigned char fill, unsigned char type, unsigned int colour, unsigned int back_colour);
-void Draw_H_Bar(signed int x1, signed int x2, signed int y1, signed int bar_width, signed int bar_value, unsigned int border_colour, unsigned int bar_colour, unsigned int back_colour, unsigned char border);
-void Draw_V_Bar(signed int x1, signed int y1, signed int y2, signed int bar_width, signed int bar_value, unsigned int border_colour, unsigned int bar_colour, unsigned int back_colour, unsigned char border);
+void Draw_Rectangle(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, unsigned char fill, unsigned char type, unsigned int colour, unsigned int back_colour);
+void Draw_H_Bar(unsigned int x1, unsigned int x2, unsigned int y1, unsigned int bar_width, unsigned int bar_value, unsigned int border_colour, unsigned int bar_colour, unsigned int back_colour, unsigned char border);
+void Draw_V_Bar(unsigned int x1, unsigned int y1, unsigned int y2, unsigned int bar_width, unsigned int bar_value, unsigned int border_colour, unsigned int bar_colour, unsigned int back_colour, unsigned char border);
 void Draw_Circle(signed int xc, signed int yc, signed int radius, unsigned char fill, unsigned int colour);
 void Draw_Font_Pixel(unsigned int x_pos, unsigned int y_pos, unsigned int colour, unsigned char pixel_size);
 void print_char(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, unsigned char ch);

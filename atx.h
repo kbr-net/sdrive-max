@@ -26,6 +26,8 @@
 #define STS_EXTENDED	0x40
 #define MAX_TRACK	42
 
+enum eDENSITIES { eSINGLE, eMEDIUM, eDOUBLE};
+
 struct atxFileHeader {
     u08 signature[4];
     u16 version;

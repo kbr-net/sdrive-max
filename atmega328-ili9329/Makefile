@@ -111,6 +111,7 @@ $(TARGET): $(OBJECTS)
 	-avr-objcopy $(HEX_EEPROM_FLAGS) -O ihex $< $@ || exit 0
 	-avr-objcopy $(HEX_EEPROM_FLAGS) -O binary $< $@.bin || exit 0
 	-xxd -i $@.bin ../eeprom_writer.h || exit 0
+	-avr-nm $(TARGET) | grep E_[XY] | awk '{print "unsigned char *" $$3,"= (unsigned char *) 0x" substr($$1,5) ";"}' >> ../eeprom_writer.h || exit 0
 
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@

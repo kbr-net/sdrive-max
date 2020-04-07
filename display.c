@@ -7,6 +7,98 @@
 unsigned int MAX_X = X_max;
 unsigned int MAX_Y = Y_max;
 
+#if defined HX8347G || defined HX8347I
+struct init_cmds {
+	unsigned char cmd;
+	unsigned char data;
+};
+
+const struct init_cmds hx_init_cmds[] PROGMEM = {
+	//set later after scroll init
+	//{0x01, 0x08},	//scroll mode on
+	{0x17, 0x05},	//COLMOD 16bit
+	{0x18, 0x34},	//frame rate idle/normal 50Hz/60Hz
+	{0x19, 0x01},	//enable oscillator
+	{0x1f, 0xd4},	//set power on and exit standby mode
+	//{0x36, 0x00},	//characteristic SS, GS, BGR
+	{0x28, 0x3c}	//gate output and display on
+};
+#endif
+
+#if defined ILI9325 || defined RM68090
+struct init_cmds {
+	unsigned char cmd;
+	unsigned short data;
+};
+
+const struct init_cmds ili9325_init_cmds[] PROGMEM = {
+	{0xe5, 0x78f0},	// set SRAM internal timing
+	{0x01, 0x0000},	// set Driver Output Control
+	{0x02, 0x0300},	// set 1 line inversion
+	{0x03, 0x1030},	// set GRAM write direction and BGR=1.
+	{0x04, 0x0000},	// Resize register
+	{0x05, 0x0000},	// .kbv 16bits Data Format Selection
+	{0x08, 0x0207},	// set the back porch and front porch
+	{0x09, 0x0000},	// set non-display area refresh cycle ISC[3:0]
+	{0x0a, 0x0000},	// FMARK function
+	{0x0c, 0x0000},	// RGB interface setting
+	{0x0d, 0x0000},	// Frame marker Position
+	{0x0f, 0x0000},	// RGB interface polarity
+	// ----------- Power On sequence -----------
+	{0x10, 0x0000},	// SAP, BT[3:0], AP, DSTB, SLP, STB
+	{0x11, 0x0007},	// DC1[2:0], DC0[2:0], VC[2:0]
+	{0x12, 0x0000},	// VREG1OUT voltage
+	{0x13, 0x0000},	// VDV[4:0] for VCOM amplitude
+	{0x07, 0x0001},
+	{0x00, 200},	//delay 200ms, Dis-charge capacitor power voltage
+	{0x10, 0x1690},	// SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=0, STB=0
+	{0x11, 0x0227},	// DC1=2, DC0=2, VC=7
+	{0x00, 50},
+	{0x12, 0x000d},	// VCIRE=1, PON=0, VRH=5
+	{0x00, 50},
+	{0x13, 0x1200},	// VDV=28 for VCOM amplitude
+	{0x29, 0x000a},	// VCM=10 for VCOMH
+	{0x2b, 0x000d},	// Set Frame Rate
+	{0x00, 50},
+	//not needed here, is set on each write
+	//{0x20, 0x0000},	// GRAM horizontal Address
+	//{0x21, 0x0000},	// GRAM Vertical Address
+	// ----------- Adjust the Gamma Curve ----------
+	{0x30, 0x0000},
+	{0x31, 0x0404},
+	{0x32, 0x0003},
+	{0x35, 0x0405},
+	{0x36, 0x0808},
+	{0x37, 0x0407},
+	{0x38, 0x0303},
+	{0x39, 0x0707},
+	{0x3c, 0x0504},
+	{0x3d, 0x0808},
+	//------------------ Set GRAM area ---------------
+	// Gate Scan Line GS=0 [0xA700]
+	// Gate Scan Line GS=320 [0x2700]
+	{0x60, 0x2700},
+	{0x61, 0x0001},	// NDL,VLE, REV .kbv
+	{0x6a, 0x0000},	// set scrolling line
+	//-------------- Partial Display Control ---------
+	{0x80, 0x0000},
+	{0x81, 0x0000},
+	{0x82, 0x0000},
+	{0x83, 0x0000},
+	{0x84, 0x0000},
+	{0x85, 0x0000},
+	//-------------- Panel Control -------------------
+	{0x90, 0x0010},
+	{0x92, 0x0000},
+	{0x93, 0x0003},
+	{0x95, 0x0110},
+	{0x97, 0x0000},
+	{0x98, 0x0000}
+	//not needed here, is set on TFT_on()
+	//{0x07, 0x0133}	// 262K color and display ON
+};
+#endif
+
 void TFT_init()
 {
     TFT_GPIO_init();
@@ -26,22 +118,31 @@ void TFT_init()
 #endif
 
 #if defined HX8347G || defined HX8347I
-    //set later after scroll init
-    //TFT_write_cmd(0x01);	//scroll mode on
-    //TFT_write(0x08);
-    TFT_write_cmd(0x17);	//COLMOD 16bit
-    TFT_write(0x05);
-    TFT_write_cmd(0x18);	//frame rate idle/normal 50Hz/60Hz
-    TFT_write(0x34);
-    TFT_write_cmd(0x19);	//enable oscillator
-    TFT_write(0x01);
-    TFT_write_cmd(0x1f);	//set power on and exit standby mode
-    TFT_write(0xd4);
-    //TFT_write_cmd(0x36);	//characteristic SS, GS, BGR
-    //TFT_write(0x00);
-    TFT_write_cmd(0x28);	//gate output and display on
-    TFT_write(0x3c);
+    unsigned char i;
+    for(i = 0; i < sizeof(hx_init_cmds)/2; i++) {
+	TFT_write_cmd(pgm_read_byte(&hx_init_cmds[i].cmd));
+	TFT_write(pgm_read_byte(&hx_init_cmds[i].data));
+    }
     //TFT_write_cmd(0x22);	//GRAM
+#elif defined ILI9325 || defined RM68090
+    unsigned char i;
+    unsigned char cmd;
+    unsigned short data;
+
+    for(i = 0; i < sizeof(ili9325_init_cmds)/3; i++) {
+	cmd = pgm_read_byte(&ili9325_init_cmds[i].cmd);
+	data = pgm_read_word(&ili9325_init_cmds[i].data);
+	if(cmd == 0) {
+		while(data--)
+			delay_ms(1);
+		continue;
+	}
+	TFT_write_cmd(cmd);
+	TFT_write_data(data);
+    }
+    delay_ms(100);
+
+    // ------------- Initialization Done -------------
 
 #else
     TFT_write_cmd(ILI9341_PIXEL_FORMAT);
@@ -59,6 +160,9 @@ void TFT_on() {
     TFT_write_cmd(0x28);	//gate output and display on
     TFT_write(0x3c);
     //TFT_write_cmd(0x22);	//GRAM
+#elif defined ILI9325 || defined RM68090
+    TFT_write_cmd(0x07);
+    TFT_write_data(0x0133);
 #else
     TFT_write_cmd(ILI9341_DISPLAY_ON);
     //TFT_write_cmd(ILI9341_GRAM);
@@ -70,6 +174,9 @@ void TFT_off() {
     TFT_write_cmd(0x28);	//gate output and display off
     TFT_write(0x00);
     //TFT_write_cmd(0x22);	//GRAM
+#elif defined ILI9325 || defined RM68090
+    TFT_write_cmd(0x07);
+    TFT_write_data(0x0000);
 #else
     TFT_write_cmd(ILI9341_DISPLAY_OFF);
     //TFT_write_cmd(ILI9341_GRAM);
@@ -81,6 +188,10 @@ void TFT_sleep_on() {
 #if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x1f);	//set standby mode
     TFT_write(0xd5);
+#elif defined ILI9325 || defined RM68090
+    // SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=1, STB=0
+    TFT_write_cmd(0x10);
+    TFT_write_data(0x1692);
 #else
     TFT_write_cmd(ILI9341_ENTER_SLEEP_MODE);
 #endif
@@ -91,6 +202,10 @@ void TFT_sleep_off() {
 #if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x1f);	//set power on and exit standby mode
     TFT_write(0xd4);
+#elif defined ILI9325 || defined RM68090
+    // SAP=1, BT=6, APE=1, AP=1, DSTB=0, SLP=0, STB=0
+    TFT_write_cmd(0x10);
+    TFT_write_data(0x1690);
 #else
     TFT_write_cmd(ILI9341_SLEEP_OUT);
 #endif
@@ -103,15 +218,14 @@ void TFT_GPIO_init()
     TFT_port_config_high |= 0xFC;
 
     //output
-    TFT_ctrl_ddr |= 1 << TFT_RST_pin_dir;
-    TFT_ctrl_ddr |= 1 << TFT_CS_pin_dir;
-    TFT_ctrl_ddr |= 1 << TFT_RD_pin_dir;
-    TFT_ctrl_ddr |= 1 << TFT_WR_pin_dir;
-    TFT_ctrl_ddr |= 1 << TFT_RS_pin_dir;
+    TFT_ctrl_ddr |=	(1 << TFT_RST_pin_dir) |
+			(1 << TFT_CS_pin_dir) |
+			(1 << TFT_RD_pin_dir) |
+			(1 << TFT_WR_pin_dir) |
+			(1 << TFT_RS_pin_dir);
+
     //RD/WR initial high
-    TFT_ctrl_port |= (1 << TFT_CS_pin);
-    TFT_ctrl_port |= (1 << TFT_RD_pin);
-    TFT_ctrl_port |= (1 << TFT_WR_pin);
+    TFT_ctrl_port |= (1 << TFT_CS_pin) | (1 << TFT_RD_pin) | (1 << TFT_WR_pin);
 
     delay_ms(10);
 }
@@ -151,6 +265,9 @@ void TFT_write_cmd(unsigned char value)
 {
     TFT_ctrl_port &= ~(1 << TFT_RS_pin);
     TFT_ctrl_port &= ~(1 << TFT_CS_pin);
+#if defined RM68090
+    TFT_write_bus(0x00);
+#endif
     TFT_write_bus(value);
     TFT_ctrl_port |= (1 << TFT_CS_pin);
 }
@@ -199,7 +316,7 @@ void TFT_write_REG_DATA(unsigned char reg, unsigned char data_value)
 
 unsigned int TFT_getID()
 {
-#if defined HX8347G || defined HX8347I
+#if defined HX8347G || defined HX8347I || defined ILI9325 || defined RM68090
 	TFT_write_cmd(0x00);	//READ-ID
 #else
 	TFT_write_cmd(0xD3);	//READ-ID4
@@ -212,6 +329,8 @@ void TFT_set_rotation(unsigned char value)
 {
 #if defined HX8347G || defined HX8347I
     TFT_write_cmd(0x16);
+#elif defined ILI9325 || defined RM68090
+    //nothing there
 #else
     TFT_write_cmd(ILI9341_MAC);
 #endif
@@ -222,6 +341,13 @@ void TFT_set_rotation(unsigned char value)
         {
 #if defined ILI9329 || defined HX8347G
             TFT_write(0x08);
+#elif defined ILI9325 || defined RM68090
+    // Gate Scan Line GS=0 [0xA700]
+    TFT_write_cmd(0x60);
+    TFT_write_data(0xa700);
+    // set Driver Output Control SS=1
+    TFT_write_cmd(0x01);
+    TFT_write_data(0x0100);
 #else
             TFT_write(0x48);
 #endif
@@ -231,6 +357,13 @@ void TFT_set_rotation(unsigned char value)
         {
 #if defined ILI9329 || defined HX8347G
             TFT_write(0xd8);
+#elif defined ILI9325 || defined RM68090
+            // Gate Scan Line GS=320 [0xA700]
+            TFT_write_cmd(0x60);
+            TFT_write_data(0x2700);
+            // set Driver Output Control SS=0
+            TFT_write_cmd(0x01);
+            TFT_write_data(0x0000);
 #else
             TFT_write(0x98);
 #endif
@@ -290,6 +423,23 @@ void TFT_set_display_window(unsigned int x_pos1, unsigned int y_pos1, unsigned i
     TFT_write(y_pos2);
 
     TFT_write_cmd(0x22);	//GRAM
+
+#elif defined ILI9325 || defined RM68090
+    TFT_write_cmd(0x50);   //Horizontal adress start
+    TFT_write_data(x_pos1);
+    TFT_write_cmd(0x51);   //Horizontal adress stop
+    TFT_write_data(x_pos2);
+    TFT_write_cmd(0x52);   //Vertical adress start
+    TFT_write_data(y_pos1);
+    TFT_write_cmd(0x53);   //Vertical adress stop
+    TFT_write_data(y_pos2);
+    //----------- Set Cursor ------------
+    TFT_write_cmd(0x20);   //Vertical adress stop
+    TFT_write_data(x_pos1);
+    TFT_write_cmd(0x21);   //Vertical adress stop
+    TFT_write_data(y_pos1);
+    TFT_write_cmd(0x22);   //Write data to
+
 #else
     TFT_write_cmd(ILI9341_COLUMN_ADDR);
     TFT_write_data(x_pos1);
@@ -322,6 +472,9 @@ void TFT_scroll_init(unsigned int tfa, unsigned int vsa, unsigned int bfa) {
 
     TFT_write_cmd(0x01);	//scroll mode on
     TFT_write(0x08);
+#elif defined ILI9325 || defined RM68090
+    //nothing
+    //not supported by this chip
 #else
     TFT_write_cmd(ILI9341_VERTICAL_SCROLLING_DEFINITION);
     TFT_write_data(tfa);	//TFA
@@ -336,6 +489,9 @@ void TFT_scroll(unsigned int scroll) {
     TFT_write(scroll>>8);
     TFT_write_cmd(0x15);
     TFT_write(scroll);
+#elif defined ILI9325 || defined RM68090
+    //nothing
+    //not supported by this chip
 #else
     TFT_write_cmd(ILI9341_VERTICAL_SCROLLING_START_ADDRESS);
     TFT_write_data(scroll);
@@ -356,22 +512,11 @@ void TFT_fill(unsigned int colour)
 }
 
 
-void TFT_fill_area(signed int x1, signed int y1, signed int x2, signed int y2, unsigned int colour)
+void TFT_fill_area(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, unsigned int colour)
 {
     unsigned long index;
 
-    if(x1 > x2)
-    {
-        swap(&x1, &x2);
-    }
-    if(y1 > y2)
-    {
-        swap(&y1, &y2);
-    }
-
-    //index = (x2 - x1) * (y2 - y1);
-    index = ((unsigned)x2 - (unsigned)x1 + 1)*((unsigned)y2 - (unsigned)y1 + 1);
-    //TFT_set_display_window(x1, y1, (x2 - 1), (y2 - 1));
+    index = (x2 - x1 + 1)*(y2 - y1 + 1);
     TFT_set_display_window(x1, y1, x2, y2);
 
     while(index)
@@ -428,36 +573,16 @@ void Draw_Point(unsigned int x_pos, unsigned int y_pos, unsigned char pen_width,
 }
 
 
-void Draw_Line(signed int x1, signed int y1, signed int x2, signed int y2, unsigned int colour)
+void Draw_Line(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, unsigned int colour)
 {
-    signed int dx;
-    signed int dy;
-    signed int stepx;
-    signed int stepy;
+    unsigned int dx;
+    unsigned int dy;
+    unsigned int stepx = 1;
+    unsigned int stepy = 1;
     signed int fraction;
 
-    dy = (y2 - y1);
     dx = (x2 - x1);
-
-    if(dy < 0)
-    {
-        dy = -dy;
-        stepy = -1;
-    }
-    else
-    {
-        stepy = 1;
-    }
-
-    if(dx < 0)
-    {
-        dx = -dx;
-        stepx = -1;
-    }
-    else
-    {
-        stepx = 1;
-    }
+    dy = (y2 - y1);
 
     dx <<= 0x01;
     dy <<= 0x01;
@@ -499,44 +624,14 @@ void Draw_Line(signed int x1, signed int y1, signed int x2, signed int y2, unsig
 }
 
 
-void Draw_V_Line(signed int x1, signed int y1, signed int y2, unsigned colour)
+void Draw_V_Line(unsigned int x1, unsigned int y1, unsigned int y2, unsigned colour)
 {
-/*
-    signed int pos = 0;
-    signed int temp = 0;
-*/
-    if(y1 > y2)
-    {
-       swap(&y1, &y2);
-    }
-/* why so complicated?
-    while(y2 > (y1 - 1))
-    {
-        Draw_Pixel(x1, y2, colour);
-        y2--;
-    }
-that's less code and much faster. One line is also an area! */
     TFT_fill_area(x1, y1, x1, y2, colour);
 }
 
 
-void Draw_H_Line(signed int x1, signed int x2, signed int y1, unsigned colour)
+void Draw_H_Line(unsigned int x1, unsigned int x2, unsigned int y1, unsigned colour)
 {
-/*
-    signed int pos = 0;
-    signed int temp = 0;
-*/
-    if(x1 > x2)
-    {
-       swap(&x1, &x2);
-    }
-/* why so complicated?
-    while(x2 > (x1 - 1))
-    {
-        Draw_Pixel(x2, y1, colour);
-        x2--;
-    }
-*/
     TFT_fill_area(x1, y1, x2, y1, colour);
 }
 
@@ -662,49 +757,13 @@ void Draw_Triangle(signed int x1, signed int y1, signed int x2, signed int y2, s
 }
 
 
-void Draw_Rectangle(signed int x1, signed int y1, signed int x2, signed int y2, unsigned char fill, unsigned char type, unsigned int colour, unsigned int back_colour)
+void Draw_Rectangle(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, unsigned char fill, unsigned char type, unsigned int colour, unsigned int back_colour)
 {
-     //signed int i = 0x0000;
-     signed int xmin = 0x0000;
-     signed int xmax = 0x0000;
-     signed int ymin = 0x0000;
-     signed int ymax = 0x0000;
-
      switch(fill)
      {
          case YES:
          {
-             if(x1 < x2)
-             {
-                xmin = x1;
-                xmax = x2;
-             }
-             else
-             {
-                xmin = x2;
-                xmax = x1;
-             }
-
-             if(y1 < y2)
-             {
-                ymin = y1;
-                ymax = y2;
-             }
-             else
-             {
-                ymin = y2;
-                ymax = y1;
-             }
-	     /* very slow
-             for(; xmin <= xmax; ++xmin)
-             {
-                 for(i = ymin; i <= ymax; ++i)
-                 {
-                     Draw_Pixel(xmin, i, colour);
-                 }
-             }
-	     */
-	     TFT_fill_area(xmin, ymin, xmax, ymax, colour);
+	     TFT_fill_area(x1, y1, x2, y2, colour);
              break;
          }
          default:
@@ -727,28 +786,28 @@ void Draw_Rectangle(signed int x1, signed int y1, signed int x2, signed int y2, 
 }
 
 
-void Draw_H_Bar(signed int x1, signed int x2, signed int y1, signed int bar_width, signed int bar_value, unsigned int border_colour, unsigned int bar_colour, unsigned int back_colour, unsigned char border)
+void Draw_H_Bar(unsigned int x1, unsigned int x2, unsigned int y1, unsigned int bar_width, unsigned int bar_value, unsigned int border_colour, unsigned int bar_colour, unsigned int back_colour, unsigned char border)
 {
     switch(border)
     {
         case YES:
         {
             Draw_Rectangle((x1 + 1), (y1 + 1), (x1 + bar_value), (y1 + bar_width - 1), YES, SQUARE, bar_colour, back_colour);
-            Draw_Rectangle((x2 - 1), (y1 + 1), (x1 + bar_value + 1), (y1 + bar_width - 1), YES, SQUARE, back_colour, back_colour);
+            Draw_Rectangle((x1 + bar_value + 1), (y1 + 1), (x2 - 1), (y1 + bar_width - 1), YES, SQUARE, back_colour, back_colour);
             Draw_Rectangle(x1, y1, x2, (y1 + bar_width), NO, SQUARE, border_colour, back_colour);
             break;
         }
         default:
         {
             Draw_Rectangle(x1, y1, (x1 + bar_value), (y1 + bar_width), YES, SQUARE, bar_colour, back_colour);
-            Draw_Rectangle(x2, y1, (x1 + bar_value), (y1 + bar_width), YES, SQUARE, back_colour, back_colour);
+            Draw_Rectangle((x1 + bar_value), y1, x2, (y1 + bar_width), YES, SQUARE, back_colour, back_colour);
             break;
         }
     }
 }
 
 
-void Draw_V_Bar(signed int x1, signed int y1, signed int y2, signed int bar_width, signed int bar_value, unsigned int border_colour, unsigned int bar_colour, unsigned int back_colour, unsigned char border)
+void Draw_V_Bar(unsigned int x1, unsigned int y1, unsigned int y2, unsigned int bar_width, unsigned int bar_value, unsigned int border_colour, unsigned int bar_colour, unsigned int back_colour, unsigned char border)
 {
     switch(border)
     {
@@ -1071,7 +1130,7 @@ void print_D(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, un
 
 void print_F(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, float value, unsigned char points)
 {
-    signed long tmp = 0x00000000;
+    signed long tmp;
 
     tmp = value;
     print_I(x_pos, y_pos, font_size, colour, back_colour, tmp);
@@ -1116,18 +1175,8 @@ void print_F(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, un
 
 void Draw_BMP(signed int x_pos1, signed int y_pos1, signed int x_pos2, signed int y_pos2, const char *bitmap)
 {
-     unsigned long size = 0x00000000;
+     unsigned long size;
      unsigned long index = 0x00000000;
-
-     if(x_pos1 > x_pos2)
-     {
-         swap(&x_pos1, &x_pos2);
-     }
-
-     if(y_pos1 > y_pos2)
-     {
-         swap(&y_pos1, &y_pos2);
-     }
 
      size = (y_pos2 - y_pos1);
      size *= (x_pos2 - x_pos1);

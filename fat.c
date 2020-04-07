@@ -631,7 +631,7 @@ u32 fatFileCreate (char *fileName, u32 fileSize) {
 	de[entryNo].deHighClust = clusterNo >> 16;
 	de[entryNo].deStartCluster = clusterNo & 0xFFFF;
 	strncpy(de[entryNo].deName,fileName,8);
-	strncpy(de[entryNo].deExtension,"ATR",3);
+	strncpy_P(de[entryNo].deExtension,PSTR("ATR"),3);
 	de[entryNo].deFileSize = fileSize;
 	de[entryNo].deAttributes = 0x20;	//normal file, archive bit
 
@@ -728,7 +728,7 @@ u32 fatFileNew (u32 size) {
 	//struct direntry * de = (struct direntry*) mmc_sector_buffer;
 	unsigned short i = 0;
 	while ( fatGetDirEntry(i++,0) ) {
-		sscanf((char*)atari_sector_buffer, "SDMX%hu", &f);
+		sscanf_P((char*)atari_sector_buffer, PSTR("SDMX%hu"), &f);
 		if(f > found) found = f;
 		//printf("entry: %i, clust: %i attr: 0x%02x\n", i, FileInfo.vDisk->start_cluster, FileInfo.Attr);
 		//printf("filename: %s, found: %i\n", atari_sector_buffer, found);
