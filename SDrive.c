@@ -348,6 +348,10 @@ ISR(TIMER2_OVF_vect) {
 void motor_on () {
 	//if not currently running...
 	if (!motor) {
+                if(FileInfo.vDisk->flags & FLAGS_ATXTYPE) {
+			//motor start delay is about...
+			_delay_ms(475);
+		}
 		TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
 								// 16MHz/64 = 250KHz(4µs)
 		Draw_Circle(5,5,3,1,Green);
