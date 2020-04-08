@@ -276,6 +276,8 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
                     currentFileOffset += extSectorData->size;
                 }
             } while (extSectorData->size > 0);
+	    //clear extended flag, it is similar to write protect in DVSTAT[1]
+	    *status &= ~MASK_EXTENDED_DATA;
         }
 
         // read the data (re-using tgtSectorIndex variable here to reduce stack consumption)

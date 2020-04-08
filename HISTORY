@@ -1,3 +1,6 @@
+v1.3:
+- ATX: fixed wrong status on weak sectors
+
 v1.2:
 - touchscreen auto detection added
 - usage without display
