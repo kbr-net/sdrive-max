@@ -1479,7 +1479,7 @@ Send_ERR_and_DATA:
 
 			FileInfo.percomstate=0;
 
-			atari_sector_buffer[0] = motor ? 0 : 0x10;	//0x00 motor off	0x10 motor on
+			atari_sector_buffer[0] = motor ? 0x10 : 0;	//0x00 motor off	0x10 motor on
 			//(FileInfo.vDisk->atr_medium_size);	// medium/single
 			if (FileInfo.vDisk->flags & FLAGS_ATRMEDIUMSIZE) atari_sector_buffer[0]|=0x80;
 			//((FileInfo.vDisk->atr_sector_size==256)?0x20:0x00); //	double/normal sector size
