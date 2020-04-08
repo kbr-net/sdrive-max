@@ -195,7 +195,7 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 	currentFileOffset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
 
         int pTT = 0;
-        int retries = MAX_RETRIES_810;
+        unsigned char retries = MAX_RETRIES_810;
 
         // if we are still below the maximum number of retries that would be performed by the drive firmware...
         u32 retryOffset = currentFileOffset;
