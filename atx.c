@@ -48,6 +48,7 @@
 #define MASK_FDC_MISSING         0x10
 // mask for checking FDC status extended data bit
 #define MASK_EXTENDED_DATA       0x40
+#define MASK_RESERVED            0x80
 
 #define MAX_RETRIES_1050         1
 #define MAX_RETRIES_810          4
@@ -252,6 +253,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 
         // store the last angle returned for the debugging window
         last_angle_returned = gLastAngle;
+
+	// ignore the reserved bit
+	*status &= ~MASK_RESERVED;
 
         // if the status is bad, flag as error
         if (*status) {
