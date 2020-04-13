@@ -962,7 +962,7 @@ format_medium:
 				FileInfo.percomstate=0; //after the first format percom has no effect
 
 				//write protect?
-				if (FileInfo.Attr & ATTR_READONLY)
+				if (FileInfo.vDisk->flags_ext & FLAGS_EXT_RDONLY)
 					goto Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE;
 
 				//XEX can not be formatted
@@ -1342,7 +1342,7 @@ percom_prepared:
 					motor_on();
 
 					//if ( get_readonly() )
-					if (FileInfo.Attr & ATTR_READONLY)
+					if (FileInfo.vDisk->flags_ext & FLAGS_EXT_RDONLY)
 						goto Send_ERR_and_DATA; //READ ONLY
 
 					proceeded_bytes = faccess_offset(FILE_ACCESS_WRITE,n_data_offset,atari_sector_size);
@@ -1492,7 +1492,7 @@ Send_ERR_and_DATA:
 			 FileInfo.vDisk->flags &= (~FLAGS_WRITEERROR);
 			}
 			//if (get_readonly()) atari_sector_buffer[0]|=0x08;	//write protected bit
-			if (FileInfo.Attr & ATTR_READONLY)
+			if (FileInfo.vDisk->flags_ext & FLAGS_EXT_RDONLY)
 				atari_sector_buffer[0] |= 0x08;	//write protected bit
 
 			atari_sector_buffer[1] = atari_sector_status;
@@ -2245,6 +2245,12 @@ Command_EC_F0_FF_found:
 					FileInfo.vDisk->ncluster=0;
 					//reset flags except ATRNEW
 					FileInfo.vDisk->flags &= FLAGS_ATRNEW;
+					FileInfo.vDisk->flags_ext = 0;
+					//image read only?
+					if (FileInfo.Attr & ATTR_READONLY) {
+						//mark drive slot also read only
+						FileInfo.vDisk->flags_ext |= FLAGS_EXT_RDONLY;
+					}
 
 					if(	atari_sector_buffer[8]=='A' &&
 						atari_sector_buffer[9]=='T' &&

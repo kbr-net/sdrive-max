@@ -1,5 +1,6 @@
 v1.3:
 - ATX: fixed wrong status on weak sectors
+- save read only flag for each drive slot
 
 v1.2:
 - touchscreen auto detection added

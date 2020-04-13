@@ -391,6 +391,7 @@ struct winentry {
 #define FLAGS_WRITEERROR	0x04
 #define FLAGS_ATXTYPE		0x02
 #define FLAGS_DRIVEON		0x01
+#define FLAGS_EXT_RDONLY	0x01
 
 // Stuctures
 struct PercomStruct {
@@ -415,6 +416,7 @@ typedef struct				//4+4+4+4+2+4+1=23
 	unsigned short file_index;	//< file index
 	u32 size;			//< file size
 	unsigned char flags;		//< file flags
+	unsigned char flags_ext;	//< extra flags
 }virtual_disk_t;
 
 struct FileInfoStruct
