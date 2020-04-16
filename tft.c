@@ -28,6 +28,7 @@ unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
 unsigned char scroll_file_len;
+unsigned char tmp_pokey_div;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
 const char known_extensions[][3] PROGMEM = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
@@ -47,6 +48,7 @@ extern u16 MINX EEMEM;
 extern u16 MINY EEMEM;
 extern u16 MAXX EEMEM;
 extern u16 MAXY EEMEM;
+extern uint8_t system_fastsio_pokeydiv_default EEMEM;
 
 
 unsigned int action_b0 (const struct button *b) {
@@ -302,6 +304,17 @@ unsigned int action_change (const struct button *b) {
 	return(0);
 }
 
+unsigned int action_pokey (const struct button *b) {
+	//struct b_flags *flags = pgm_read_ptr(&b->flags);
+	char *name = pgm_read_ptr(&b->name);
+	if (!tmp_pokey_div--) {
+		tmp_pokey_div = 10;
+	}
+	sprintf_P(&name[5], PSTR("%x"), tmp_pokey_div);
+	draw_Buttons();
+	return(0);
+}
+
 unsigned int action_save_cfg () {
 	const struct button *b;
 	struct b_flags *flags;
@@ -316,6 +329,8 @@ unsigned int action_save_cfg () {
 			*(char*)&tft.cfg |= flags->selected << i;
 	}
 	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
+	//save pokey div
+	eeprom_update_byte(&system_fastsio_pokeydiv_default, tmp_pokey_div);
 	//check for SaveIm Button
 	if(flags->selected) {
 		//map D1-D4 0-indexed
@@ -458,6 +473,7 @@ const struct button PROGMEM buttons_cfg[] = {
 	{"Blank",15,205,80,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	//!!leave this buttons at the end, then we can loop thru the previous!!
 	{"SaveIm",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"div:   ",134,45,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_pokey},
 	{"Save",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_save_cfg},
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
@@ -614,6 +630,7 @@ void config_page () {
 	const struct button *b;
 	struct b_flags *flags;
 	unsigned int i;
+	char *name;
 
 	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
@@ -622,8 +639,16 @@ void config_page () {
 	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
+		name = pgm_read_ptr(&b->name);
 		flags->selected = (*(char*)&tft.cfg >> i) & 1;
-		if(i == tft.pages[actual_page].nbuttons-3)
+		//set pokey div to the Pokey button
+		if(i == tft.pages[actual_page].nbuttons-3) {
+			unsigned char div = eeprom_read_byte(&system_fastsio_pokeydiv_default);
+			sprintf_P(&name[5], PSTR("%x"), div);
+			tmp_pokey_div = div;	//save for change button
+		}
+		//deselect SaveIm button on each entry
+		if(i == tft.pages[actual_page].nbuttons-4)
 			flags->selected = 0;
 	}
 	draw_Buttons();

@@ -98,6 +98,7 @@ struct FileInfoStruct FileInfo;			//< file information for last file accessed
 extern struct display tft;
 extern unsigned char actual_page;
 extern unsigned char scroll_file_len;
+extern unsigned char tmp_pokey_div;
 extern struct file_save image_store[] EEMEM;
 
 uint8_t system_atr_name[] EEMEM = "SDRIVE  ATR";  //8+3 zamerne deklarovano za system_info,aby bylo pripadne v dosahu pres get status
@@ -665,6 +666,10 @@ ST_IDLE:
 							_delay_ms(10000);
 						}
 					}
+				}
+				//pokey div changed?
+				if(actual_page == PAGE_CONFIG && name[0] == 'd') {
+					fastsio_pokeydiv = tmp_pokey_div;
 				}
 				sfp = atari_sector_buffer;
 				scroll_file_counter = 20000;
