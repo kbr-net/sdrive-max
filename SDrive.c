@@ -1232,8 +1232,14 @@ percom_prepared:
 			outbox(DebugBuffer);
 */
 
+			struct PercomStruct *percom = (struct PercomStruct *) atari_sector_buffer;
+
 			if ((FileInfo.vDisk->flags & FLAGS_ATRNEW))     //we have no image yet!
 			{
+				if (percom->bpshi)
+					FileInfo.vDisk->flags |= FLAGS_ATRDOUBLESECTORS;
+				else
+					FileInfo.vDisk->flags &= ~FLAGS_ATRDOUBLESECTORS;
 				//XXX: Todo, check for matching image size
 			}
 			else
@@ -1478,7 +1484,7 @@ Send_ERR_and_DATA:
 
 		case 0x53:	//get status
 
-			FileInfo.percomstate=0;
+			//FileInfo.percomstate=0;
 
 			atari_sector_buffer[0] = motor ? 0x10 : 0;	//0x00 motor off	0x10 motor on
 			//(FileInfo.vDisk->atr_medium_size);	// medium/single
