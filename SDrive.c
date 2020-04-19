@@ -1142,6 +1142,7 @@ device_command_accepted:
 
 			{
 				u32 fs = FileInfo.vDisk->size;
+				struct PercomStruct *percom = (struct PercomStruct *) atari_sector_buffer;
 
 				if ((FileInfo.vDisk->flags & FLAGS_ATRNEW))     //we have no image yet!
 				{
@@ -1178,17 +1179,17 @@ device_command_accepted:
 					if (    (!isxex)
 						// &0xff... Due to the deletion of the eventual 16 ATR headings
 						&& ( FOURBYTESTOLONG(atari_sector_buffer+8)==(fs & 0xffffff80) )
-						&& ( atari_sector_buffer[6]==(secsize>>8) ) //sectorsize hb
+						&& ( percom->bpshi == (secsize >> 8) ) //sectorsize hb
 					)
 					{
 						//File size and sector consent
 						goto percom_prepared;
 					}
-				} while (atari_sector_buffer[0]!=0x01);
+				} while (percom->tracks != 0x01);
 
 				//no known floppy format, set size and number of sectors
-				atari_sector_buffer[6]=(secsize>>8);	//hb
-				atari_sector_buffer[7]=(secsize&0xff);	//db
+				percom->bpshi = (secsize >> 8);		//hb
+				percom->bpslo = (secsize & 0xff);	//db
 
 				if ( isxex )
 				{
@@ -1202,9 +1203,9 @@ device_command_accepted:
 
 				fs /= ((u32)secsize); //convert filesize to sectors
 
-				atari_sector_buffer[2] = ((fs>>8) & 0xff);	//hb sectors
-				atari_sector_buffer[3] = (fs & 0xff );		//lb sectors
-				atari_sector_buffer[4] = ((fs>>16) & 0xff);	//sides - 1  (0=> one side)
+				percom->sectorshi = ((fs >> 8) & 0xff);	//hb sectors
+				percom->sectorslo = (fs & 0xff );	//lb sectors
+				percom->heads = ((fs >> 16) & 0xff);	//sides - 1  (0=> one side)
 			}
 percom_prepared:
 				USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(12);
@@ -1246,13 +1247,13 @@ percom_prepared:
 			//check, if the size in percom is equal to the image size
 			{
 				u32 s;
-				s = ((u32)atari_sector_buffer[0])	//tracks
+				s = (percom->tracks)	//tracks
 					//sectors
-					* ( (u32) ( (((u16)atari_sector_buffer[2])<<8) + ((u16)atari_sector_buffer[3]) ) )
+					* ( (u32) ( (percom->sectorshi << 8) + (percom->sectorslo) ) )
 					//heads
-					* (((u32)atari_sector_buffer[4])+1)
+					* ( (u32) percom->heads + 1)
 					//bytes per sector
-					* ( (u32) ( (((u16)atari_sector_buffer[6])<<8) + ((u16)atari_sector_buffer[7]) ) );
+					* ( (u32) ( (percom->bpshi << 8) + (percom->bpslo) ) );
 
 				if ( !(FileInfo.vDisk->flags & FLAGS_XFDTYPE) ) s+=16; //16bytes ATR header
 				if ( FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS ) s-=384;	//3 single sectors at begin of DD
