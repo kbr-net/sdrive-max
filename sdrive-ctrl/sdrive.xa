@@ -1288,10 +1288,9 @@ convert50
 ;
 convert_key
 	ldx $fff7
-	cpx #$ff
-	beq atari800
+	bmi atari800
 	lda (121),y
-	bcc atarixlxe
+	bne atarixlxe
 atari800
 	lda $fefe,y
 atarixlxe
