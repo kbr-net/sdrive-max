@@ -12,5 +12,12 @@ sdrivenh.com: sdrive.xa manual.xa version.xa
 helptest:
 	xa -o $@.com $@.xa
 
+disk: sdrive-noboot.atr
+sdrive-noboot.atr: sdrive.com
+	[ -d disk ] || mkdir disk
+	cp *.com disk/
+	/media/soft/historic/atari-8bit/linux/unix2atr -u 720 sdrive-noboot.atr disk/
+
 clean:
-	rm -f *.com
+	rm -f *.com sdrive-noboot.atr
+	rm -rf disk
