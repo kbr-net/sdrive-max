@@ -34,8 +34,8 @@ void USART_Send_Buffer(unsigned char *buff, u16 len);
 u08 USART_Get_Buffer_And_Check(unsigned char *buff, u16 len, u08 cmd_state);
 u08 USART_Get_buffer_and_check_and_send_ACK_or_NACK(unsigned char *buff, u16 len);
 //void USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(unsigned short len);
-void USART_Send_atari_sector_buffer_and_check_sum(unsigned short len, unsigned char status);
+void USART_Send_buffer_and_check_sum(unsigned char *buf, unsigned short len, unsigned char status);
 
-#define USART_Send_ERR_and_atari_sector_buffer_and_check_sum(len) USART_Send_atari_sector_buffer_and_check_sum(len, 1)
-#define USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(len) USART_Send_atari_sector_buffer_and_check_sum(len, 0)
-
+#define USART_Send_ERR_and_atari_sector_buffer_and_check_sum(len) USART_Send_buffer_and_check_sum(atari_sector_buffer, len, 1)
+#define USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(len) USART_Send_buffer_and_check_sum(atari_sector_buffer, len, 0)
+#define USART_Send_cmpl_and_buffer_and_check_sum(buf, len) USART_Send_buffer_and_check_sum(buf, len, 0)
