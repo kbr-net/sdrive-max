@@ -770,9 +770,6 @@ ISR(PCINT1_vect)
 	if(CMD_PORT & (1<<CMD_PIN))	//do nothing on high
 		return;
 
-	if(blanker_on())		//this is not optimal here, should be
-		blanker_stop();		// done after ACK
-
 	FileInfo.vDisk = vp;		//restore vDisk pointer
 
 	scroll_file_len = 0;		//stop scrolling, because buffer will be used now
@@ -1096,6 +1093,9 @@ device_command_accepted:
 
 		send_ACK();
 //			Delay1000us();	//delay_us(COMMAND_DELAY);
+
+		if(blanker_on())
+			blanker_stop();
 
 		switch(cmd_buf.cmd)
 		{
