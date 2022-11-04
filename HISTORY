@@ -1,7 +1,10 @@
 v1.3:
-- ATX: fixed wrong status on weak sectors
+- ATX: fixed wrong status on weak sectors,
+  ignore the reserved bit on status byte
 - save read only flag for each drive slot
 - fixed format DD on mydos
+- fixed input keys on sdrive control program for Atari 400/800
+- better percom handling
 - optimized blanker refresh
 
 v1.2:
