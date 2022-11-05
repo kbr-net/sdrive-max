@@ -1172,10 +1172,10 @@ device_command_accepted:
 					//0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
 					//...
 					//0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
-					for(m=0;m<12;m++) atari_sector_buffer[m]=eeprom_read_byte(ptr++);
+					for(m=0;m<12;m++) ((unsigned char *)&percom)[m]=eeprom_read_byte(ptr++);
 					if (    (!isxex)
 						// &0xff... Due to the deletion of the eventual 16 ATR headings
-						&& ( FOURBYTESTOLONG(atari_sector_buffer+8)==(fs & 0xffffff80) )
+						&& ( FOURBYTESTOLONG((unsigned char *)&percom+8)==(fs & 0xffffff80) )
 						&& ( percom.bpshi == (secsize >> 8) ) //sectorsize hb
 					)
 					{
