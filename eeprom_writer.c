@@ -6,24 +6,6 @@
 #include "eeprom_writer.h"
 #include "avrlibtypes.h"
 
-unsigned char XP;			//must be an analog port(PORTC)
-#define XP_DDR DDRC			//fixed
-#define XP_PORT PORTC			//fixed
-
-unsigned char XM;			//PB0, PD7
-unsigned char *XM_PIN;			//for isTouching()
-#define XM_DDR *(XM_PIN+1)
-#define XM_PORT *(XM_PIN+2)
-
-unsigned char YP;			//PB1, PD6
-unsigned char *YP_PIN;
-#define YP_DDR *(YP_PIN+1)
-#define YP_PORT *(YP_PIN+2)
-
-unsigned char YM;			//must be an analog port(PORTC)
-#define YM_DDR DDRC			//fixed
-#define YM_PORT PORTC			//fixed
-
 char txt[40];
 
 void TS_detect() {
