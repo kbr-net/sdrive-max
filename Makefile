@@ -14,4 +14,4 @@ clean:
 	for dir in $(DIRS); \
 		do $(MAKE) -C $$dir clean; \
 	done
-	rm boot_xex_loader sboot.h
+	rm boot_xex_loader sboot.h eeprom_writer.h

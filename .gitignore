@@ -3,4 +3,7 @@ atmega328-*/
 !atmega328-*/README
 sdrive-ctrl/*.com
 sdrive-ctrl/disk
+eeprom_writer.h
+sboot.h
+boot_xex_loader
 .idea/
