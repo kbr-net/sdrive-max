@@ -6,6 +6,7 @@ v1.3:
 - fixed input keys on sdrive control program for Atari 400/800
 - better percom handling
 - optimized blanker refresh
+- added support for basic files(simple onefilers)
 
 v1.2:
 - touchscreen auto detection added

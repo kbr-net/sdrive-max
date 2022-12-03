@@ -1378,9 +1378,9 @@ percom_prepared:
 				//clear buffer
 				Clear_atari_sector_buffer(XEX_SECTOR_SIZE);
 
-				if(n_sector<=2)		//n_sector>0 && //==0 Is verified at the beginning
+				if(n_sector<=3)		//n_sector>0 && //==0 Is verified at the beginning
 				{
-					//xex bootloader sectors, 1 or 2
+					//xex bootloader sectors
 					u08 i,b;
 					u08 *spt, *dpt;
 					spt= &boot_xex_loader[(u16)(n_sector-1)*((u16)XEX_SECTOR_SIZE)];

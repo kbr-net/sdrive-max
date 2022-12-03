@@ -30,7 +30,7 @@ unsigned int file_selected = -1;
 unsigned char scroll_file_len;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
-const char known_extensions[][3] PROGMEM = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG" };
+const char known_extensions[][3] PROGMEM = { "ATR", "ATX", "CAS", "COM", "BIN", "EXE", "XEX", "XFD", "TAP", "IMG", "BAS" };
 
 void main_page();
 void file_page();

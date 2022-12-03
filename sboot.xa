@@ -26,32 +26,44 @@
 ;08.04.2021
 ;- converted to XA (by kbr)
 ;
+;30.11.2022
+;- added support for basic files(thanks to Jindrich Kubec for the code from his bas2boot project)
+
 buffer	= $700		;the lower byte of the buffer must be 0!
 
 edst = $43	;2
 dst = $45	;2
-;storeX = $47	;1
+basic = $47	;1
 
 sc_nsector = $30a
 
+RAMTOP          = $6A
+LOMEM           = $80
+BOOT            = $09
+BASICF          = $03F8
+PORTB           = $D301
+EOPEN           = $EF94
+BAS_CONT        = $A97A
+BAS_EXEC        = $B755
+
 	;* = buffer+$80-(adr780-bootsector)	;XXX Does not work in XA!
-	* = buffer+$80-$21			;now len $21 hardcoded
+	* = buffer+$80-$23			;now len $23 hardcoded
 ;
 ;This first part is in the area below $0780,
 ;so after the first sector is loaded into the buffer $700-$77f it will be overwritten
 ;
 bootsector		;$72='r' (identification SD'r'ive)
-	.byte $72,$02
-	.word bootsector,jednou_a_pak_next_block	;once_and_then_next_block
+	.byte $72,(end-bootsector)/128+1
+	.word bootsector,entry
 reloc_00 = bootsector+3
 reloc_01 = bootsector+5
 init
-;	jmp *
 	lda #<buffer
 	sta $304		;can't be replaced by sty $304 because no init at the begining
 #print <buffer <> 0		;lower buffers are 0 !
 	;a=0
 	sta 580			;prevent boot after reset (some programs use a jump through the reset vector (Joust))
+	sta basic		;mark basic
 	lda #>buffer
 reloc_02 = *-1
 	sta $305
@@ -60,10 +72,7 @@ reloc_02 = *-1
 	lda #$01		;and starts at $171
 	sta $30b
 	;A=1
-;	lda #1
 	sta $9			;some games need it (RASTER's invention from Xin1)
-;	lda #125		;as if he already had 125 bytes loaded
-;	sta index
 	rts
 	.byte 125		;as if there were 125 bytes in that sector to load the next sector
 ;
@@ -71,14 +80,12 @@ reloc_02 = *-1
 ;
 adr780
 read_next_sector
-;	stx storeX
 	txa
 	pha			;save X
 rea1
 	jsr $e453
 	dey			;is the result of the operation 1 (ok) ? dey decrements to Y=0
 	bne rea1		;is Y=0 ? not => again
-;	ldx storeX
 	pla
 	tax			;restore X
 	;Y=0			;Y-reg is zero ( used for next sta (ns),y ), not necessary -> replaced by (ns,x)
@@ -88,8 +95,6 @@ readbyte			;reading one byte from buffer and incrementing index pointer
 index	= *+1
 	lda buffer+125		;overwritting LB, index=$7d
 reloc_04 = *-1
-;	ldy index
-;	lda buffer,y
 	inc index
 reloc_05 = *-1
 lrts
@@ -180,14 +185,20 @@ reloc_15 = *-1
 	;so let's finish
 	jsr nb40		;due to init (I believe $02e2 still point to RTS)
 reloc_16 = *-1
+	lda #0
+	cmp basic		;is basic?
+	beq basic_start
 	jmp ($02e0)		;jump on run address
+
 ;
 ;
 ;the next part exceeds over $800 and after implementation
 ;it can easily be overwritten with data (if a block is imported from $800...)
 
-jednou_a_pak_next_block		;once_and_then_next_block
-jad1
+reloc	.byte >buffer		;byte(0x07) for relocation adjustments
+				;will be changed by SDrive relocation feature
+;
+entry				;once_and_then_next_block
 	jsr get_next_byte	;load the first sector and overwrite 0700-077f
 reloc_17 = *-1
 	sta $02e0
@@ -196,13 +207,88 @@ reloc_18 = *-1
 	sta $02e1
 	and $02e0
 	cmp #$ff		;are they both FF?
-	beq jad1		;yes => then try the other two
+	bne chkbas		;no => go basic
+	sta basic		;mark no basic(0xff)
+	beq entry		;then try the other two
+
+chkbas	lda #0
+	cmp basic		;XEX?
+	bne goon
+				;else thread them as basic file
+	lda $02e0
+	sta LOMEM		;store vectors
+	lda $02e1
+	clc
+	inc reloc		;make sure, we are above the bootloader code
+reloc_20 = *-1
+	adc reloc		;add LOMEM offset
+reloc_21 = *-1
+	sta LOMEM+1
+
+	ldx #2
+setvect	jsr get_next_byte
+reloc_22 = *-1
+	sta LOMEM,x
+	jsr get_next_byte
+reloc_23 = *-1
+	adc reloc		;add LOMEM offset
+reloc_24 = *-1
+	inx
+	sta LOMEM,x
+	inx
+	cpx #14
+	bne setvect
+
+	lda LOMEM+2		;fake start addr
+	sta buffer+10
+reloc_25 = *-1
+	lda LOMEM+3
+	sta buffer+11
+reloc_26 = *-1
+				;end addr is already at the right position
+	lda LOMEM+13		;but add offset also
+	adc reloc
+	sta buffer+13
+
+	lda #10
 ;
-	lda #0
-	sta index
+goon	sta index
 reloc_19 = *-1
-	beq next_block		;!
-;
+	jmp next_block		;!
+reloc_27 = *-1
+
+basic_start
+	ldx #$ff
+	txs
+
+	lda #$0a
+	sta $c9
+	lda #$00
+	sta BOOT
+	sta BASICF
+
+	;turn on basic
+	lda #$fd
+	sta PORTB
+
+	;set stack
+	lda #>BAS_CONT
+	pha
+	lda #<BAS_CONT - 1
+	pha
+
+	lda #>BAS_EXEC
+	pha
+	lda #<BAS_EXEC - 1
+	pha
+
+	lda RAMTOP
+	bpl store_memt
+	lda #$a0
+store_memt:
+	sta RAMTOP
+	jmp EOPEN
+
 ;
 ;	relocation table 20 bytes
 ;
@@ -227,8 +313,17 @@ reloc_19 = *-1
 	.byte reloc_17-bootsector
 	.byte reloc_18-bootsector
 	.byte reloc_19-bootsector
+	.byte reloc_20-bootsector
+	.byte reloc_21-bootsector
+	.byte reloc_22-bootsector
+	.byte reloc_23-bootsector
+	.byte reloc_24-bootsector
+	.byte reloc_25-bootsector
+	.byte reloc_26-bootsector
+	.byte reloc_27-bootsector
 #endif
 
+end
 
 ;sio_cmd
 ;	.byte $31,$02,$52,$40

@@ -72,7 +72,7 @@ Display usage:
 - To save selected images on EEPROM, press the Cfg button, highlight
   the SaveIm button, and press Save
 - If you want also to boot from drive 1 by default, highlight the BootD1
-  button too before pessing Save
+  button too before pressing Save
 - The "1050" option in Cfg menu uses timing for 1050 drive on ATX files,
   instead of 810
 - Do not power off, while the red signal on top left of the screen appears,
@@ -93,5 +93,6 @@ Tape operation:
   at this point
 - press the Turbo button, if you want to enable a 1000 baud transmission
 - exit ends the tape emulation
+- you can also load basic files with CLOAD, if you are lucky :)
 
 (by KBr from forum64.de)
