@@ -1236,7 +1236,7 @@ kee98 ;toto nejlepe nechat jako posledni klavesovou akci
 	beq kee98a
 	pha	;PHA1ab
 	tay
-	lda (121),y
+	jsr convert_key
 	cmp #'A'		;SH#if+A
 	bcc kee98b
 	cmp #'Z'+1		;az SH#if+Z
@@ -1284,6 +1284,16 @@ convert40
 	;C=0
 	sbc #31 ;-1 carry=0 => -32
 convert50
+	rts
+;
+convert_key
+	ldx $fff7
+	bmi atari800
+	lda (121),y
+	bne atarixlxe
+atari800
+	lda $fefe,y
+atarixlxe
 	rts
 ;
 ;
@@ -1685,7 +1695,7 @@ fin3c
 	jmp choose
 fin3b
 	tay
-	lda (121),y
+	jsr convert_key
 	cmp #47		;('/') ve vyznamu Shift+'?' povoleny znak
 	bne fin3d
 	lda #63		;preklad '/' na '?'

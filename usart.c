@@ -173,7 +173,7 @@ u08 USART_Get_buffer_and_check_and_send_ACK_or_NACK(unsigned char *buff, u16 len
 	return 0;	//kdyz je ok vraci 0
 }
 
-void USART_Send_atari_sector_buffer_and_check_sum(unsigned short len, unsigned char status) {
+void USART_Send_buffer_and_check_sum(unsigned char *buf, unsigned short len, unsigned char status) {
 	u08 check_sum;
 
 	//	Delay300us();	//po ACKu pred CMPL pauza 250us - 255sec
@@ -198,7 +198,7 @@ void USART_Send_atari_sector_buffer_and_check_sum(unsigned short len, unsigned c
 	//Delay800us();	//t6
 	_delay_us(200);	//<--pouziva se i u commandu 3F
 
-	USART_Send_Buffer(atari_sector_buffer,len);
-	check_sum = get_checksum(atari_sector_buffer,len);
+	USART_Send_Buffer(buf,len);
+	check_sum = get_checksum(buf,len);
 	USART_Transmit_Byte(check_sum);
 }

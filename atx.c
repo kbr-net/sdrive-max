@@ -48,6 +48,7 @@
 #define MASK_FDC_MISSING         0x10
 // mask for checking FDC status extended data bit
 #define MASK_EXTENDED_DATA       0x40
+#define MASK_RESERVED            0x80
 
 #define MAX_RETRIES_1050         1
 #define MAX_RETRIES_810          4
@@ -195,7 +196,7 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 	currentFileOffset += slHeader->next - sectorCount * sizeof(struct atxSectorHeader);
 
         int pTT = 0;
-        int retries = MAX_RETRIES_810;
+        unsigned char retries = MAX_RETRIES_810;
 
         // if we are still below the maximum number of retries that would be performed by the drive firmware...
         u32 retryOffset = currentFileOffset;
@@ -253,6 +254,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
         // store the last angle returned for the debugging window
         last_angle_returned = gLastAngle;
 
+	// ignore the reserved bit
+	*status &= ~MASK_RESERVED;
+
         // if the status is bad, flag as error
         if (*status) {
             hasError = (BOOL) TRUE;
@@ -276,6 +280,8 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
                     currentFileOffset += extSectorData->size;
                 }
             } while (extSectorData->size > 0);
+	    //clear extended flag, it is similar to write protect in DVSTAT[1]
+	    *status &= ~MASK_EXTENDED_DATA;
         }
 
         // read the data (re-using tgtSectorIndex variable here to reduce stack consumption)
