@@ -1,3 +1,6 @@
+v1.4:
+- some fixes in tape mode
+
 v1.3:
 - ATX: fixed wrong status on weak sectors,
   ignore the reserved bit on status byte
