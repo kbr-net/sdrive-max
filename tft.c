@@ -108,11 +108,10 @@ unsigned int action_cancel () {
 	//on file_page reset file index to same page
 	if (actual_page == PAGE_FILE)
 		next_file_idx -= 10;
-	//on debug_page deactivate them
-	else {
-		debug = 0;
-		tape_mode = 0;
-	}
+	//in case of debug_page deactivate them
+	debug = 0;
+	//same for tape_page
+	tape_mode = 0;
 	//and reset to main_page
 	actual_page = PAGE_MAIN;
 	tft.pages[actual_page].draw();
