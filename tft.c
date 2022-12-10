@@ -280,8 +280,11 @@ unsigned int action_ok () {
 	actual_page = PAGE_MAIN;
 	next_file_idx -= 10;
 	if(tape_mode) {
-		actual_page = PAGE_TAPE;
-		file_selected = 0;
+		if(file_selected != -1)
+			actual_page = PAGE_TAPE;
+		else	//reset tape mode, if nothing selected
+			tape_mode = 0;
+		file_selected = 0;	//mark no file action on main page
 	}
 	tft.pages[actual_page].draw();
 	return(file_selected);
