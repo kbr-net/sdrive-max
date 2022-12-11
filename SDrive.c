@@ -683,7 +683,7 @@ bad_touch:			while (isTouching());
 				tape_offset = send_FUJI_tape_block(tape_offset);
 			else
 				tape_offset = send_tape_block(tape_offset);
-			if(tape_offset == 0 || tape_flags.run == 0) {
+			if(tape_offset == 0) {
 				USART_Init(ATARI_SPEED_STANDARD);
 				tape_flags.run = 0;
 				flags->selected = 0;
