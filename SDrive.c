@@ -552,6 +552,7 @@ int main(void)
 
 	unsigned long autowritecounter = 0;
 	unsigned int scroll_file_counter;
+	unsigned char drive_number = 0;
 	unsigned char *sfp;	//scrolling filename pointer
 ST_IDLE:
 	sfp = atari_sector_buffer;
@@ -569,7 +570,6 @@ ST_IDLE:
 		struct b_flags *flags;
 		unsigned int (*b_func)(const struct button *);
 		unsigned int de;
-		unsigned char drive_number;
 		char *name;
 
 		if (isTouching()) {
