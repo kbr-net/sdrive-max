@@ -556,7 +556,6 @@ int main(void)
 	unsigned char *sfp;	//scrolling filename pointer
 ST_IDLE:
 	sfp = atari_sector_buffer;
-	unsigned int tape_offset = 0;
 
 	LED_GREEN_OFF(virtual_drive_number);	// LED OFF
 	sei();	//enable interrupts
@@ -642,32 +641,6 @@ ST_IDLE:
 					strncpy_P(&name[3], PSTR(">New<       "), 12);
 					draw_Buttons();
 				}
-				//tape mode?
-				if(actual_page == PAGE_TAPE && name[0] == 'S') {
-					const struct button *pb = &tft.pages[actual_page].buttons[1];
-					struct b_flags *pause = pgm_read_ptr(&pb->flags);
-					if(tape_flags.run || pause->selected) {	//Stop
-						tape_flags.run = 0;
-						tape_offset = 0;
-						flags->selected = 0;
-						//clear also the Pause Button
-						pause->selected = 0;
-						print_str_P(35,132,2,Yellow,window_bg, PSTR("Stopped...   "));
-						draw_Buttons();
-					}
-					else {		//Start
-						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-						check_for_FUJI_file();
-						tape_flags.run = 1;
-						flags->selected = 1;
-						print_str_P(35,132,2,Yellow,window_bg, PSTR("Sync Wait...   "));
-						draw_Buttons();
-						if(!tape_flags.FUJI) {
-							//sync wait
-							_delay_ms(10000);
-						}
-					}
-				}
 				sfp = atari_sector_buffer;
 				scroll_file_counter = 20000;
 				//if matched, wait for button release
@@ -680,10 +653,10 @@ bad_touch:			while (isTouching());
 		if(tape_flags.run) {
 			cli();	//no interrupts during tape operation
 			if(tape_flags.FUJI)
-				tape_offset = send_FUJI_tape_block(tape_offset);
+				tape_flags.offset = send_FUJI_tape_block(tape_flags.offset);
 			else
-				tape_offset = send_tape_block(tape_offset);
-			if(tape_offset == 0) {
+				tape_flags.offset = send_tape_block(tape_flags.offset);
+			if(tape_flags.offset == 0) {
 				USART_Init(ATARI_SPEED_STANDARD);
 				tape_flags.run = 0;
 				flags->selected = 0;

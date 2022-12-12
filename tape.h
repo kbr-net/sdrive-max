@@ -8,6 +8,7 @@ struct tape_FUJI_hdr {
 };
 
 struct t_flags {
+	unsigned int offset;
 	unsigned char run : 1;
 	unsigned char FUJI : 1;
 	unsigned char turbo : 1;

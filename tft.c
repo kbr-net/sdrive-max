@@ -80,6 +80,35 @@ unsigned int action_tape (const struct button *b) {
 	return(0);
 }
 
+unsigned int action_tape_start (const struct button *b) {
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
+	const struct button *pb = &tft.pages[actual_page].buttons[1];
+	struct b_flags *pause = pgm_read_ptr(&pb->flags);
+
+	if(tape_flags.run || pause->selected) { //Stop
+		tape_flags.run = 0;
+		flags->selected = 0;
+		//clear also the Pause Button
+		pause->selected = 0;
+		print_str_P(35,132,2,Yellow,window_bg, PSTR("Stopped...   "));
+		draw_Buttons();
+	}
+	else {          //Start
+		FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
+		check_for_FUJI_file();
+		tape_flags.run = 1;
+		flags->selected = 1;
+		print_str_P(35,132,2,Yellow,window_bg, PSTR("Sync Wait...   "));
+		draw_Buttons();
+		if(!tape_flags.FUJI) {
+			//sync wait
+			_delay_ms(10000);
+		}
+	}
+	tape_flags.offset = 0;	//reset offset in any case
+	return(0);
+}
+
 unsigned int action_tape_turbo (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	flags->selected = ~flags->selected;
@@ -465,7 +494,7 @@ const struct button PROGMEM buttons_cfg[] = {
 };
 
 const struct button PROGMEM buttons_tape[] = {
-	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},press},
+	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_start},
 	{"Pause",15,205,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_pause},
 	{"Turbo",144,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_turbo},
 	{"Exit",144,205,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
