@@ -1,0 +1,153 @@
+;sdrive.atr special bootloader (recoded by kbr) (c) 2024 GPL
+;
+;hold down shift key and press a number for selection
+;1-sdrive, 2-sdrive-nocfg, 3-sdrive-help
+
+	*=$765
+start:
+
+	.byte $72,$03
+	.word start
+	.word entry
+
+init:
+	LDA #$00
+	STA $0304	;DBUFLO
+	STA $0244	;COLDST
+	LDA #$07
+	STA $0305	;DBUFHI
+	LDA #$01
+	STA $09		;BOOT?
+	RTS
+
+; this values are overwritten on each sector read!
+sector:		.byte $00,$04	; next sector
+max_sec_byte:	.byte $7d	; sector length
+
+read_sector:
+	STX $47		;FMSZPG+4
+siov:	JSR $E453	;DSKINV
+	DEY		;error? try again
+	BNE siov
+	LDX $47	;FMSZPG+4
+	STY get_sec_buf+1	;Y must be zero here, reset buffer pointer
+get_sec_buf:
+	LDA sector
+	INC get_sec_buf+1
+loinit:	RTS
+
+store_data:
+	LDA #<loinit
+	STA $02E2	;INITAD
+	LDA #>loinit
+	STA $02E3	;INITAD+1
+
+	LDX #$02
+header:	JSR read_byte	;read start or end address
+	STA $43,X	;FMSZPG
+	JSR read_byte
+	STA $44,X	;FMSZPG+1
+	AND $43,X	;FMSZPG
+	CMP #$FF	;skip COM header
+	BEQ header
+	DEX
+	DEX
+	BPL header	;switch to read end
+	BMI no_carry	;now read program data
+read_more:
+	INC $45		;FMSZPG+2
+	BNE no_carry
+	INC $46		;FMSZPG+3
+no_carry:
+	JSR read_byte
+	LDX #$01
+	STA ($44,X)	;FMSZPG+1	; store data
+check:	LDA $45,X	;FMSZPG+2
+	CMP $43,X	;FMSZPG	; check end
+	BNE read_more
+	DEX
+	BPL check
+	JSR call_init
+	JMP store_data
+
+call_init:
+	LDA #$03
+	STA $D20F	;SKCTL
+	JMP ($02E2)	;INITAD
+
+read_byte:
+	LDA get_sec_buf+1
+	CMP max_sec_byte	;0x7d? Is initial value
+	BNE get_sec_buf		;so on first call, or last sector byte it is equal
+				;it is overwritten on each sector read!
+	LDA sector	;read (next) sector
+	AND #$03
+	STA $030B	;DAUX2
+	LDA sector+1
+	STA $030A	;DAUX1
+	ORA $030B	;DAUX2
+	BNE read_sector	;both values zero? last sector
+	JSR call_init
+	JMP ($02E0)	;RUNAD	;start program
+
+entry:
+	;07FB:	; check for shift key
+	LDA #$FF
+	STA $02FC	;CH
+	LDA $D20F	;SKSTAT
+	AND #$08
+	BNE default	;no shift, skip
+	LDY #$27
+print:	; print text
+	LDA text,Y
+	STA ($58),Y	;SAVMSC
+	DEY
+	BPL print
+key_loop:
+	LDA $D20F	;SKSTAT
+	AND #$08
+	BNE default	;shift released? skip
+	LDA $02FC	;CH
+	CMP #$FF
+	BEQ key_loop	;key pressed?
+	AND #$3F
+	LDY #$04
+key_check:
+	CMP keycodes,Y
+	BEQ match	;is one of the expected number?
+	DEY
+	BPL key_check	;loop thru all defined keys
+	BMI key_loop	;no
+
+match:	LDA startsectors_l,Y	;get the startsector
+	STA sector+1		;and store it
+	LDA startsectors_h,Y
+	STA sector
+
+	LDA #$FF	;reset keyboard?
+	STA $02FC	;CH
+
+default:
+	LDA #$00	;???
+	STA $022F	;SDMCTL
+	LDA $14	;RTCLOK+2
+wait:	CMP $14	;RTCLOK+2
+	BNE wait
+
+read_file:
+	JSR read_byte	;read and store runaddr
+	STA $02E0	;RUNAD
+	JSR read_byte
+	STA $02E1	;RUNAD+1
+	AND $02E0	;RUNAD
+	CMP #$FF	;skip COM header
+	BEQ read_file
+	LDA #$00
+	STA get_sec_buf+1	;reset sector buffer pointer
+	JMP store_data
+
+text:	.byte $91,$33,$24,"rive",$08,$92,$0d,$23,"fg",$00,$93,$0b,"(elp",$09,$00,$94,"$/3))",$0b,$00,$95,"4o2!-cart"
+keycodes:	.byte $1f,$1e,$1a,$18,$1d
+startsectors_l:	.byte $04,$2a,$50,$7a,$a4
+startsectors_h:	.byte $00,$00,$00,$00,$00
+pad	.dsb start+384-*
