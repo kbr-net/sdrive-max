@@ -5,7 +5,6 @@
 
 	*=$765
 start:
-
 	.byte $72,$03
 	.word start
 	.word entry
@@ -20,16 +19,20 @@ init:
 	STA $09		;BOOT?
 	RTS
 
-; this values are overwritten on each sector read!
-sector:		.byte $00,$04	; next sector
-max_sec_byte:	.byte $7d	; sector length
+;this values are overwritten on each sector read!
+sector:		.byte $00,$04	;next sector
+max_sec_byte:	.byte $7d	;sector length
 
+;must be at 0x780, because sector buffer is hardcoded 0x700 - 0x77f!
+#if (* <> $780)
+#print * not at $780, correct start address
+#endif
 read_sector:
 	STX $47		;FMSZPG+4
 siov:	JSR $E453	;DSKINV
 	DEY		;error? try again
 	BNE siov
-	LDX $47	;FMSZPG+4
+	LDX $47		;FMSZPG+4
 	STY get_sec_buf+1	;Y must be zero here, reset buffer pointer
 get_sec_buf:
 	LDA sector
@@ -61,9 +64,9 @@ read_more:
 no_carry:
 	JSR read_byte
 	LDX #$01
-	STA ($44,X)	;FMSZPG+1	; store data
+	STA ($44,X)	;FMSZPG+1	;store data
 check:	LDA $45,X	;FMSZPG+2
-	CMP $43,X	;FMSZPG	; check end
+	CMP $43,X	;FMSZPG		;check end
 	BNE read_more
 	DEX
 	BPL check
@@ -88,17 +91,16 @@ read_byte:
 	ORA $030B	;DAUX2
 	BNE read_sector	;both values zero? last sector
 	JSR call_init
-	JMP ($02E0)	;RUNAD	;start program
+	JMP ($02E0)	;RUNAD		;start program
 
-entry:
-	;07FB:	; check for shift key
+entry:			;check for shift key
 	LDA #$FF
 	STA $02FC	;CH
 	LDA $D20F	;SKSTAT
 	AND #$08
 	BNE default	;no shift, skip
 	LDY #$27
-print:	; print text
+print:			;print text
 	LDA text,Y
 	STA ($58),Y	;SAVMSC
 	DEY
@@ -130,8 +132,8 @@ match:	LDA startsectors_l,Y	;get the startsector
 default:
 	LDA #$00	;???
 	STA $022F	;SDMCTL
-	LDA $14	;RTCLOK+2
-wait:	CMP $14	;RTCLOK+2
+	LDA $14		;RTCLOK+2
+wait:	CMP $14		;RTCLOK+2
 	BNE wait
 
 read_file:
