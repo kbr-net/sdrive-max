@@ -1,4 +1,4 @@
-all: sdrive.com sdriven.com sdrivenh.com boot.bin
+all: sdrive.com sdriven.com sdrivenh.com boot.bin disk
 
 sdrive.com: sdrive.xa version.xa
 	xa -o $@ sdrive.xa -DTYPE=1 -DHELP=0
@@ -15,12 +15,15 @@ boot.bin: boot.xa
 helptest:
 	xa -o $@.com $@.xa
 
-disk: sdrive-noboot.atr
-sdrive-noboot.atr: sdrive.com
+unix2atr:
+
+disk: sdrive.atr
+sdrive.atr: sdrive.com sdriven.com sdrivenh.com boot.bin unix2atr
 	[ -d disk ] || mkdir disk
-	cp *.com disk/
-	/media/soft/historic/atari-8bit/linux/unix2atr -u 720 sdrive-noboot.atr disk/
+	cp *.com addon/* disk/
+	./unix2atr -u 720 $@ disk/
+	dd if=boot.bin of=$@ conv=notrunc bs=1 seek=16
 
 clean:
-	rm -f *.com sdrive-noboot.atr boot.bin
+	rm -f *.com sdrive.atr boot.bin unix2atr
 	rm -rf disk

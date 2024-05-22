@@ -150,6 +150,6 @@ read_file:
 
 text:	.byte $91,$33,$24,"rive",$08,$92,$0d,$23,"fg",$00,$93,$0b,"(elp",$09,$00,$94,"$/3))",$0b,$00,$95,"4o2!-cart"
 keycodes:	.byte $1f,$1e,$1a,$18,$1d
-startsectors_l:	.byte $04,$2a,$50,$7a,$a4
+startsectors_l:	.byte $04,$35,$65,$9c,$c6
 startsectors_h:	.byte $00,$00,$00,$00,$00
 pad	.dsb start+384-*

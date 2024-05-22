@@ -1,8 +1,3 @@
 sdrive.atr has a special boot code for autoloading and a simple boot menu
-(by holding shift key), where the start sectors of the files are hardcoded,
-so the filesystem structure must not be modified!
-
-Files may be updated, but not deleted and created again!
-
-I use the emulator "atari800 sdrive.atr sdrive-noboot.atr"
-and copy the files each over from D2: to D1:.
+(by holding shift key), where the start sectors of the files are hardcoded.
+If there is a change, it must be also changed in boot.xa!
