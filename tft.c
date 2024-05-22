@@ -21,6 +21,8 @@ extern virtual_disk_t vDisk[];
 //extern struct GlobalSystemValues GS;
 extern const char system_name[] PROGMEM;
 extern const char system_version[] PROGMEM;
+extern uint8_t system_fastsio_pokeydiv_default;
+unsigned char pokeydiv;
 
 unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
@@ -333,6 +335,15 @@ unsigned int action_change (const struct button *b) {
 	return(0);
 }
 
+unsigned int action_pokey () {
+	pokeydiv++;
+	if(pokeydiv > 9)
+		pokeydiv = 0;
+	//tft.pages[actual_page].draw();
+	print_char(165,95,2,Yellow,window_bg,pokeydiv+0x30);
+	return(0);
+}
+
 unsigned int action_save_cfg () {
 	const struct button *b;
 	struct b_flags *flags;
@@ -360,6 +371,7 @@ unsigned int action_save_cfg () {
 			}
 		}
 	}
+	eeprom_update_byte(&system_fastsio_pokeydiv_default, pokeydiv);
 	if(rot != tft.cfg.rot) {	//rotation has changed? Then...
 		eeprom_update_word(&MINX, 0xffff);	//force new calibration
 		tft_Setup();
@@ -488,6 +500,7 @@ const struct button PROGMEM buttons_cfg[] = {
 	{"1050",15,165,70,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"Blank",15,205,80,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	//!!leave this buttons at the end, then we can loop thru the previous!!
+	{"Pokey",130,45,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_pokey},
 	{"SaveIm",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"Save",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_save_cfg},
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
@@ -650,6 +663,7 @@ void config_page () {
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
+	print_char(165,95,2,Yellow,window_bg,pokeydiv+0x30);
 	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
@@ -704,6 +718,7 @@ void tft_Setup() {
 			action_cal();
 		}
 	}
+	pokeydiv = eeprom_read_byte(&system_fastsio_pokeydiv_default);
 }
 
 const struct button * check_Buttons() {
