@@ -18,6 +18,7 @@
 #include "mmc.h"		// include MMC card access functions
 #include "fat.h"
 #include "sboot.h"
+#include "highspeed.h"
 #include "usart.h"
 #include "global.h"
 #include "tft.h"
@@ -1042,6 +1043,8 @@ Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE:
 				&& (cmd_buf.cmd!=0x53)
 				&& (cmd_buf.cmd!=0x4e)
 				&& (cmd_buf.cmd!=0x4f)
+				&& (cmd_buf.cmd!=0x68)
+				&& (cmd_buf.cmd!=0x69)
 			)
 			|| //no other commands on newfile except status and percom
 			(
@@ -1474,6 +1477,52 @@ Send_ERR_and_DATA:
 			USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(4);
 
 			break;
+
+		case 0x68:	//get sio length
+			atari_sector_buffer[0] = highspeed_len & 0xff;	//low
+			atari_sector_buffer[1] = highspeed_len >> 8;	//high
+
+			USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(2);
+			break;
+
+		case 0x69:	//get sio routine
+			{
+				send_CMPL();
+
+				unsigned short e;
+				unsigned char sumo, sum = 0, i = 0;
+				for(e = 0; e < highspeed_len; e++) {
+					atari_sector_buffer[i] = eeprom_read_byte(&highspeed[e]);
+
+					// Relocate all with highbytes 0xd8 - 0xdb
+					// (this does not appear otherwise in sio code)
+					if((atari_sector_buffer[i] & 0xfc) == 0xd8) {
+						unsigned char l,h;
+						unsigned short addr1,addr2;
+						h = atari_sector_buffer[i];
+						l = atari_sector_buffer[i-1];
+						addr1 = (h << 8) | l;
+						addr2 = addr1 - (0xd800 - cmd_buf.aux);
+						atari_sector_buffer[i] = addr2 >> 8;
+						atari_sector_buffer[i-1] = addr2 & 0xff;
+					}
+
+					// send if buffer is full.
+					// Be sure, there is no relocation address at this
+					// boundaries, otherwise this(255) has to be lowered!
+					if(i == 255 || e == (highspeed_len - 1)) {
+						USART_Send_Buffer(atari_sector_buffer, i+1);
+						sumo = sum;
+						sum += get_checksum(atari_sector_buffer, i+1);
+						if(sum < sumo) sum++;
+						i = 0;
+						continue;
+					}
+					i++;
+				}
+				USART_Transmit_Byte(sum);	// send cksum
+			}
+
 		} //switch
 	} // end diskcommands
 

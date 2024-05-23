@@ -1,6 +1,7 @@
 v1.4:
 - some fixes in tape mode
 - added cfg button for pokey div(restart needed)
+- added sio highspeed routine and commands $68, $69(eeprom update needed!)
 
 v1.3:
 - ATX: fixed wrong status on weak sectors,
