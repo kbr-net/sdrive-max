@@ -126,15 +126,16 @@ match:	LDA startsectors_l,Y	;get the startsector
 	LDA startsectors_h,Y
 	STA sector
 
-	LDA #$FF	;reset keyboard?
+	LDA #$FF	;reset keyboard
 	STA $02FC	;CH
 
 default:
-	LDA #$00	;???
+	LDA #$00	;disable DMA, blank screen, speedup
 	STA $022F	;SDMCTL
-	LDA $14		;RTCLOK+2
-wait:	CMP $14		;RTCLOK+2
-	BNE wait
+
+	LDA $14		;RTCLOK+2	;???
+wait:	CMP $14		;RTCLOK+2	;the cpu is always as fast to read the same value again
+	BNE wait			;so this will never happen
 
 read_file:
 	JSR read_byte	;read and store runaddr
