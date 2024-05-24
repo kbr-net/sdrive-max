@@ -1554,43 +1554,6 @@ Send_ERR_and_DATA:
 
 		switch(cmd_buf.cmd)
 		{
-/*
-		case 0xXX:
-			{
-			 unsigned char* p = 0x060;
-			 //check_sum = get_checksum(p,1024);	//nema smysl - checksum cele pameti by se ukladal zase do pameti a tim by to zneplatnil
-			 Delay800us();	//t5
-			 send_CMPL();
-			 Delay800us();	//t6
-
-			 USART_Send_Buffer(p,1024);
-			 //USART_Transmit_Byte(check_sum);
-			}
-			break;
-
-		case 0xXX:	//STACK POINTER+DEBUG_ENDOFVARIABLES
-			{
-			 Clear_atari_sector_buffer_256();
-			 atari_sector_buffer[0]= SPL;	//inb(0x3d);
-			 atari_sector_buffer[1]= SPH;	//inb(0x3e);
-			 *((u32*)&(atari_sector_buffer[2]))=debug_endofvariables;
-
-			 //check_sum = get_checksum(atari_sector_buffer,256);
-			 //send_CMPL();
-			 //Delay1000us();	//delay_us(COMMAND_DELAY);
-			 //USART_Send_Buffer(atari_sector_buffer,256);
-			 //USART_Transmit_Byte(check_sum);
-			 USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(6);
-			}
-			break;
-
-		case 0xXX:	//$XX nn mm	 config EEPROM par mm = value nn
-			{
-				eeprom_write_byte((&system_atr_name)+cmd_buf.aux2,cmd_buf.aux1);
-				goto Send_CMPL_and_Delay;
-			}
-			break;
-*/
 
 		//--------------------------------------------------------------------------
 
@@ -1684,88 +1647,6 @@ Send_ERR_and_DATA:
 				atari_sector_buffer[0] = FileInfo.vDisk->flags;
 				USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(1);
 			}
-			break;
-
-		case 0xDC:	//$DC xl xh	fatClusterToSector xl xh [<4]
-			{	//brocken for FAT32!!!
-				//FOURBYTESTOLONG(atari_sector_buffer) = fatClustToSect(TWOBYTESTOWORD(command+2));
-				//strict aliasing
-				//*asb32_p = fatClustToSect(TWOBYTESTOWORD(command+2));
-				*asb32_p = fatClustToSect(cmd_buf.aux);
-				USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(4);
-			}
-			break;
-
-		case 0xDD:	//set SDsector number
-
-			if (USART_Get_atari_sector_buffer_and_check_and_send_ACK_or_NACK(4))
-			{
-				break;
-			}
-
-			//extraSDcommands_readwritesectornumber = *((u32*)&atari_sector_buffer);
-			extraSDcommands_readwritesectornumber = *asb32_p;
-
-			//uz si to hned ted nacte do cache kvuli operaci write SDsector
-			//ve ktere Atarko zacne posilat data brzo po ACKu a nemuselo by se to stihat
-			mmcReadCached(extraSDcommands_readwritesectornumber);
-
-			goto Send_CMPL_and_Delay;
-			break;
-
-		case 0xDE:	//read SDsector
-
-			mmcReadCached(extraSDcommands_readwritesectornumber);
-
-			Delay800us();	//t5
-			send_CMPL();
-			Delay800us();	//t6
-			{
-			 u08 check_sum;
-			 check_sum = get_checksum(mmc_sector_buffer,512);
-			 USART_Send_Buffer(mmc_sector_buffer,512);
-			 USART_Transmit_Byte(check_sum);
-			}
-			//USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(atari_sector_size); //nelze pouzit protoze checksum je 513. byte (prelezl by ven z bufferu)
-			break;
-
-		case 0xDF:	//write SDsector
-			
-			//Specificky problem:
-			//Atarko zacina predavat data za t3(min)=1000us,
-			//ale tak rychle nestihneme nacist (Flushnout) mmcReadCached
-			//RESENI => mmcReadCached(extraSDcommands_readwritesectornumber);
-			//          se vola uz pri nastavovani cisla SD sektoru, takze uz je to
-			//          nachystane. (tedy pokud si nezneplatnil cache jinymi operacemi!)
-		
-			//nacte ho do mmc_sector_bufferu
-			//tim se i Flushne pripadny odlozeny write
-			//a nastavi se n_actual_mmc_sector
-			mmcReadCached(extraSDcommands_readwritesectornumber);
-
-			//prepise mmc_buffer daty z Atarka
-			{
-			 u08 err;
-			 err=USART_Get_Buffer_And_Check(mmc_sector_buffer,512,CMD_STATE_H);
-			 Delay1000us();
-			 if(err)
-			 {
-				//obnovi puvodni stav mc_sector_bufferu z SDkarty!!!
-				mmcReadCached(extraSDcommands_readwritesectornumber);
-				send_NACK();
-				break;
-			 }
-			}
-
-			send_ACK();
-
-			//zapise zmenena data v mmc_sector_bufferu do prislusneho SD sektoru
-			if (mmcWriteCached(0)) //klidne s odlozenym zapisem
-			{
-				goto Send_ERR_and_Delay; //nepovedlo se (zakazany zapis)
-			}
-
-			goto Send_CMPL_and_Delay;
 			break;
 
 		//--------------------------------------------------------------------------
