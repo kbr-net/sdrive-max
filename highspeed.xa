@@ -37,7 +37,7 @@ SIO21CL  PLA
          BCC SIO21CL
 SIO3     SEI
          TXA
-         ORA #$30
+         ORA $300
          STA $023A     ;CDEVIC
          LDA $0302     ;DCOMND
          STA $023B     ;CCOMND
