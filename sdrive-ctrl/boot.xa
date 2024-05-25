@@ -3,7 +3,7 @@
 ;hold down shift key and press a number for selection
 ;1-sdrive, 2-sdrive-nocfg, 3-sdrive-help
 
-	*=$765
+	*=$758
 start:
 	.byte $72,$03
 	.word start
@@ -13,8 +13,13 @@ init:
 	LDA #$00
 	STA $0304	;DBUFLO
 	STA $0244	;COLDST
+	STA $309	;LENH
 	LDA #$07
 	STA $0305	;DBUFHI
+	LDA #$80
+	STA $308	;LENL
+	LDA #$52
+	STA $302
 	LDA #$01
 	STA $09		;BOOT?
 	RTS
@@ -29,8 +34,14 @@ max_sec_byte:	.byte $7d	;sector length
 #endif
 read_sector:
 	STX $47		;FMSZPG+4
-siov:	JSR $E453	;DSKINV
-	DEY		;error? try again
+	LDA #$40
+	STA $303
+siov:	LDA $480	;use sio highspeed, if present
+	BEQ normal
+	JSR $480	;highsiov
+	BCC high
+normal:	JSR $E459	;SIOV
+high:	DEY		;error? try again
 	BNE siov
 	LDX $47		;FMSZPG+4
 	STY get_sec_buf+1	;Y must be zero here, reset buffer pointer
@@ -73,11 +84,6 @@ check:	LDA $45,X	;FMSZPG+2
 	JSR call_init
 	JMP store_data
 
-call_init:
-	LDA #$03
-	STA $D20F	;SKCTL
-	JMP ($02E2)	;INITAD
-
 read_byte:
 	LDA get_sec_buf+1
 	CMP max_sec_byte	;0x7d? Is initial value
@@ -93,22 +99,27 @@ read_byte:
 	JSR call_init
 	JMP ($02E0)	;RUNAD		;start program
 
+call_init:
+	LDA #$03
+	STA $D20F	;SKCTL
+	JMP ($02E2)	;INITAD
+
 entry:			;check for shift key
 	LDA #$FF
 	STA $02FC	;CH
 	LDA $D20F	;SKSTAT
 	AND #$08
 	BNE default	;no shift, skip
-	LDY #$27
+	LDY #text_len-1
 print:			;print text
 	LDA text,Y
 	STA ($58),Y	;SAVMSC
 	DEY
 	BPL print
 key_loop:
-	LDA $D20F	;SKSTAT
-	AND #$08
-	BNE default	;shift released? skip
+	;LDA $D20F	;SKSTAT
+	;AND #$08
+	;BNE default	;shift released? skip
 	LDA $02FC	;CH
 	CMP #$FF
 	BEQ key_loop	;key pressed?
@@ -133,9 +144,31 @@ default:
 	LDA #$00	;disable DMA, blank screen, speedup
 	STA $022F	;SDMCTL
 
-	LDA $14		;RTCLOK+2	;???
-wait:	CMP $14		;RTCLOK+2	;the cpu is always as fast to read the same value again
-	BNE wait			;so this will never happen
+;try to load sio highspeed routine
+	LDA #$68	;get sio routine length
+	STA $302
+	LDA #$40
+	STA $303
+	LDA #$2
+	STA $308
+	JSR $E459
+
+	INC $302	;get sio routine($69)
+	LDA #$40
+	STA $303
+	LDA $700
+	STA $308
+	LDA $701
+	STA $309
+	LDA #$80	;store at $480
+	STA $304
+	STA $30a
+	LDA #$04
+	STA $305
+	STA $30b
+	JSR $E459
+
+	JSR init	;reset siov values
 
 read_file:
 	JSR read_byte	;read and store runaddr
@@ -149,8 +182,9 @@ read_file:
 	STA get_sec_buf+1	;reset sector buffer pointer
 	JMP store_data
 
-text:	.byte $91,$33,$24,"rive",$08,$92,$0d,$23,"fg",$00,$93,$0b,"(elp",$09,$00,$94,"$/3))",$0b,$00,$95,"4o2!-cart"
+text:	.byte $91,$33,$24,"rive",$08,$92,$0d,$23,"fg",$00,$93,$0b,"(elp",$09,$00,$94,"$/3))",$0b,$00,$95,"4o2!-crt"
+text_len=*-text
 keycodes:	.byte $1f,$1e,$1a,$18,$1d
-startsectors_l:	.byte $04,$35,$65,$9c,$c6
+startsectors_l:	.byte $04,$35,$66,$9d,$c7
 startsectors_h:	.byte $00,$00,$00,$00,$00
 pad	.dsb start+384-*
