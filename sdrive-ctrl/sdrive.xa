@@ -76,7 +76,6 @@ configsectorsbs	= $4f40			;$4f40-4f49		(max. 9)
 configsectorslen = $60
 configdata	= $5000			;$5000-$54ff	(max 5 stranek)
 ;
-SIOV		= $e459
 POWEROFFON	= $33d	;PUPBT1 - jeho zmenou nasleduje pri rebootu totalni reset
 REBOOT		= $e477	;reboot vec.
 COLDRESETVEC	= $fffc	;coldreset
@@ -3188,7 +3187,14 @@ sm1
 	inx
 	iny
 	bne sm1
-sm2 rts
+sm2	rts
+
+SIOV
+	lda $480
+	beq normal
+	jmp $480
+normal	jmp $e459
+
 ;
 showmessages
 msgid_error	= *-showmessages
