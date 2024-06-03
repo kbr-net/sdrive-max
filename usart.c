@@ -38,6 +38,7 @@ extern unsigned char atari_sector_buffer[256];
 //extern unsigned char last_key;
 
 unsigned char get_checksum (unsigned char* buffer, u16 len) {
+/*
 	u16 i;
 	u08 sumo,sum;
 	sum=sumo=0;
@@ -47,6 +48,21 @@ unsigned char get_checksum (unsigned char* buffer, u16 len) {
 		if(sum<sumo) sum++;
 		sumo = sum;
 	}
+*/
+	//saves 12 bytes
+	unsigned char sum;
+	asm (
+		"clr %0" "\n\t"
+		"0:" "\n\t"
+		"ld __tmp_reg__,%a1+" "\n\t"
+		"add %0,__tmp_reg__" "\n\t"
+		"adc %0,r1" "\n\t"		//r1 is always 0 in avr-gcc
+		"sbiw %2,1" "\n\t"
+		"brne 0b" "\n\t"
+		: "=&r" (sum)
+		: "e" (buffer), "w" (len)
+	);
+
 	return sum;
 }
 
