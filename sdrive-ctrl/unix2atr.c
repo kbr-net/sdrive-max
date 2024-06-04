@@ -366,6 +366,8 @@ int mydirsort(const struct dirent **a,const struct dirent **b)
 		if (strcmp(bn,"SDRIVEN COM")==0) return( 1);
 		if (strcmp(an,"SDRIVENHCOM")==0) return(-1);
 		if (strcmp(bn,"SDRIVENHCOM")==0) return( 1);
+		if (strcmp(an,"SDRIVERFCOM")==0) return(-1);
+		if (strcmp(bn,"SDRIVERFCOM")==0) return( 1);
 		if (strcmp(an,"DOS     SYS")==0) return(-1);
 		if (strcmp(bn,"DOS     SYS")==0) return( 1);
 		if (strcmp(an,"DUP     SYS")==0) return(-1);
