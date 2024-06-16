@@ -28,8 +28,11 @@
 ;
 ;30.11.2022
 ;- added support for basic files(thanks to Jindrich Kubec for the code from his bas2boot project)
+;
+;16.06.2024
+;- added sio highspeed support
 
-buffer	= $700		;the lower byte of the buffer must be 0!
+buffer	= $f400		;the lower byte of the buffer must be 0!
 
 edst = $43	;2
 dst = $45	;2
@@ -47,7 +50,7 @@ BAS_CONT        = $A97A
 BAS_EXEC        = $B755
 
 	;* = buffer+$80-(adr780-bootsector)	;XXX Does not work in XA!
-	* = buffer+$80-$23			;now len $23 hardcoded
+	* = buffer+$80-$2e			;now len $2e hardcoded
 ;
 ;This first part is in the area below $0780,
 ;so after the first sector is loaded into the buffer $700-$77f it will be overwritten
@@ -63,16 +66,21 @@ init
 #print <buffer <> 0		;lower buffers are 0 !
 	;a=0
 	sta 580			;prevent boot after reset (some programs use a jump through the reset vector (Joust))
-	sta basic		;mark basic
+	sta $309		;LENH
+	;sta basic		;mark basic(is 0 at boot)
 	lda #>buffer
 reloc_02 = *-1
 	sta $305
+	lda #$80
+	sta $308		;LENL
 	lda #$70		;here is sector number $170
 	sta $30a		;because it increments by 1 right at the beginning
 	lda #$01		;and starts at $171
 	sta $30b
 	;A=1
 	sta $9			;some games need it (RASTER's invention from Xin1)
+	lda #$52		;read
+	sta $302		;COMMAND
 	rts
 	.byte 125		;as if there were 125 bytes in that sector to load the next sector
 ;
@@ -80,10 +88,12 @@ reloc_02 = *-1
 ;
 adr780
 read_next_sector
+	lda #$40
+	sta $303		;reset status to read
 	txa
 	pha			;save X
 rea1
-	jsr $e453
+	jsr siohv		;siov
 	dey			;is the result of the operation 1 (ok) ? dey decrements to Y=0
 	bne rea1		;is Y=0 ? not => again
 	pla
@@ -157,13 +167,6 @@ reloc_11 = *-1
 
 ;--
 
-nb40
-	lda #3
-	sta $d20f
-	jmp ($02e2)		;jmp on init address
-
-;--
-
 get_next_byte			;return next byte in A-reg
 
 	lda index		;last byte in sector?
@@ -198,7 +201,9 @@ reloc_16 = *-1
 reloc	.byte >buffer		;byte(0x07) for relocation adjustments
 				;will be changed by SDrive relocation feature
 ;
-entry				;once_and_then_next_block
+entry
+	jsr sio_high		;load sio highspeed routine
+next				;once_and_then_next_block
 	jsr get_next_byte	;load the first sector and overwrite 0700-077f
 reloc_17 = *-1
 	sta $02e0
@@ -209,17 +214,20 @@ reloc_18 = *-1
 	cmp #$ff		;are they both FF?
 	bne chkbas		;no => go basic
 	sta basic		;mark no basic(0xff)
-	beq entry		;then try the other two
+	beq next		;then try the other two
 
 chkbas	lda #0
 	cmp basic		;XEX?
 	bne goon
 				;else thread them as basic file
+	lda reloc		;make sure, we are above the bootloader code
+	;C=1			;and highspeed loader
+	adc #3
+	;C=0
+	sta reloc
 	lda $02e0
 	sta LOMEM		;store vectors
 	lda $02e1
-	clc
-	inc reloc		;make sure, we are above the bootloader code
 reloc_20 = *-1
 	adc reloc		;add LOMEM offset
 reloc_21 = *-1
@@ -289,6 +297,37 @@ store_memt:
 	sta RAMTOP
 	jmp EOPEN
 
+nb40
+	lda #3
+	sta $d20f
+	jmp ($02e2)		;jmp on init address
+
+sio_high:
+	lda #$68		;get sio routine length
+	sta $302
+	lda #$40
+	sta $303
+	lda #$2
+	sta $308
+	jsr $e459
+
+	inc $302		;get sio routine($69)
+	lda #$40
+	sta $303
+	lda buffer
+	sta $308
+	lda buffer+1
+	sta $309
+	lda #<siohv		;store
+	sta $304
+	sta $30a
+	lda #>siohv
+	sta $305
+	sta $30b
+	jsr $e459
+
+	jmp init		;reset siov values
+
 ;
 ;	relocation table 20 bytes
 ;
@@ -323,6 +362,7 @@ store_memt:
 	.byte reloc_27-bootsector
 #endif
 
+siohv	jmp $e459
 end
 
 ;sio_cmd

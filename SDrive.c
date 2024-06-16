@@ -1366,7 +1366,7 @@ percom_prepared:
 					{
 					 b=eeprom_read_byte(spt++);
 					 //Relocation of bootloader from $0700 to another location
-					 if (b==0x07) b+=bootloader_relocation;
+					 if ((b & 0xfe) == 0xf4 ) b+=bootloader_relocation+19;
 					 *dpt++=b;
 					 i--;
 					} while(i);
