@@ -8,7 +8,6 @@
 #include "avrlibtypes.h"        // global AVRLIB types definitions
 #include "global.h"
 #include "display.h"
-#include "logos.h"
 #include "touchscreen.h"
 #include "tft.h"
 #include "fat.h"
@@ -558,9 +557,9 @@ void draw_Buttons () {
 
 		//Logos
 		if(b.name[0] == 'D' && b.name[1] != '0') {
-			Draw_BMP(b.x+b.width-18,b.y+8,b.x+b.width-2,b.y+8+16,disk_image);
+			print_str_P(b.x+b.width-18,b.y+8,2,Dark_Grey,b.fg,PSTR("\x7f"));
 			if(b.name[3] == '<')
-				Draw_Line(b.x+b.width-18,b.y+8,b.x+b.width-2,b.y+8+16,Red);
+				Draw_Line(b.x+b.width-18,b.y+8,b.x+b.width-10,b.y+8+16,Red);
 		}
 	}
 }
