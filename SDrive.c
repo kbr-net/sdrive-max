@@ -122,20 +122,9 @@ uint8_t system_fastsio_pokeydiv_default EEMEM = US_POKEY_DIV_DEFAULT;
 #define IMSIZE5	736896
 #define	IMSIZE6	1474176
 #define IMSIZE7	2948736
-#define IMSIZES 7
 
+const struct PercomStruct percom_default = {0x28,0x01,0x00,0x12,0x00,0x04,0x01,0x00,0xff};
 struct PercomStruct percom;
-
-uint8_t system_percomtable[] EEMEM = {
-	0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
-	0x28,0x01,0x00,0x1A,0x00,0x04,0x00,0x80, IMSIZE2&0xff,(IMSIZE2>>8)&0xff,(IMSIZE2>>16)&0xff,(IMSIZE2>>24)&0xff,
-	0x28,0x01,0x00,0x12,0x00,0x04,0x01,0x00, IMSIZE3&0xff,(IMSIZE3>>8)&0xff,(IMSIZE3>>16)&0xff,(IMSIZE3>>24)&0xff,
-	0x28,0x01,0x00,0x12,0x01,0x04,0x01,0x00, IMSIZE4&0xff,(IMSIZE4>>8)&0xff,(IMSIZE4>>16)&0xff,(IMSIZE4>>24)&0xff,
-	0x50,0x01,0x00,0x12,0x01,0x04,0x01,0x00, IMSIZE5&0xff,(IMSIZE5>>8)&0xff,(IMSIZE5>>16)&0xff,(IMSIZE5>>24)&0xff,
-	0x50,0x01,0x00,0x24,0x01,0x04,0x01,0x00, IMSIZE6&0xff,(IMSIZE6>>8)&0xff,(IMSIZE6>>16)&0xff,(IMSIZE6>>24)&0xff,
-	0x50,0x01,0x00,0x48,0x01,0x04,0x01,0x00, IMSIZE7&0xff,(IMSIZE7>>8)&0xff,(IMSIZE7>>16)&0xff,(IMSIZE7>>24)&0xff,
-	0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
-	};
 
 //#define DEVICESNUM	5	//	//D0:-D4:
 virtual_disk_t vDisk[DEVICESNUM];
@@ -1128,54 +1117,66 @@ device_command_accepted:
 					}
 				}
 
-				u08 *ptr;
 				u08 isxex;
 				u16 secsize;
 
-				isxex = ( FileInfo.vDisk->flags & FLAGS_XEXLOADER );
+				isxex = (FileInfo.vDisk->flags & FLAGS_XEXLOADER);
 				secsize=(FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
-				ptr = system_percomtable;
 
-				//if ( isxex ) ptr+=(IMSIZES*12);
+				//percom_default: DD
+				//tracks,steprate,sectorshi,sectorslo,heads,method,bpshi,bpslo
+				//0x28,0x01,0x00,0x12,0x00,0x04,0x01,0x00
+				percom = percom_default;
 
-				do
-				{
-					u08 m;
-					//12 values per row in system_percomtable
-					//0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
-					//...
-					//0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
-					for(m=0;m<12;m++) ((unsigned char *)&percom)[m]=eeprom_read_byte(ptr++);
-					if (    (!isxex)
-						// &0xff... Due to the deletion of the eventual 16 ATR headings
-						&& ( FOURBYTESTOLONG((unsigned char *)&percom+8)==(fs & 0xffffff80) )
-						&& ( percom.bpshi == (secsize >> 8) ) //sectorsize hb
-					)
-					{
-						//File size and sector consent
-						goto percom_prepared;
-					}
-				} while (percom.tracks != 0x01);
+				// &0xff... Due to the deletion of the eventual 16 ATR headings
+				switch(fs&0xffffff80) {
+					case IMSIZE1: //SD
+					case IMSIZE2: //MD
+						percom.bpshi = 0;
+						percom.bpslo = 0x80;
+						if((fs&0xffffff80) == IMSIZE1)
+							percom.method = FM;
+						else
+							percom.sectorslo = 0x1a;
+						break;
+					case IMSIZE7: //ED
+					case IMSIZE6: //HD
+						percom.sectorslo = ((fs&0xffffff80) == IMSIZE7) ? 72 : 36;
+					case IMSIZE5: //720k
+						percom.tracks = 80;
+					case IMSIZE4: //QD
+						percom.heads = 1;
+					case IMSIZE3: //DD = default
+						break;
+					default: //no known floppy format, set
+						 //size and number of sectors
+						percom.bpshi = (secsize >> 8);
+						percom.bpslo = (secsize & 0xff);
+						percom.tracks = 1;
 
-				//no known floppy format, set size and number of sectors
-				percom.bpshi = (secsize >> 8);		//hb
-				percom.bpslo = (secsize & 0xff);	//db
+						if (isxex)
+						{
+							//-=3; //=125
+							secsize=125;
+							//((u32)0x171*(u32)125);
+							fs+=(u32)46125;
+						}
+						if (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)
+						{
+							//+384bytes for the
+							//first three sectors of 128bytes
+							fs+=(u32)(3*128);
+						}
 
-				if ( isxex )
-				{
-					secsize=125; //-=3; //=125
-					fs+=(u32)46125;	//((u32)0x171*(u32)125);
-				}
-				if ( FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS )
-				{
-					fs+=(u32)(3*128); //+384bytes for the first three sectors of 128bytes
-				}
-
-				fs /= ((u32)secsize); //convert filesize to sectors
-
-				percom.sectorshi = ((fs >> 8) & 0xff);	//hb sectors
-				percom.sectorslo = (fs & 0xff );	//lb sectors
-				percom.heads = ((fs >> 16) & 0xff);	//sides - 1  (0=> one side)
+						//convert filesize to sectors
+						fs /= ((u32)secsize);
+						//hb sectors
+						percom.sectorshi = ((fs >> 8) & 0xff);
+						//lb sectors
+						percom.sectorslo = (fs & 0xff );
+						//sides - 1  (0=> one side)
+						percom.heads = ((fs >> 16) & 0xff);
+				} //switch
 			}
 percom_prepared:
 				USART_Send_cmpl_and_buffer_and_check_sum((unsigned char *)&percom, sizeof(percom));
