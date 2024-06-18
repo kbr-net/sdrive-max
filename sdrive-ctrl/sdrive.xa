@@ -2194,6 +2194,11 @@ mnp1
 viferr
 	jmp SOUNDBELL_OWN ;jr!
 ViewFile
+	lda #$80	;set singlesector len
+	sta secsiz
+	asl		;$00<-$80
+	sta secsiz+1
+
 	ldx #0
 	jsr setdeviceX	;nastavi do vD0
 ;akce s tim souborem
@@ -2204,7 +2209,7 @@ ViewFile
 	jsr SIOV	;get flag
 	cpy #0	;result
 	bmi viferr	;chyba=> error
-	lda siobuffer+0		;vDisk flag
+	lda siobuffer	;vDisk flag
 	and #$61	;$40=xexloader,$20=doublesectors,$01=driveon
 	cmp #$41	;xexloader,singlesectors,driveon?
 	bne vfdir
@@ -2231,7 +2236,13 @@ vft8
 	jmp vft9
 
 vfdir
-	lda #$69	;get dir sector
+	and #$20	;doublesector?
+	beq vfds
+	ldx #$01
+	stx secsiz+1
+	dex
+	stx secsiz
+vfds	lda #$69	;get dir sector
 	sta vfgsecn
 	lda #$01
 	sta vfgsecn+1
@@ -2247,10 +2258,9 @@ vfd0
 	ldx #5
 vfd1
 	ldy #0
-	lda siobuffer,x-5
-	beq vfd6
 vfd2
 	lda siobuffer,x
+	beq vfd6	;end?
 	jsr convert
 	sta (ns),y
 	inx
@@ -2576,14 +2586,13 @@ vfg5 ;dalsi je 0
 	clc
 	rts
 ;
-vfReadSectorXY
-	stx vfgsecn
-	sty vfgsecn+1
 vfReadSector
 	lda #$52	;read sector
 	jsr Set300UniCommandA
-	lda #128	;sec size
+	lda secsiz
 	sta $308
+	lda secsiz+1
+	sta $309
 	lda vfgsecn
 	sta $30a
 	lda vfgsecn+1
