@@ -1489,6 +1489,9 @@ Send_ERR_and_DATA:
 		case 0x69:	//get sio routine
 			{
 				send_CMPL();
+				if (debug) {
+					sio_debug('C');
+				}
 
 				unsigned short e;
 				unsigned char sumo, sum = 0, i = 0;
