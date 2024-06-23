@@ -20,7 +20,7 @@ unix2atr:
 disk: sdrive.atr
 sdrive.atr: sdrive.com sdriven.com sdrivenh.com boot.bin unix2atr
 	[ -d disk ] || mkdir disk
-	cp *.com addon/* disk/
+	cp sdrive*.com addon/* disk/
 	./unix2atr -u 720 $@ disk/
 	dd if=boot.bin of=$@ conv=notrunc bs=1 seek=16
 
