@@ -2,7 +2,7 @@
 ;
 ; Many thanks to ABBUC!
 
-	 *=$d800
+	 *=$cc00
 
 USIOA    LDA $0301     ;DUNIT
          BNE SIO2
@@ -23,7 +23,13 @@ REL03    LDA C3F,Y     ;$F60D
          STA $0302,Y   ;DCOMND
          DEY
          BPL SIOCL
+         LDA $300
+         PHA
+         LDA #$31
+         STA $300
 REL04    JSR SIO3      ;$F450
+         PLA
+         STA $300
          LDX $0301     ;DUNIT
          LDY $0303     ;DSTATS
          BMI SIO21
@@ -249,3 +255,9 @@ C3F	.byte $3f,$40
 	.word $0001
 	.word $0001
 LWTBL	.dsb 8
+/*
+ABSTBL	.word DLWTBLL+1,REL01+1,REL02+1,REL03+1,REL04+1,REL05+1,REL06+1
+	.word REL07+1,REL08+1,REL09+1,REL10+1,REL11+1,REL12+1,REL13+1
+	.word REL14+1,REL15+1,GE1+1,REL16+1,REL17+1,REL18+1,REL19+1
+	.word REL20+1,STOUT+1,STOU2+1,ERRABS,REL21+1,EABS3+1
+*/

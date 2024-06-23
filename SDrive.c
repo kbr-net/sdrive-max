@@ -1498,15 +1498,15 @@ Send_ERR_and_DATA:
 				for(e = 0; e < highspeed_len; e++) {
 					atari_sector_buffer[i] = eeprom_read_byte(&highspeed[e]);
 
-					// Relocate all with highbytes 0xd8 - 0xdb
+					// Relocate all with highbytes 0xcc - 0xcf
 					// (this does not appear otherwise in sio code)
-					if((atari_sector_buffer[i] & 0xfc) == 0xd8) {
+					if((atari_sector_buffer[i] & 0xfc) == 0xcc) {
 						unsigned char l,h;
 						unsigned short addr1,addr2;
 						h = atari_sector_buffer[i];
 						l = atari_sector_buffer[i-1];
 						addr1 = (h << 8) | l;
-						addr2 = addr1 - (0xd800 - cmd_buf.aux);
+						addr2 = addr1 - (0xcc00 - cmd_buf.aux);
 						atari_sector_buffer[i] = addr2 >> 8;
 						atari_sector_buffer[i-1] = addr2 & 0xff;
 					}

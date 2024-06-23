@@ -1144,6 +1144,7 @@ AUX1_SIOV_ShowParameter_Choosenol
 	lda #1
 	sta $303	;neceka zadna data
 	jsr SIOV
+	jsr SIOHRESET
 	jsr GetAndShowParameters
 	jmp choosenol
 ;
@@ -2794,6 +2795,7 @@ rc07
 	lda #1
 	sta $303	;=1 neceka zadna data
 	jsr SIOV
+	jsr SIOHRESET	;reset highspeed pokeydiv
 ;
 rc11
 ;bootload reloc
@@ -3204,6 +3206,10 @@ SIOV
 	jmp $480
 normal	jmp $e459
 
+SIOHRESET
+	lda #0
+	sta $301
+	jmp SIOV	;reset highspeed pokeydiv
 ;
 showmessages
 msgid_error	= *-showmessages
