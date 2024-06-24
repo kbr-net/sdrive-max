@@ -358,7 +358,9 @@ unsigned int action_save_cfg () {
 	}
 	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
 	//check for SaveIm Button
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 	if(flags->selected) {
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 		//map D1-D4 0-indexed
 		for(i = 0; i < DEVICESNUM-1; i++) {
 			if(vDisk[i+1].flags & FLAGS_DRIVEON) {
@@ -396,6 +398,7 @@ unsigned int action_cal () {
 		p = getRawPoint();
 		Draw_H_Line(x-10,x+10,y,Green);
 		Draw_V_Line(x,y-10,y+10,Green);
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 		switch (i) {
 			case 0:
 				px1 = p.x;
@@ -444,6 +447,7 @@ unsigned int action_cal () {
         diff /= 2;
 	py1 -= diff;
 	py2 += diff;
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 
 	//print results
 	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);

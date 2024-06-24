@@ -649,7 +649,9 @@ bad_touch:			while (isTouching());
 			if(tape_flags.offset == 0) {
 				USART_Init(ATARI_SPEED_STANDARD);
 				tape_flags.run = 0;
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 				flags->selected = 0;
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 				draw_Buttons();
 			}
 			sei();
@@ -690,8 +692,10 @@ bad_touch:			while (isTouching());
 				sfp++;	//increase pointer
 			}
 			else {
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 				scroll_file_counter++;
 				scroll_file_counter++;
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 			}
 		}
 
@@ -753,6 +757,7 @@ void process_command ()
 	const struct button *bp;
 	char *name;
 	unsigned char drive_slot;
+	unsigned char doublesector = 0;
 
 	if(!cmd_buf.cmd)
 	{
@@ -861,7 +866,6 @@ disk_operations_direct_d0_d4:
 
 			{	//Beginning of the section over two cases, 0x21,0x22
 				u08 formaterror;
-				unsigned char doublesector = 0;
 				if (FileInfo.percomstate == 1) {
 					doublesector = percom.bpshi;
 				}
