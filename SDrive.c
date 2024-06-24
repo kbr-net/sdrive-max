@@ -1039,6 +1039,11 @@ Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE:
 				&& (cmd_buf.cmd!=0x68)
 				&& (cmd_buf.cmd!=0x69)
 			)
+			||
+			(
+				(cmd_buf.cmd==0x68 || cmd_buf.cmd==0x69)
+				&& (!tft.cfg.hsio)
+			)
 			|| //no other commands on newfile except status and percom
 			(
 				(FileInfo.vDisk->flags & FLAGS_ATRNEW)
