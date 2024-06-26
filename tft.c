@@ -21,7 +21,8 @@ extern virtual_disk_t vDisk[];
 extern const char system_name[] PROGMEM;
 extern const char system_version[] PROGMEM;
 extern uint8_t system_fastsio_pokeydiv_default;
-unsigned char pokeydiv;
+extern struct SDriveParameters sdrparams;
+#define pokeydiv sdrparams.p2
 
 unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
@@ -722,7 +723,6 @@ void tft_Setup() {
 			action_cal();
 		}
 	}
-	pokeydiv = eeprom_read_byte(&system_fastsio_pokeydiv_default);
 }
 
 const struct button * check_Buttons() {

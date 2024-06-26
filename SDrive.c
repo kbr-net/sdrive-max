@@ -131,15 +131,6 @@ virtual_disk_t vDisk[DEVICESNUM];
 
 virtual_disk_t tmpvDisk;
 
-struct SDriveParameters
-{
-	u08 p0;
-	u08 p1;
-	u08 p2;
-	u08 p3;
-	u32 p4_5_6_7;
-};
-
 struct sio_cmd {
 	u08 dev;
 	u08 cmd;

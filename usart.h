@@ -6,7 +6,6 @@
 
 #include "avrlibdefs.h"                 // global AVRLIB defines
 #include "avrlibtypes.h"                // global AVRLIB types definitions
-#include "global.h"
 
 #define send_ACK()	USART_Transmit_Byte('A')
 #define send_NACK()	USART_Transmit_Byte('N')
