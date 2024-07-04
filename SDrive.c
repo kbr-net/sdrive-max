@@ -1672,14 +1672,15 @@ Send_ERR_and_DATA:
 
 
 		case 0xE1: //init drive
-			//$E1  n ??	Init drive. n=0 (komplet , jako sdcardejected), n<>0 (jen setbootdrive d0: bez zmeny actual drive)
+			//$E1  n ??	Init drive. n=0 (complete, like sdcardejected),
+			// n<>0 (only setbootdrive d0: without changing the actual drive)
 
-			//protoze muze volat prvni cast s mmcReset,
-			//musi ulozit pripadny nacacheovany sektor
-			mmcWriteCachedFlush(); //pokud ceka nejaky sektor na zapis, zapise ho
+			//because it can call the first part with mmcReset,
+			//must save any cached sector
+			mmcWriteCachedFlush(); //if any sector is waiting to be written, write it
 
 			if (cmd_buf.aux1) {
-				SET_SDRIVEATR_TO_D0(); //bez zmeny actual_drive
+				SET_SDRIVEATR_TO_D0(); //not change actual_drive
 				send_CMPL();
 			}
 			else {
