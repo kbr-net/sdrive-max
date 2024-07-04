@@ -359,10 +359,10 @@ unsigned int action_save_cfg () {
 	unsigned char rot = tft.cfg.rot;
 
 	*(char*)&tft.cfg = 0;	//clear first
-	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
+	for(i = 0; i < tft.pages[actual_page].nbuttons-3; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
-		if(i < tft.pages[actual_page].nbuttons-3)	//not save last(SaveIm) button, only load ptr
+		if(i < tft.pages[actual_page].nbuttons-4)	//not save last(SaveIm) button, only load ptr
 			*(char*)&tft.cfg |= flags->selected << i;
 	}
 	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
@@ -513,8 +513,8 @@ const struct button PROGMEM buttons_cfg[] = {
 	{"Blank",15,205,80,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	{"H-SIO",130,205,80,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	//!!leave this buttons at the end, then we can loop thru the previous!!
-	{"Pokey",130,45,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_pokey},
 	{"SaveIm",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"Pokey",130,45,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_pokey},
 	{"Save",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_save_cfg},
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
@@ -677,11 +677,11 @@ void config_page () {
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
 	print_pokeydiv();
-	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
+	for(i = 0; i < tft.pages[actual_page].nbuttons-3; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
 		flags->selected = (*(char*)&tft.cfg >> i) & 1;
-		if(i == tft.pages[actual_page].nbuttons-3)
+		if(i == tft.pages[actual_page].nbuttons-4)
 			flags->selected = 0;
 	}
 	draw_Buttons();
