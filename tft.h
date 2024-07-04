@@ -42,7 +42,6 @@ struct display {
 		unsigned char boot_d1 : 1;
 		unsigned char drive_type : 1;
 		unsigned char blank : 1;
-		unsigned char hsio : 1;
 	} cfg;
 	struct page *pages;
 	//struct TSPoint *tp;	//unused
