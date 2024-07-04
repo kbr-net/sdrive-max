@@ -780,19 +780,20 @@ void process_command ()
 				//Convert from standard to fast or vice versa
 				fastsio_active=!fastsio_active;
 			}
+			else
+				fastsio_active = 0;
 
 change_sio_speed_by_fastsio_active:
 			{
 			 u08 as;
 			 as=ATARI_SPEED_STANDARD;	//default speed
-			 //if (fastsio_active) as=fastsio_pokeydiv+6;		//always about 6 vic
 			 if (fastsio_active) {
-					//for pokeydiv 16(a. o.) use index 11
-					if(fastsio_pokeydiv > 10)
-						as = pgm_read_byte(&atari_speed_table[11]);
-					//all others are linear
-					else
-						as = pgm_read_byte(&atari_speed_table[fastsio_pokeydiv]);
+				//for pokeydiv 16(a. o.) use index 11
+				if(fastsio_pokeydiv > 10)
+					as = pgm_read_byte(&atari_speed_table[11]);
+				//all others are linear
+				else
+					as = pgm_read_byte(&atari_speed_table[fastsio_pokeydiv]);
 			 }
 
 			 USART_Init(as);
@@ -1027,8 +1028,6 @@ Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE:
 				&& (cmd_buf.cmd!=0x53)
 				&& (cmd_buf.cmd!=0x4e)
 				&& (cmd_buf.cmd!=0x4f)
-				&& (cmd_buf.cmd!=0x68)
-				&& (cmd_buf.cmd!=0x69)
 			)
 			|| //no other commands on newfile except status and percom
 			(
@@ -1039,7 +1038,9 @@ Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE:
 			)
 		)
 		{
-			if (cmd_buf.cmd==0x3f && fastsio_pokeydiv!=US_POKEY_DIV_STANDARD) goto device_command_accepted;
+			if ((cmd_buf.cmd==0x3f || (cmd_buf.cmd==0x68) || (cmd_buf.cmd==0x69))
+				&& fastsio_pokeydiv!=US_POKEY_DIV_STANDARD)
+				goto device_command_accepted;
 Send_NACK_and_ST_IDLE:
 			if (debug)
 				sio_debug('N');

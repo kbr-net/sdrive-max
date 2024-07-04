@@ -343,11 +343,12 @@ void print_pokeydiv () {
 
 unsigned int action_pokey () {
 	pokeydiv++;
-	if(pokeydiv > 0x10)
+	if(pokeydiv > 40)
 		pokeydiv = 0;
-	if(pokeydiv == 11) {
-		pokeydiv = 0x10;
-	}
+	if(pokeydiv == 11)
+		pokeydiv = 16;
+	if(pokeydiv == 17)
+		pokeydiv = 40;
 	print_pokeydiv();
 	return(0);
 }
