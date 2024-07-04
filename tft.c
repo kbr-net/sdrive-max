@@ -335,12 +335,20 @@ unsigned int action_change (const struct button *b) {
 	return(0);
 }
 
+void print_pokeydiv () {
+	char buf[3];
+	sprintf_P(buf, PSTR("%2u"), pokeydiv);
+	print_str(155,95,2,Yellow,window_bg,buf);
+}
+
 unsigned int action_pokey () {
 	pokeydiv++;
-	if(pokeydiv > 9)
+	if(pokeydiv > 0x10)
 		pokeydiv = 0;
-	//tft.pages[actual_page].draw();
-	print_char(165,95,2,Yellow,window_bg,pokeydiv+0x30);
+	if(pokeydiv == 11) {
+		pokeydiv = 0x10;
+	}
+	print_pokeydiv();
 	return(0);
 }
 
@@ -668,7 +676,7 @@ void config_page () {
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
-	print_char(165,95,2,Yellow,window_bg,pokeydiv+0x30);
+	print_pokeydiv();
 	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
