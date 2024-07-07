@@ -337,8 +337,8 @@ unsigned int action_change (const struct button *b) {
 
 void print_pokeydiv () {
 	char buf[3];
-	sprintf_P(buf, PSTR("%2u"), pokeydiv);
-	print_str(155,95,2,Yellow,window_bg,buf);
+	sprintf_P(buf, PSTR("$%02X"), pokeydiv);
+	print_str(150,95,2,Yellow,window_bg,buf);
 }
 
 unsigned int action_pokey () {
