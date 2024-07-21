@@ -17,23 +17,6 @@
 extern unsigned char debug;
 extern void sio_debug(char status);
 
-#if defined(__AVR_ATmega328__) || defined(__AVR_ATmega168__)
-	#define UCSRA	UCSR0A
-	#define UCSRB	UCSR0B
-	#define UCSRC	UCSR0C
-	#define UDRE	UDRE0
-	#define RXEN	RXEN0
-	#define TXEN	TXEN0
-	#define URSEL	0		// does not exist
-	#define UCSZ0	UCSZ00
-	#define UCSZ1	UCSZ01
-	#define U2X	U2X0
-	#define RXC	RXC0
-	#define UDR	UDR0
-	#define FE	FE0
-	#define DOR	DOR0
-#endif
-
 extern unsigned char atari_sector_buffer[256];
 //extern unsigned char last_key;
 

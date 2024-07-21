@@ -7,6 +7,24 @@
 #include "avrlibdefs.h"                 // global AVRLIB defines
 #include "avrlibtypes.h"                // global AVRLIB types definitions
 
+#if defined(__AVR_ATmega328__) || defined(__AVR_ATmega168__)
+	#define UCSRA   UCSR0A
+	#define UCSRB   UCSR0B
+	#define UCSRC   UCSR0C
+	#define UDRE    UDRE0
+	#define RXEN    RXEN0
+	#define TXEN    TXEN0
+	#define URSEL   0		// does not exist
+	#define UCSZ0   UCSZ00
+	#define UCSZ1   UCSZ01
+	#define U2X     U2X0
+	#define RXC     RXC0
+	#define TXC     TXC0
+	#define UDR     UDR0
+	#define FE      FE0
+	#define DOR     DOR0
+#endif
+
 #define send_ACK()	USART_Transmit_Byte('A')
 #define send_NACK()	USART_Transmit_Byte('N')
 #define send_CMPL()	USART_Transmit_Byte('C')

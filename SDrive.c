@@ -764,10 +764,10 @@ void process_command ()
 		//If the reason is to change cmd to H, do not wait to wait_cmd_LH ()
 		//if (err&0x01) goto change_sio_speed; //The cmd rises to H, and the speed changes immediately
 
-		Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
+		//Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
 		wait_cmd_LH();	//Wait until the signal command rises to H
 		////due to LED function never needed, i think
-		//Delay100us();	//T2=100   (After lifting the command and before the ACK)
+		Delay100us();	//T2=100   (After lifting the command and before the ACK)
 
 		if(err)
 		{
@@ -783,6 +783,9 @@ void process_command ()
 			else
 				fastsio_active = 0;
 
+			_delay_ms(5);	//wait all (broken) bytes received
+					//(we have about 50ms before Atari retransmits)
+
 change_sio_speed_by_fastsio_active:
 			{
 			 u08 as;
@@ -795,7 +798,6 @@ change_sio_speed_by_fastsio_active:
 				else
 					as = pgm_read_byte(&atari_speed_table[fastsio_pokeydiv]);
 			 }
-
 			 USART_Init(as);
 			}
 			return;
@@ -1597,21 +1599,15 @@ Send_ERR_and_DATA:
 			
 			if (cmd_buf.aux1>US_POKEY_DIV_MAX) goto Send_ERR_and_Delay;
 			fastsio_pokeydiv = cmd_buf.aux1;
-			fastsio_active=0;	//zmenila se rychlost, musi prejit na standardni
-			
-			/*
-			//takhle to zlobilo
-			//vzdy to zabrucelo a vratio error #$8a (i kdyz se to provedlo)
-			USART_Init(ATARI_SPEED_STANDARD); //a zinicializovat standardni
-			goto Send_CMPL_and_Delay;
-			*/
+			fastsio_active=0;	//the speed has changed, it must go to standard
 
 			Delay800us();	//t5
+			UCSRA |= (1<<TXC);	//clear TX complete flag
 			send_CMPL();
+			while(! (UCSRA & (1<<TXC)));	//wait for TX complete
+			//otherwise speed will change during TX
+			//and result in broken complete byte!
 			goto change_sio_speed_by_fastsio_active;
-			//USART_Init(ATARI_SPEED_STANDARD); //a zinicializovat standardni
-			//break;
-
 
 		case 0xC2:	//$C2 nn ??	set bootloader relocation = $0700+$nn00
 
