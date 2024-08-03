@@ -25,7 +25,7 @@ REL03    LDA C3F,Y     ;$F60D
          BPL SIOCL
          LDA $300
          PHA
-         LDA #$31
+         LDA #$71
          STA $300
 REL04    JSR SIO3      ;$F450
          PLA

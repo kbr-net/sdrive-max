@@ -1537,7 +1537,8 @@ Send_ERR_and_DATA:
 	{
 		//if ( cmd_buf.cmd==0x50 || cmd_buf.cmd==0x52 || cmd_buf.cmd==0x53)
 		//schvalne prehozeno poradi kvuli rychlosti (pri normalnich operacich s SDrive nebude platit hned prvni cast podminky)
-		if ( cmd_buf.cmd<=0x53 && cmd_buf.cmd>=0x50 )
+		if((cmd_buf.cmd<=0x53 && cmd_buf.cmd>=0x50)
+			|| cmd_buf.cmd == 0x3f)
 		{
 			//(0x50,x52,0x53)
 			//pro povely readsector,writesector a status
