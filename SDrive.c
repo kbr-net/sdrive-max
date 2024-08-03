@@ -767,7 +767,7 @@ void process_command ()
 		//Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
 		wait_cmd_LH();	//Wait until the signal command rises to H
 		////due to LED function never needed, i think
-		Delay100us();	//T2=100   (After lifting the command and before the ACK)
+		//Delay100us();	//T2=100   (After lifting the command and before the ACK)
 
 		if(err)
 		{
@@ -1546,7 +1546,7 @@ Send_ERR_and_DATA:
 			goto disk_operations_direct_d0_d4; //vzdy napevno vD0: bez prehazovani
 		}
 
-
+		Delay100us();	//T2=100   (After lifting the command and before the ACK)
 		send_ACK();
 //			Delay1000us();	//delay_us(COMMAND_DELAY);
 
