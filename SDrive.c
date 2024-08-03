@@ -1550,6 +1550,8 @@ Send_ERR_and_DATA:
 		Delay100us();	//T2=100   (After lifting the command and before the ACK)
 		send_ACK();
 //			Delay1000us();	//delay_us(COMMAND_DELAY);
+		if(blanker_on())
+			blanker_stop();
 
 		//set Ptr to temp vDisk buffer, except for Get vDisk flags
 		if ( cmd_buf.cmd != 0xDB )
