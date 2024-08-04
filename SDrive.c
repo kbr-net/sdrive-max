@@ -349,8 +349,7 @@ void motor_off () {
 }
 
 ISR(TIMER1_COMPA_vect) {
-	if (motor)
-		motor++;
+	motor++;
 	if (motor > 20)
 		motor_off();
 }
