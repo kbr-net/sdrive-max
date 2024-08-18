@@ -3207,6 +3207,8 @@ SIOV
 normal	jmp $e459
 
 SIOHRESET
+	lda $480	;no highspeed?
+	beq sm2		;do nothing
 	lda #0
 	sta $301
 	jmp SIOV	;reset highspeed pokeydiv
