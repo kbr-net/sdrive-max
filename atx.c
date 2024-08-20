@@ -44,8 +44,10 @@
 #define MS_HEAD_SETTLE_1050      40
 // mask for checking FDC status "data lost" bit
 #define MASK_FDC_DLOST           0x04
+#define MASK_FDC_CRC_ERROR       0x08
 // mask for checking FDC status "missing" bit
 #define MASK_FDC_MISSING         0x10
+#define MASK_FDC_DELETED         0x20
 // mask for checking FDC status extended data bit
 #define MASK_EXTENDED_DATA       0x40
 #define MASK_RESERVED            0x80
@@ -166,9 +168,6 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     // set new head track position
     gCurrentHeadTrack = tgtTrackNumber;
 
-    // sample current head position
-    u16 headPosition = getCurrentHeadPosition();
-
     // read the track header
     u32 currentFileOffset = gTrackInfo[tgtTrackNumber - 1].offset;
     // exit, if track not present
@@ -200,6 +199,10 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 
         // if we are still below the maximum number of retries that would be performed by the drive firmware...
         u32 retryOffset = currentFileOffset;
+
+        // sample current head position
+        u16 headPosition = getCurrentHeadPosition();
+
         while (retries > 0) {
             retries--;
             currentFileOffset = retryOffset;
