@@ -196,6 +196,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 
         int pTT = 0;
         unsigned char retries = MAX_RETRIES_810;
+        if (is_1050())
+            retries = MAX_RETRIES_1050;
+
 
         // if we are still below the maximum number of retries that would be performed by the drive firmware...
         u32 retryOffset = currentFileOffset;
@@ -251,8 +254,8 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
             }
             // if the sector status is bad, update head position and delay for gLastAngle + one sector
             if (*status) {
-                headPosition = gLastAngle + au_one_sector_read;
-                waitForAngularPosition(incAngularDisplacement(getCurrentHeadPosition(), headPosition));
+                headPosition = (gLastAngle + au_one_sector_read) % AU_FULL_ROTATION;
+                waitForAngularPosition(headPosition);
             // otherwise, no need to retry
             } else {
                 retries = 0;
