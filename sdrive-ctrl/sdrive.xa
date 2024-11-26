@@ -3227,7 +3227,7 @@ msgid_quit	= *-showmessages
 txtquit .byte'1uit',31,0,8,57,9		;Quit
 	.byte $9b
 msgid_viewfiletype	= *-showmessages
-vseltypetxt .byte'6iew',0,'file',0,'!'+128,'4!3#))',0,'!3','#'+128,'))',0,'('+128,'ex',0,34,'in',14,'&ile'
+vseltypetxt .byte'6iew',0,'file',0,'!'+128,'4!3#))',0,'!3','#'+128,'))',0,'('+128,'ex',0,34+128,'in',14,'&ile'
 vseltypetxtlen = *-vseltypetxt
 	.byte $9b
 msgid_writeconfig	= *-showmessages
