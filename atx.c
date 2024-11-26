@@ -179,6 +179,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 #ifndef __AVR__
     byteSwapAtxTrackHeader(trackHeader);
 #endif
+    if (trackHeader->flags == 0x002 && gSectorsPerTrack != 26) {
+        goto error;
+    }
     u16 sectorCount = trackHeader->sectorCount;
 
     // if there are no sectors in this track or the track number doesn't match, return error

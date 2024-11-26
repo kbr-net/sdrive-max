@@ -4,6 +4,7 @@ v1.4:
 - added sio highspeed routine and commands $68, $69(eeprom update needed!)
 - use highspeed on XEX loader and SDRIVE.ATR also
 - ATX: Better timing and retry handling
+- ATX: Error on ED track on SD disk
 
 v1.3:
 - ATX: fixed wrong status on weak sectors,
