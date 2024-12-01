@@ -1126,13 +1126,13 @@ kee15
 	inc bootloader_relocation
 kee15a
 	lda bootloader_relocation
-	cmp #$bf-7
+	cmp #$bd-7
 	bne kee15a1
 	lda #$fe	;#$05-7
 kee15a1
 	cmp #$fd	;#$04-7
 	bne kee15a2
-	lda #$be-7
+	lda #$bc-7
 kee15a2
 	sta bootloader_relocation
 	;a ted to nastavi v SDrive
@@ -1630,10 +1630,15 @@ gasp6
 	lda bootloader_relocation
 	clc
 	adc #$07
+	tay
 	jsr HexAX
-	sta video2bootloader+0		;0700-07F7
-	sta video2bootloader+5
+	sta video2bootloader+0		;0700-
 	stx video2bootloader+1
+	tya
+	clc
+	adc #$03
+	jsr HexAX
+	sta video2bootloader+5		;-0ABE
 	stx video2bootloader+6
 gasp9
 	rts
@@ -2083,7 +2088,7 @@ video2p1 = video2+1
 	.byte"|":.dsb 14:.byte"ARRRRRRRRRRRRRRRRRRRRRRRD"
 video2p2
 	.byte"|":.dsb 14:.byte"|",0,"&ast3)/",0,4,31,31:.dsb 11:.byte"|"
-	.byte"|":.dsb 14:.byte"|",0,"B"-32,"oot,oader",0,4,31,31,16,16,13,31,31,"&",16+7,0,"|"
+	.byte"|":.dsb 14:.byte"|",0,"B"-32,"oot,oader",0,4,31,31,16,16,13,31,31,"F"-32,"F"-32,0,"|"
 	.byte"ZRRRRRRRRRRRRRRXRRRRRRRRRRRRRRRRRRRRRRRC"
 video3
 	.dsb 80		; 2 spare lines
