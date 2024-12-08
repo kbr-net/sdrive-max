@@ -86,8 +86,7 @@ int loadAtxFile(FILE *f) {
 uchar getAtxTrack(uchar num) {
     struct atxTrackHeader trackHeader;
     struct atxSectorListHeader slHeader;
-    struct atxSectorHeader sectorHeader;
-    uchar ret = NULL;
+    uchar ret = 0;
 
     // calculate track and relative sector number from the absolute sector number
     uchar tgtTrackNumber = num;
@@ -116,33 +115,54 @@ uchar getAtxTrack(uchar num) {
     uchar xsdFound = 0;
 
     // find the sector header
-    printf("=============================================\n");
-    printf("Track: %i count: %i\n", trackHeader.trackNumber, sectorCount);
-    printf("=============================================\n");
+    printf("===========================================================\n");
+    printf("Track: %i count: %i rate: %i flags: %04x size: %u\n", trackHeader.trackNumber, sectorCount, trackHeader.rate, trackHeader.flags, trackHeader.size);
+    printf("===========================================================\n");
     uchar sectors[26];
     bzero(&sectors, sizeof(sectors));
+
+    // read all sector headers
+    struct atxSectorHeader sectorHeader[sectorCount];
+    if (! fread(sectorHeader, sizeof(sectorHeader[0]) * sectorCount, 1, gFile))
+	return(ret);
+
     ushort i;
     for (i=0; i < sectorCount; i++) {
-        if (! fread(&sectorHeader, sizeof(sectorHeader), 1, gFile))
-		break;
-
-	//printf("Sec: %i T: %i S: %i St: 0x%02x t: %i i: %i\n", absSectorNumber + sectorHeader.number, tgtTrackNumber, sectorHeader.number, sectorHeader.status, sectorHeader.timev, i);
-	if (!sectorHeader.status)
-	    printf("i: %2i T: %02i S: %2i St: 0x%02x t: %5i Sec: %i\n", i, tgtTrackNumber, sectorHeader.number, sectorHeader.status, sectorHeader.timev, absSectorNumber + sectorHeader.number);
-	else
-	    printf("i: %2i T: %02i S: %2i St: \x1b[31;1m0x%02x\x1b[0m t: %5i Sec: %i\n", i, tgtTrackNumber, sectorHeader.number, sectorHeader.status, sectorHeader.timev, absSectorNumber + sectorHeader.number);
-
-	sectors[sectorHeader.number]++;
 	// if sector has extended data
-	if ((sectorHeader.status & STS_EXTENDED) > 0) {
-	    xsdFound = 1;
+	if ((sectorHeader[i].status & STS_EXTENDED) > 0) {
+	    xsdFound++;
 	    //TODO
 	}
+	if (!sectorHeader[i].status)
+	    printf("i: %2i T: %02i S: %2i St: 0x%02x t: %5i o: %4u s: %3li Sec: %i\n",
+		i,
+		tgtTrackNumber,
+		sectorHeader[i].number,
+		sectorHeader[i].status,
+		sectorHeader[i].timev,
+		sectorHeader[i].data,
+		(i == sectorCount-1 ? trackHeader.size - sectorHeader[i].data - sizeof(struct atxExtendedSectorData) * xsdFound - 8 : sectorHeader[i+1].data - sectorHeader[i].data),
+		absSectorNumber + sectorHeader[i].number);
+	else
+	    printf("i: %2i T: %02i S: %2i St: \x1b[31;1m0x%02x\x1b[0m t: %5i o: %4u s: %3li Sec: %i\n",
+		i,
+		tgtTrackNumber,
+		sectorHeader[i].number,
+		sectorHeader[i].status,
+		sectorHeader[i].timev,
+		sectorHeader[i].data,
+		(i == sectorCount-1 ? trackHeader.size - sectorHeader[i].data - sizeof(struct atxExtendedSectorData) * xsdFound - 8 : sectorHeader[i+1].data - sectorHeader[i].data),
+		absSectorNumber + sectorHeader[i].number);
+
+	sectors[sectorHeader[i].number]++;
     }
 
     for (i = 0; i < sectorCount; i++) {
 	if (sectors[i] > 1)
 	    printf("has doubles: %i: %i\n", i, sectors[i]);
+    }
+    if (xsdFound) {
+	printf("has extended: %i\n", xsdFound);
     }
     return ret;
 }
