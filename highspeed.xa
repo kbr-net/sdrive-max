@@ -27,6 +27,7 @@ REL03    LDA C3F,Y     ;$F60D
          PHA
          LDA #$71
          STA $300
+         LDX #1
 REL04    JSR SIO3      ;$F450
          PLA
          STA $300
@@ -42,8 +43,10 @@ SIO21CL  PLA
          CPY #$08
          BCC SIO21CL
 SIO3     SEI
+         CLC
          TXA
-         ORA $300
+         ADC $0300     ;add DDEVIC
+         ADC #$FF      ;-1
          STA $023A     ;CDEVIC
          LDA $0302     ;DCOMND
          STA $023B     ;CCOMND
