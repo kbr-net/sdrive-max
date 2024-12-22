@@ -123,7 +123,6 @@ char isTouching() {
 	setIdling();
 	char ret=!(*XM_PIN & (1<<XM));	// read press condition(TRUE when LOW)
 	restorePorts();
-	sei();
 	return ret;
 }
 
@@ -158,7 +157,6 @@ struct TSPoint getPoint () {
 	p.y = map(readTouch(1), TS_MINY, TS_MAXY, 0, MAX_Y);
 
 	restorePorts();
-	sei();
 	return(p);
 }
 
@@ -171,6 +169,5 @@ struct TSPoint getRawPoint () {
 	p.y = readTouch(1);
 
 	restorePorts();
-	sei();
 	return(p);
 }

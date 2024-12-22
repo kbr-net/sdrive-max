@@ -538,7 +538,6 @@ ST_IDLE:
 	sfp = atari_sector_buffer;
 
 	LED_GREEN_OFF(virtual_drive_number);	// LED OFF
-	sei();	//enable interrupts
 
 	//Mainloop: Wait for touchscreen input
 	//Atari command is triggered by interrupt
@@ -550,6 +549,8 @@ ST_IDLE:
 		unsigned int (*b_func)(const struct button *);
 		unsigned int de;
 		char *name;
+
+		sei();	//enable interrupts
 
 		if (isTouching()) {
 			if(blanker_on()) {
@@ -576,7 +577,6 @@ ST_IDLE:
 				b_func = pgm_read_ptr(&b->pressed);
 				//...call the buttons function
 				de = b_func(b);
-				sei();
 				//check if actual_drive has changed
 				if (actual_drive_number != drive_number && flags->selected) {
 					actual_drive_number = drive_number;
@@ -609,7 +609,6 @@ ST_IDLE:
 					}
 					cmd_buf.dev = 0x71;	//say we are a sdrive cmd
 					process_command();
-					sei();
 				}
 				//it was the N[ew]-Button? Create new file
 				//(reset is done in deactivate drive)
@@ -644,7 +643,6 @@ bad_touch:			while (isTouching());
 #pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 				draw_Buttons();
 			}
-			sei();
 		}
 		//scrolling long filename
 		if (tft.cfg.scroll && actual_page == PAGE_FILE && scroll_file_len) {
@@ -1681,6 +1679,7 @@ Send_ERR_and_DATA:
 			else {
 				Delay800us();	//t5
 				send_CMPL();
+				cli();
 				goto *0x0000;
 			}
 			break;
