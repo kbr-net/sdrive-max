@@ -165,11 +165,12 @@ unsigned int list_files () {
 	unsigned int col;
 	unsigned char e;
 
-	if(!nfiles)
-		while (fatGetDirEntry(nfiles,0)) nfiles++;
-
+	//no more pages, because this routine handles the "Next" button also!
 	if(!fatGetDirEntry(next_file_idx,0))
 		return(0);
+
+	if(!nfiles)
+		while (fatGetDirEntry(nfiles,0)) nfiles++;
 
 	set_text_pos(15,32);	//page counter
 	sprintf_P(atari_sector_buffer, PSTR("%i files, page %i/%i  %s            "),
