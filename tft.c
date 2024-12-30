@@ -191,7 +191,6 @@ unsigned int list_files () {
 					   atari_sector_buffer[10] == pgm_read_byte(&known_extensions[e][2]) )
 					{
 					    col = Green;
-					    break;	//one match is enaugh
 					}
 				}
 			}
