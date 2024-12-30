@@ -381,7 +381,6 @@ void SET_SDRIVEATR_TO_D0 () {
 
 		//found SDRIVE.ATR, set values to vDisk
 		FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-		FileInfo.vDisk->ncluster=0;
 
 		faccess_offset(FILE_ACCESS_READ,0,16); //read ATR header
 
@@ -2145,7 +2144,6 @@ Command_EC_F0_FF_found:
 				{
 					//Aktivuje soubor
 					FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-					FileInfo.vDisk->ncluster=0;
 					//reset flags except ATRNEW
 					FileInfo.vDisk->flags &= FLAGS_ATRNEW;
 					FileInfo.vDisk->flags_ext = 0;
