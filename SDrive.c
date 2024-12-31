@@ -1559,6 +1559,18 @@ Send_ERR_and_DATA:
 
 		//--------------------------------------------------------------------------
 
+		case 0xA0:	//AVR memory dump
+			{
+				unsigned char *p = 0x0;
+				Delay800us();
+				send_CMPL();
+				Delay800us();
+				USART_Send_Buffer(p, 2048+0x100);
+				//checksum will be always bad due to dynamic
+				// in buffer, so skip it!
+			}
+			break;
+
 		case 0xC0:	//$C0 xl xh	Get 20 filenames from xhxl. 8.3 + attribute (11+1)*20+1 [<241]
 					//		+1st byte of filename 21 (+1)
 			{
