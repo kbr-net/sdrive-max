@@ -5,6 +5,9 @@ v1.4:
 - use highspeed on XEX loader and SDRIVE.ATR also
 - ATX: Better timing and retry handling
 - ATX: Error on ED track on SD disk
+- fixed broken file list on display after directory change via sdrive.com
+- fixed display mess on soft reset
+- sdrive.com: better text for view bin file
 
 v1.3:
 - ATX: fixed wrong status on weak sectors,
