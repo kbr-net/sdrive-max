@@ -521,7 +521,7 @@ int main(void)
 		draw_Buttons();		//now redraw buttons
 	}
 	//start with root dir
-	tmpvDisk.dir_cluster=RootDirCluster;
+	tmpvDisk.dir_cluster=MSDOSFSROOT;
 
 	SET_SDRIVEATR_TO_D0();
 

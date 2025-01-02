@@ -29,6 +29,7 @@ unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
+unsigned long tft_last_dir_cluster = MSDOSFSROOT;
 unsigned char scroll_file_len;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
@@ -165,6 +166,33 @@ unsigned int list_files () {
 	unsigned int col;
 	unsigned char e;
 
+	if(tft_last_dir_cluster != FileInfo.vDisk->dir_cluster) {
+		next_file_idx = 0;
+		nfiles = 0;
+
+		//remember current dir
+		tft_last_dir_cluster = FileInfo.vDisk->dir_cluster;
+
+		//get dir name
+		if(FileInfo.vDisk->dir_cluster == MSDOSFSROOT) { //is root?
+			strncpy(path, "/", 2);
+		}
+		else {
+			fatGetDirEntry(0,0);	//get prev dir entry (..)
+			//and set it to actual directory
+			FileInfo.vDisk->dir_cluster=FileInfo.vDisk->start_cluster;
+			//find the prev dir name
+			for(i = 0; fatGetDirEntry(i,1); i++) {
+				//where the start_cluster matches the cur. dir
+				if(FileInfo.vDisk->start_cluster == tft_last_dir_cluster) {
+					strncpy(path, atari_sector_buffer, 12);
+				}
+			}
+			//reset directory to current
+			FileInfo.vDisk->dir_cluster = tft_last_dir_cluster;
+		}
+	}
+
 	//no more pages, because this routine handles the "Next" button also!
 	if(!fatGetDirEntry(next_file_idx,0))
 		return(0);
@@ -239,8 +267,6 @@ unsigned int list_files_last () {
 
 unsigned int action_select() {
 	unsigned int file;
-	unsigned char i;
-	unsigned long odirc;
 
 	file = p.y - 45;	// 45-280 => 0-235
 	file /= 24;		// split into 10 pieces
@@ -252,34 +278,6 @@ unsigned int action_select() {
 	if(FileInfo.Attr & ATTR_DIRECTORY) {
 		//set new directory to current
 		FileInfo.vDisk->dir_cluster=FileInfo.vDisk->start_cluster;
-
-		//if we have a change to previous dir
-		if(atari_sector_buffer[0] == '.' && atari_sector_buffer[1] == '.') {
-			//was a change to root?
-			if(FileInfo.vDisk->start_cluster == 0) {
-				strncpy(path, "/", 2);
-				goto was_root;
-			}
-			//remember current dir
-			odirc = FileInfo.vDisk->start_cluster;
-			fatGetDirEntry(0,0);	//get prev dir entry (..)
-			//and set it to actual directory
-			FileInfo.vDisk->dir_cluster=FileInfo.vDisk->start_cluster;
-			//find the prev dir name
-			for(i = 0; i < 255; i++) {
-				fatGetDirEntry(i,1);
-				//where the start_cluster matches the cur. dir
-				if(FileInfo.vDisk->start_cluster == odirc)
-					break;
-			}
-			//reset directory to current
-			FileInfo.vDisk->dir_cluster = odirc;
-		}
-		strncpy(path, atari_sector_buffer, 12);
-was_root:	//outbox(path);
-
-		next_file_idx = 0;
-		nfiles = 0;
 		file_selected = -1;
 	}
 	else {	//is a file
