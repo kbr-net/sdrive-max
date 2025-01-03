@@ -520,7 +520,6 @@ int main(void)
 			}
 		}
 		actual_page = PAGE_MAIN;	//clear the fake
-		draw_Buttons();		//now redraw buttons
 	}
 	//start with root dir
 	tmpvDisk.dir_cluster=MSDOSFSROOT;
