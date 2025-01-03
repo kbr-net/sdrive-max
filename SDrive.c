@@ -170,8 +170,10 @@ void drive_led(unsigned char drive, unsigned char on) {
 	unsigned int col = Grey;
 	unsigned int x,y;
 
-	if(actual_page != PAGE_MAIN)
+	if(actual_page != PAGE_MAIN) {
+		Delay200us();
 		return;
+	}
 
 	const struct button *b = &tft.pages[PAGE_MAIN].buttons[drive];
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
@@ -763,8 +765,7 @@ void process_command ()
 		//Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
 		wait_cmd_LH();	//Wait until the signal command rises to H
 		////due to LED function never needed in normal mode, i think
-		if (debug)
-			Delay200us();	//T2=0-16ms (After lifting the command and before the ACK)
+		//Delay200us();	//T2=0-16ms (After lifting the command and before the ACK)
 
 		if(err)
 		{
