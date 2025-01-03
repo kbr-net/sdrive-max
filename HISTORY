@@ -8,6 +8,7 @@ v1.4:
 - fixed broken file list on display after directory change via sdrive.com
 - fixed display mess on soft reset
 - sdrive.com: better text for view bin file
+- fixed unreadable chars on filenames
 
 v1.3:
 - ATX: fixed wrong status on weak sectors,
