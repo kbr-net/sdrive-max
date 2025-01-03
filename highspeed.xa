@@ -23,14 +23,7 @@ REL03    LDA C3F,Y     ;$F60D
          STA $0302,Y   ;DCOMND
          DEY
          BPL SIOCL
-         LDA $300
-         PHA
-         LDA #$71
-         STA $300
-         LDX #1
 REL04    JSR SIO3      ;$F450
-         PLA
-         STA $300
          LDX $0301     ;DUNIT
          LDY $0303     ;DSTATS
          BMI SIO21
