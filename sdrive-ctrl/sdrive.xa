@@ -1067,6 +1067,7 @@ kee11
 kee11b
 clearbottompanelandrestart	;sem skace na konci Shift+< (Clear)
 	jsr clearbottompanel
+	jsr SIOHRESET
 	jmp restart
 ;
 kee12
