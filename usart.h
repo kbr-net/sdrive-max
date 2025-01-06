@@ -15,6 +15,7 @@
 	#define RXEN    RXEN0
 	#define TXEN    TXEN0
 	#define URSEL   0		// does not exist
+	#define USBS	USBS0
 	#define UCSZ0   UCSZ00
 	#define UCSZ1   UCSZ01
 	#define U2X     U2X0
