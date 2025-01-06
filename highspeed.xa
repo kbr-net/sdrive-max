@@ -7,13 +7,14 @@
 USIOA    LDA $0301     ;DUNIT
          BNE SIO2
          LDX #$08
+         LDA #$FF
 DLWTBLL  STA LWTBL-1,X ;$F614
          DEX
          BNE DLWTBLL
          RTS
 SIO2     TAX
 REL01    LDA LWTBL-1,X ;$F614
-         BNE SIO3
+         BPL SIO3
          LDA #$28
 REL02    STA LWTBL-1,X ;$F614
          LDY #$07
@@ -250,7 +251,7 @@ C3F	.byte $3f,$40
 	.word $0001
 	.word $0001
 	.word $0001
-LWTBL	.dsb 8
+LWTBL	.dsb 8,$FF
 /*
 ABSTBL	.word DLWTBLL+1,REL01+1,REL02+1,REL03+1,REL04+1,REL05+1,REL06+1
 	.word REL07+1,REL08+1,REL09+1,REL10+1,REL11+1,REL12+1,REL13+1
