@@ -49,7 +49,7 @@ unsigned char get_checksum (unsigned char* buffer, u16 len) {
 	return sum;
 }
 
-void USART_Init ( u16 value ) {
+void USART_Init ( u08 value ) {
 	/* Wait for empty transmit buffer */
 	while ( !( UCSRA & (1<<UDRE)) ); //cekani
 
@@ -57,8 +57,8 @@ void USART_Init ( u16 value ) {
 #if defined(__AVR_ATmega328__) || defined(__AVR_ATmega168__)
 	UBRR0 = value;
 #else
-	UBRRH = value >> 8;
-	UBRRL = value & 0xff;
+	UBRRH = 0;
+	UBRRL = value;
 #endif
 
 	/* Set double speed flag */
