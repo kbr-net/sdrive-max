@@ -55,6 +55,16 @@ const char system_info[] PROGMEM = "SDrive" STR(SWVERSIONMAJOR) STR(SWVERSIONMIN
 //Pokey_frq = 1789790
 //BAUD = Pokey_frq/2/(AUDF+7)		//(16bit register)
 
+#define US_POKEY_DIV_STANDARD	0x28		//#40  => 19040 bps
+						//=> 19231 bps #51
+//#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+11)	//#51 (o sest vic)
+#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+12)*2	//#104 U2X=1
+//#define ATARI_SPEED_STANDARD	(US_POKEY_DIV_STANDARD+6)	//#46 (o sest vic)
+
+#define US_POKEY_DIV_DEFAULT	0x06		//#6   => 68838 bps
+
+#define US_POKEY_DIV_MAX		(255-6)		//pokeydiv 249 => avrspeed 255 (vic nemuze)
+
 const unsigned char atari_speed_table[] PROGMEM = {
 	//avr-UBRR	//pokeydiv: Baud Atari, AVR
 	15,		//0: 127842, 125000

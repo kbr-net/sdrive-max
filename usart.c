@@ -69,9 +69,6 @@ void USART_Init ( u08 value ) {
 	UCSRB = (1<<RXEN)|(1<<TXEN);
 	/* Set frame format: 8data, 1stop bit */
 	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0);
-	/* For highspeed 2 stop bits */
-	if(value != ATARI_SPEED_STANDARD)
-		UCSRC |= (1<<USBS);
 	{
 	 //unsigned char dummy;
 	 while ( UCSRA & (1<<RXC) ) inb(UDR);
