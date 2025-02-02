@@ -76,7 +76,6 @@ configsectorsbs	= $4f40			;$4f40-4f49		(max. 9)
 configsectorslen = $60
 configdata	= $5000			;$5000-$54ff	(max 5 stranek)
 ;
-SIOV		= $e459
 POWEROFFON	= $33d	;PUPBT1 - jeho zmenou nasleduje pri rebootu totalni reset
 REBOOT		= $e477	;reboot vec.
 COLDRESETVEC	= $fffc	;coldreset
@@ -1068,6 +1067,7 @@ kee11
 kee11b
 clearbottompanelandrestart	;sem skace na konci Shift+< (Clear)
 	jsr clearbottompanel
+	jsr SIOHRESET
 	jmp restart
 ;
 kee12
@@ -1127,13 +1127,13 @@ kee15
 	inc bootloader_relocation
 kee15a
 	lda bootloader_relocation
-	cmp #$bf-7
+	cmp #$bd-7
 	bne kee15a1
 	lda #$fe	;#$05-7
 kee15a1
 	cmp #$fd	;#$04-7
 	bne kee15a2
-	lda #$be-7
+	lda #$bc-7
 kee15a2
 	sta bootloader_relocation
 	;a ted to nastavi v SDrive
@@ -1145,6 +1145,7 @@ AUX1_SIOV_ShowParameter_Choosenol
 	lda #1
 	sta $303	;neceka zadna data
 	jsr SIOV
+	jsr SIOHRESET
 	jsr GetAndShowParameters
 	jmp choosenol
 ;
@@ -1630,10 +1631,15 @@ gasp6
 	lda bootloader_relocation
 	clc
 	adc #$07
+	tay
 	jsr HexAX
-	sta video2bootloader+0		;0700-07F7
-	sta video2bootloader+5
+	sta video2bootloader+0		;0700-
 	stx video2bootloader+1
+	tya
+	clc
+	adc #$03
+	jsr HexAX
+	sta video2bootloader+5		;-0ABE
 	stx video2bootloader+6
 gasp9
 	rts
@@ -2083,7 +2089,7 @@ video2p1 = video2+1
 	.byte"|":.dsb 14:.byte"ARRRRRRRRRRRRRRRRRRRRRRRD"
 video2p2
 	.byte"|":.dsb 14:.byte"|",0,"&ast3)/",0,4,31,31:.dsb 11:.byte"|"
-	.byte"|":.dsb 14:.byte"|",0,"B"-32,"oot,oader",0,4,31,31,16,16,13,31,31,"&",16+7,0,"|"
+	.byte"|":.dsb 14:.byte"|",0,"B"-32,"oot,oader",0,4,31,31,16,16,13,31,31,"F"-32,"F"-32,0,"|"
 	.byte"ZRRRRRRRRRRRRRRXRRRRRRRRRRRRRRRRRRRRRRRC"
 video3
 	.dsb 80		; 2 spare lines
@@ -2195,6 +2201,11 @@ mnp1
 viferr
 	jmp SOUNDBELL_OWN ;jr!
 ViewFile
+	lda #$80	;set singlesector len
+	sta secsiz
+	asl		;$00<-$80
+	sta secsiz+1
+
 	ldx #0
 	jsr setdeviceX	;nastavi do vD0
 ;akce s tim souborem
@@ -2205,7 +2216,7 @@ ViewFile
 	jsr SIOV	;get flag
 	cpy #0	;result
 	bmi viferr	;chyba=> error
-	lda siobuffer+0		;vDisk flag
+	lda siobuffer	;vDisk flag
 	and #$61	;$40=xexloader,$20=doublesectors,$01=driveon
 	cmp #$41	;xexloader,singlesectors,driveon?
 	bne vfdir
@@ -2232,7 +2243,13 @@ vft8
 	jmp vft9
 
 vfdir
-	lda #$69	;get dir sector
+	and #$20	;doublesector?
+	beq vfds
+	ldx #$01
+	stx secsiz+1
+	dex
+	stx secsiz
+vfds	lda #$69	;get dir sector
 	sta vfgsecn
 	lda #$01
 	sta vfgsecn+1
@@ -2248,10 +2265,9 @@ vfd0
 	ldx #5
 vfd1
 	ldy #0
-	lda siobuffer,x-5
-	beq vfd6
 vfd2
 	lda siobuffer,x
+	beq vfd6	;end?
 	jsr convert
 	sta (ns),y
 	inx
@@ -2577,14 +2593,13 @@ vfg5 ;dalsi je 0
 	clc
 	rts
 ;
-vfReadSectorXY
-	stx vfgsecn
-	sty vfgsecn+1
 vfReadSector
 	lda #$52	;read sector
 	jsr Set300UniCommandA
-	lda #128	;sec size
+	lda secsiz
 	sta $308
+	lda secsiz+1
+	sta $309
 	lda vfgsecn
 	sta $30a
 	lda vfgsecn+1
@@ -2786,6 +2801,7 @@ rc07
 	lda #1
 	sta $303	;=1 neceka zadna data
 	jsr SIOV
+	jsr SIOHRESET	;reset highspeed pokeydiv
 ;
 rc11
 ;bootload reloc
@@ -3188,7 +3204,20 @@ sm1
 	inx
 	iny
 	bne sm1
-sm2 rts
+sm2	rts
+
+SIOV
+	lda $480
+	beq normal
+	jmp $480
+normal	jmp $e459
+
+SIOHRESET
+	lda $480	;no highspeed?
+	beq sm2		;do nothing
+	lda #0
+	sta $301
+	jmp SIOV	;reset highspeed pokeydiv
 ;
 showmessages
 msgid_error	= *-showmessages
@@ -3204,7 +3233,7 @@ msgid_quit	= *-showmessages
 txtquit .byte'1uit',31,0,8,57,9		;Quit
 	.byte $9b
 msgid_viewfiletype	= *-showmessages
-vseltypetxt .byte'6iew',0,'file',0,'!'+128,'4!3#))',0,'!3','#'+128,'))',0,'('+128,'ex',0,34,'in',14,'&ile'
+vseltypetxt .byte'6iew',0,'file',0,'!'+128,'4!3#))',0,'!3','#'+128,'))',0,'('+128,'ex',0,34+128,'in',',oad','!ddr'
 vseltypetxtlen = *-vseltypetxt
 	.byte $9b
 msgid_writeconfig	= *-showmessages

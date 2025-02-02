@@ -1,0 +1,260 @@
+; sio highspeed routine
+;
+; Many thanks to ABBUC!
+
+	 *=$cc00
+
+USIOA    LDA $0301     ;DUNIT
+         BNE SIO2
+         LDX #$08
+         LDA #$FF
+DLWTBLL  STA LWTBL-1,X ;$F614
+         DEX
+         BNE DLWTBLL
+         RTS
+SIO2     TAX
+REL01    LDA LWTBL-1,X ;$F614
+         BPL SIO3
+         LDA #$28
+REL02    STA LWTBL-1,X ;$F614
+         LDY #$07
+SIOCL    LDA $0302,Y   ;DCOMND
+         PHA
+REL03    LDA C3F,Y     ;$F60D
+         STA $0302,Y   ;DCOMND
+         DEY
+         BPL SIOCL
+REL04    JSR SIO3      ;$F450
+         LDX $0301     ;DUNIT
+         LDY $0303     ;DSTATS
+         BMI SIO21
+         LDA $01
+REL05    STA LWTBL-1,X ;$F614
+SIO21    LDY #$00
+SIO21CL  PLA
+         STA $0302,Y   ;DCOMND
+         INY
+         CPY #$08
+         BCC SIO21CL
+SIO3     SEI
+         CLC
+         TXA
+         ADC $0300     ;add DDEVIC
+         ADC #$FF      ;-1
+         STA $023A     ;CDEVIC
+         LDA $0302     ;DCOMND
+         STA $023B     ;CCOMND
+         LDA $030A     ;DAUX1
+         STA $023C     ;CAUX1
+         LDA $030B     ;DAUX2
+         STA $023D     ;CAUX2
+REL06    LDA LWTBL-1,X ;$F614
+         STA $D204     ;AUDF3
+         TSX
+         STX $3F       ;FEOF
+         LDA #$02
+         STA $37       ;DRETRY
+IO11     LDA #$07
+         STA $36       ;CRETRY
+IO12     LDA #$34
+         STA $D303
+         LDA #$00
+         STA $30       ;STATUS
+         STA $3E       ;FTYPE
+         STA $35       ;BUFEND+1
+         STA $D206     ;AUDF4
+         LDA #$3A
+         STA $32       ;BUFADR
+         LDA #$02
+         STA $33       ;BUFADR+1
+         ASL
+         STA $34       ;BUFEND
+REL07    JSR SEND1     ;$F4DC
+         LDA $0304     ;DBUFLO
+         STA $32       ;BUFADR
+         LDA $0305     ;DBUFHI
+         STA $33       ;BUFADR+1
+         LDA $0308     ;DBYTLO
+         STA $34       ;BUFEND
+         LDA $0309     ;DBYTHI
+         STA $35       ;BUFEND+1
+         LDA $0303     ;DSTATS
+         BPL IO2
+REL08    JSR SEND1     ;$F4DC
+IO2      DEC $3E       ;FTYPE
+REL09    JSR SETTI1    ;$F544
+         BIT $0303     ;DSTATS
+         BVC IO3
+REL10    JSR GETA1     ;$F521
+IO3      LDA #$A0
+         STA $D207     ;AUDC4
+         LDA $10
+         STA $D20E     ;IRQEN
+REL11    JSR CLRTI1    ;$F576
+         LDA $30       ;STATUS
+         BEQ IO4
+         DEC $37       ;DRETRY
+         BNE IO11
+IO4      TAY
+         BNE IO5
+         INY
+IO5      STY $0303     ;DSTATS
+         CLI
+         RTS
+SEND1    LDY #$00
+SE1      INY
+         BNE SE1
+         LDA #$23
+REL12    JSR POKEY     ;$F5F7
+         LDA ($32),Y   ;BUFADR
+         STA $31       ;CHKSUM
+         STA $D20D     ;SEROUT
+         INY
+         BNE SE3
+SE2      LDA ($32),Y   ;BUFADR
+REL13    JSR PUTBYTE   ;$F5D4
+         INY
+         BNE SE3
+         INC $33       ;BUFADR+1
+         DEC $35       ;BUFEND+1
+         LDX #$E0
+SEWL     INX
+         BNE SEWL
+SE3      CPY $34       ;BUFEND
+         BNE SE2
+         LDA $35       ;BUFEND+1
+         BNE SE2
+         LDA $31       ;CHKSUM
+REL14    JSR PUTBYTE   ;$F5D4
+SEO1     LDA $D20E     ;IRQST
+         AND #$08
+         BNE SEO1
+         LDY #$03
+REL15    JSR STOUTX0   ;$F578
+         LDA #$C0
+         STA $D20E     ;IRQEN
+         BNE RDQUIT
+GETA1    LDY #$00
+         STY $31       ;CHKSUM
+GE1      JSR GETBYTE   ;$F5B1
+         STA ($32),Y   ;BUFADR
+REL16    JSR ADDSUM    ;$F5EF
+         INY
+         BNE GE2
+         INC $33       ;BUFADR+1
+         DEC $35       ;BUFEND+1
+GE2      CPY $34       ;BUFEND
+         BNE GE1
+         LDA $35       ;BUFEND+1
+         BNE GE1
+REL17    JSR GETBYTE   ;$F5B1
+         CMP $31       ;CHKSUM
+         BNE ERR8F
+         RTS
+SETTI1   LDA $0306     ;DTIMLO
+         ROR
+         ROR
+         TAY
+         AND #$3F
+         TAX
+         TYA
+         ROR
+         AND #$C0
+         TAY
+REL18    JSR STOUT     ;$F57A
+RDQUIT   LDA #$3C
+         STA $D303
+         LDA #$13
+REL19    JSR POKEY     ;$F5F7
+REL20    JSR GETBYTE   ;$F5B1
+         CMP #$41
+         BEQ CLRTI1
+         CMP #$43
+         BEQ CLRTI1
+         CMP #$45
+         BEQ ERR90
+         LDA #$8B
+         BNE ERR
+ERR90    LDA #$90
+         STA $30       ;STATUS
+CLRTI1   LDY #$00
+STOUTX0  LDX #$00
+STOUT    LDA ERRABS    ;$F
+         STA $0226     ;CDTMA1
+STOU2    LDA ERRABS+1  ;$F
+         STA $0227     ;CDTMA1+1
+         LDA #$01
+         JMP $E45C     ;Setze CDTMV1
+ERRABS   .word ERR8A   ;$F
+IOER80   LDX $3F       ;FEOF
+         TXS
+         LDA #$80
+         STA $30       ;STATUS
+         BNE EABS3
+ERR8F    LDA #$8F
+         .byte $2C
+ERR8A    LDA #$8A      ;Timeout
+ERR      STA $30       ;STATUS
+         LDX $3F       ;FEOF
+         TXS
+         LDA $3E       ;FTYPE
+         BMI ERRA
+         DEC $36       ;CRETRY
+         BEQ ERRA
+REL21    JMP IO12      ;$F47A
+ERRA     LDA #$28
+         STA $D204     ;AUDF3
+EABS3    JMP IO3       ;$F4C1
+GETBYTE  LDA $D20E     ;IRQST
+         BPL IOER80
+         AND #$20
+         BNE GETBYTE
+         LDA #$DF
+         STA $D20E     ;IRQEN
+         LDA #$E0
+         STA $D20E     ;IRQEN
+         LDA $D20F     ;SKSTAT
+         STA $D20A     ;SKRES
+         BPL ERR8A
+         AND #$20
+         BEQ ERR8A
+         LDA $D20D     ;SERIN
+         RTS
+PUTBYTE  TAX
+PUTA1    LDA $D20E     ;IRQST
+         AND #$10
+         BNE PUTA1
+         LDA #$EF
+         STA $D20E     ;IRQEN
+         LDA #$D0
+         STA $D20E     ;IRQEN
+         TXA
+         STA $D20D     ;SEROUT
+         LDX $D20E     ;IRQST
+         BPL IOER80
+ADDSUM   CLC
+         ADC $31       ;CHKSUM
+         ADC #$00
+         STA $31       ;CHKSUM
+         RTS
+POKEY    STA $D20F     ;SKCTL
+         STA $D20A     ;SKRES
+         LDA #$28
+         STA $D208     ;AUDCTL
+         LDA #$A8
+         STA $D207     ;AUDC4
+         LDA #$F8
+         STA $D20E     ;IRQEN
+         RTS
+
+C3F	.byte $3f,$40
+	.word $0001
+	.word $0001
+	.word $0001
+LWTBL	.dsb 8,$FF
+/*
+ABSTBL	.word DLWTBLL+1,REL01+1,REL02+1,REL03+1,REL04+1,REL05+1,REL06+1
+	.word REL07+1,REL08+1,REL09+1,REL10+1,REL11+1,REL12+1,REL13+1
+	.word REL14+1,REL15+1,GE1+1,REL16+1,REL17+1,REL18+1,REL19+1
+	.word REL20+1,STOUT+1,STOU2+1,ERRABS,REL21+1,EABS3+1
+*/

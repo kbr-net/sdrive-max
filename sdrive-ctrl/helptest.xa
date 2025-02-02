@@ -12,5 +12,10 @@ start
 loop	jmp loop
 
 help
+	.byte"QRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRE"
+	.byte"|3$rive",0,8,".o!utoload"
+	.byte 11,"(elp",9,0,0
+#include "version.xa"
+	.byte "|"
 #include "manual.xa"
 end

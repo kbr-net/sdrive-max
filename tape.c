@@ -109,10 +109,10 @@ unsigned int send_FUJI_tape_block (unsigned int offset) {
 			p[2] == 'u' &&
 			p[3] == 'd' )
 		{
-			if(tape_flags.turbo)	//ignore baud hdr
-				continue;
-			baud = hdr->irg_length;
-			set_tape_baud();
+			if(!tape_flags.turbo) {	//ignore baud hdr on turbo mode
+				baud = hdr->irg_length;
+				set_tape_baud();
+			}
 		}
 		offset += sizeof(struct tape_FUJI_hdr) + len;
 	}

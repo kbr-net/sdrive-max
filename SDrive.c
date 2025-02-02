@@ -18,6 +18,7 @@
 #include "mmc.h"		// include MMC card access functions
 #include "fat.h"
 #include "sboot.h"
+#include "highspeed.h"
 #include "usart.h"
 #include "global.h"
 #include "tft.h"
@@ -27,7 +28,7 @@
 #include "tape.h"
 
 #define SWVERSIONMAJOR  1
-#define SWVERSIONMINOR  3
+#define SWVERSIONMINOR  4
 
 //workaround to get version numbers converted to strings
 #define STR_A(x)        #x
@@ -121,34 +122,14 @@ uint8_t system_fastsio_pokeydiv_default EEMEM = US_POKEY_DIV_DEFAULT;
 #define IMSIZE5	736896
 #define	IMSIZE6	1474176
 #define IMSIZE7	2948736
-#define IMSIZES 7
 
+const struct PercomStruct percom_default = {0x28,0x01,0x00,0x12,0x00,0x04,0x01,0x00,0xff};
 struct PercomStruct percom;
-
-uint8_t system_percomtable[] EEMEM = {
-	0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
-	0x28,0x01,0x00,0x1A,0x00,0x04,0x00,0x80, IMSIZE2&0xff,(IMSIZE2>>8)&0xff,(IMSIZE2>>16)&0xff,(IMSIZE2>>24)&0xff,
-	0x28,0x01,0x00,0x12,0x00,0x04,0x01,0x00, IMSIZE3&0xff,(IMSIZE3>>8)&0xff,(IMSIZE3>>16)&0xff,(IMSIZE3>>24)&0xff,
-	0x28,0x01,0x00,0x12,0x01,0x04,0x01,0x00, IMSIZE4&0xff,(IMSIZE4>>8)&0xff,(IMSIZE4>>16)&0xff,(IMSIZE4>>24)&0xff,
-	0x50,0x01,0x00,0x12,0x01,0x04,0x01,0x00, IMSIZE5&0xff,(IMSIZE5>>8)&0xff,(IMSIZE5>>16)&0xff,(IMSIZE5>>24)&0xff,
-	0x50,0x01,0x00,0x24,0x01,0x04,0x01,0x00, IMSIZE6&0xff,(IMSIZE6>>8)&0xff,(IMSIZE6>>16)&0xff,(IMSIZE6>>24)&0xff,
-	0x50,0x01,0x00,0x48,0x01,0x04,0x01,0x00, IMSIZE7&0xff,(IMSIZE7>>8)&0xff,(IMSIZE7>>16)&0xff,(IMSIZE7>>24)&0xff,
-	0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
-	};
 
 //#define DEVICESNUM	5	//	//D0:-D4:
 virtual_disk_t vDisk[DEVICESNUM];
 
 virtual_disk_t tmpvDisk;
-
-struct SDriveParameters
-{
-	u08 p0;
-	u08 p1;
-	u08 p2;
-	u08 p3;
-	u32 p4_5_6_7;
-};
 
 struct sio_cmd {
 	u08 dev;
@@ -189,8 +170,10 @@ void drive_led(unsigned char drive, unsigned char on) {
 	unsigned int col = Grey;
 	unsigned int x,y;
 
-	if(actual_page != PAGE_MAIN)
+	if(actual_page != PAGE_MAIN) {
+		Delay200us();
 		return;
+	}
 
 	const struct button *b = &tft.pages[PAGE_MAIN].buttons[drive];
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
@@ -354,9 +337,9 @@ void motor_on () {
 			//motor start delay is about...
 			_delay_ms(475);
 		}
+		Draw_Circle(5,5,3,1,Green);
 		TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10);	// Timer 1 CTC mode, clk/64 start
 								// 16MHz/64 = 250KHz(4µs)
-		Draw_Circle(5,5,3,1,Green);
 	}
 	motor = 1;	//mark motor on and reset counter
 }
@@ -368,8 +351,7 @@ void motor_off () {
 }
 
 ISR(TIMER1_COMPA_vect) {
-	if (motor)
-		motor++;
+	motor++;
 	if (motor > 20)
 		motor_off();
 }
@@ -401,7 +383,6 @@ void SET_SDRIVEATR_TO_D0 () {
 
 		//found SDRIVE.ATR, set values to vDisk
 		FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-		FileInfo.vDisk->ncluster=0;
 
 		faccess_offset(FILE_ACCESS_READ,0,16); //read ATR header
 
@@ -539,10 +520,9 @@ int main(void)
 			}
 		}
 		actual_page = PAGE_MAIN;	//clear the fake
-		draw_Buttons();		//now redraw buttons
 	}
 	//start with root dir
-	tmpvDisk.dir_cluster=RootDirCluster;
+	tmpvDisk.dir_cluster=MSDOSFSROOT;
 
 	SET_SDRIVEATR_TO_D0();
 
@@ -552,13 +532,12 @@ int main(void)
 
 	unsigned long autowritecounter = 0;
 	unsigned int scroll_file_counter;
+	unsigned char drive_number = 0;
 	unsigned char *sfp;	//scrolling filename pointer
 ST_IDLE:
 	sfp = atari_sector_buffer;
-	unsigned int tape_offset = 0;
 
 	LED_GREEN_OFF(virtual_drive_number);	// LED OFF
-	sei();	//enable interrupts
 
 	//Mainloop: Wait for touchscreen input
 	//Atari command is triggered by interrupt
@@ -569,8 +548,9 @@ ST_IDLE:
 		struct b_flags *flags;
 		unsigned int (*b_func)(const struct button *);
 		unsigned int de;
-		unsigned char drive_number;
 		char *name;
+
+		sei();	//enable interrupts
 
 		if (isTouching()) {
 			if(blanker_on()) {
@@ -597,7 +577,6 @@ ST_IDLE:
 				b_func = pgm_read_ptr(&b->pressed);
 				//...call the buttons function
 				de = b_func(b);
-				sei();
 				//check if actual_drive has changed
 				if (actual_drive_number != drive_number && flags->selected) {
 					actual_drive_number = drive_number;
@@ -630,7 +609,6 @@ ST_IDLE:
 					}
 					cmd_buf.dev = 0x71;	//say we are a sdrive cmd
 					process_command();
-					sei();
 				}
 				//it was the N[ew]-Button? Create new file
 				//(reset is done in deactivate drive)
@@ -641,32 +619,6 @@ ST_IDLE:
 					name = pgm_read_ptr(&b->name);
 					strncpy_P(&name[3], PSTR(">New<       "), 12);
 					draw_Buttons();
-				}
-				//tape mode?
-				if(actual_page == PAGE_TAPE && name[0] == 'S') {
-					const struct button *pb = &tft.pages[actual_page].buttons[1];
-					struct b_flags *pause = pgm_read_ptr(&pb->flags);
-					if(tape_flags.run || pause->selected) {	//Stop
-						tape_flags.run = 0;
-						tape_offset = 0;
-						flags->selected = 0;
-						//clear also the Pause Button
-						pause->selected = 0;
-						print_str_P(35,132,2,Yellow,window_bg, PSTR("Stopped...   "));
-						draw_Buttons();
-					}
-					else {		//Start
-						FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-						check_for_FUJI_file();
-						tape_flags.run = 1;
-						flags->selected = 1;
-						print_str_P(35,132,2,Yellow,window_bg, PSTR("Sync Wait...   "));
-						draw_Buttons();
-						if(!tape_flags.FUJI) {
-							//sync wait
-							_delay_ms(10000);
-						}
-					}
 				}
 				sfp = atari_sector_buffer;
 				scroll_file_counter = 20000;
@@ -680,16 +632,17 @@ bad_touch:			while (isTouching());
 		if(tape_flags.run) {
 			cli();	//no interrupts during tape operation
 			if(tape_flags.FUJI)
-				tape_offset = send_FUJI_tape_block(tape_offset);
+				tape_flags.offset = send_FUJI_tape_block(tape_flags.offset);
 			else
-				tape_offset = send_tape_block(tape_offset);
-			if(tape_offset == 0 || tape_flags.run == 0) {
+				tape_flags.offset = send_tape_block(tape_flags.offset);
+			if(tape_flags.offset == 0) {
 				USART_Init(ATARI_SPEED_STANDARD);
 				tape_flags.run = 0;
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 				flags->selected = 0;
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 				draw_Buttons();
 			}
-			sei();
 		}
 		//scrolling long filename
 		if (tft.cfg.scroll && actual_page == PAGE_FILE && scroll_file_len) {
@@ -727,8 +680,10 @@ bad_touch:			while (isTouching());
 				sfp++;	//increase pointer
 			}
 			else {
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 				scroll_file_counter++;
 				scroll_file_counter++;
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 			}
 		}
 
@@ -790,6 +745,7 @@ void process_command ()
 	const struct button *bp;
 	char *name;
 	unsigned char drive_slot;
+	unsigned char doublesector = 0;
 
 	if(!cmd_buf.cmd)
 	{
@@ -805,10 +761,10 @@ void process_command ()
 		//If the reason is to change cmd to H, do not wait to wait_cmd_LH ()
 		//if (err&0x01) goto change_sio_speed; //The cmd rises to H, and the speed changes immediately
 
-		Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
+		//Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
 		wait_cmd_LH();	//Wait until the signal command rises to H
-		////due to LED function never needed, i think
-		//Delay100us();	//T2=100   (After lifting the command and before the ACK)
+		////due to LED function never needed in normal mode, i think
+		//Delay200us();	//T2=0-16ms (After lifting the command and before the ACK)
 
 		if(err)
 		{
@@ -821,21 +777,24 @@ void process_command ()
 				//Convert from standard to fast or vice versa
 				fastsio_active=!fastsio_active;
 			}
+			else
+				fastsio_active = 0;
+
+			_delay_ms(5);	//wait all (broken) bytes received
+					//(we have about 50ms before Atari retransmits)
 
 change_sio_speed_by_fastsio_active:
 			{
 			 u08 as;
 			 as=ATARI_SPEED_STANDARD;	//default speed
-			 //if (fastsio_active) as=fastsio_pokeydiv+6;		//always about 6 vic
 			 if (fastsio_active) {
-					//for pokeydiv 16(a. o.) use index 11
-					if(fastsio_pokeydiv > 10)
-						as = pgm_read_byte(&atari_speed_table[11]);
-					//all others are linear
-					else
-						as = pgm_read_byte(&atari_speed_table[fastsio_pokeydiv]);
+				//for pokeydiv 16(a. o.) use index 11
+				if(fastsio_pokeydiv > 10)
+					as = pgm_read_byte(&atari_speed_table[11]);
+				//all others are linear
+				else
+					as = pgm_read_byte(&atari_speed_table[fastsio_pokeydiv]);
 			 }
-
 			 USART_Init(as);
 			}
 			return;
@@ -898,7 +857,6 @@ disk_operations_direct_d0_d4:
 
 			{	//Beginning of the section over two cases, 0x21,0x22
 				u08 formaterror;
-				unsigned char doublesector = 0;
 				if (FileInfo.percomstate == 1) {
 					doublesector = percom.bpshi;
 				}
@@ -1079,7 +1037,9 @@ Send_NACK_and_set_FLAGS_WRITEERROR_and_ST_IDLE:
 			)
 		)
 		{
-			if (cmd_buf.cmd==0x3f && fastsio_pokeydiv!=US_POKEY_DIV_STANDARD) goto device_command_accepted;
+			if ((cmd_buf.cmd==0x3f || (cmd_buf.cmd==0x68) || (cmd_buf.cmd==0x69))
+				&& fastsio_pokeydiv!=US_POKEY_DIV_STANDARD)
+				goto device_command_accepted;
 Send_NACK_and_ST_IDLE:
 			if (debug)
 				sio_debug('N');
@@ -1152,54 +1112,66 @@ device_command_accepted:
 					}
 				}
 
-				u08 *ptr;
 				u08 isxex;
 				u16 secsize;
 
-				isxex = ( FileInfo.vDisk->flags & FLAGS_XEXLOADER );
+				isxex = (FileInfo.vDisk->flags & FLAGS_XEXLOADER);
 				secsize=(FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)? 0x100:0x80;
-				ptr = system_percomtable;
 
-				//if ( isxex ) ptr+=(IMSIZES*12);
+				//percom_default: DD
+				//tracks,steprate,sectorshi,sectorslo,heads,method,bpshi,bpslo
+				//0x28,0x01,0x00,0x12,0x00,0x04,0x01,0x00
+				percom = percom_default;
 
-				do
-				{
-					u08 m;
-					//12 values per row in system_percomtable
-					//0x28,0x01,0x00,0x12,0x00,0x00,0x00,0x80, IMSIZE1&0xff,(IMSIZE1>>8)&0xff,(IMSIZE1>>16)&0xff,(IMSIZE1>>24)&0xff,
-					//...
-					//0x01,0x01,0x00,0x00,0x00,0x04,0x01,0x00, 0x00,0x00,0x00,0x00
-					for(m=0;m<12;m++) ((unsigned char *)&percom)[m]=eeprom_read_byte(ptr++);
-					if (    (!isxex)
-						// &0xff... Due to the deletion of the eventual 16 ATR headings
-						&& ( FOURBYTESTOLONG((unsigned char *)&percom+8)==(fs & 0xffffff80) )
-						&& ( percom.bpshi == (secsize >> 8) ) //sectorsize hb
-					)
-					{
-						//File size and sector consent
-						goto percom_prepared;
-					}
-				} while (percom.tracks != 0x01);
+				// &0xff... Due to the deletion of the eventual 16 ATR headings
+				switch(fs&0xffffff80) {
+					case IMSIZE1: //SD
+					case IMSIZE2: //MD
+						percom.bpshi = 0;
+						percom.bpslo = 0x80;
+						if((fs&0xffffff80) == IMSIZE1)
+							percom.method = FM;
+						else
+							percom.sectorslo = 0x1a;
+						break;
+					case IMSIZE7: //ED
+					case IMSIZE6: //HD
+						percom.sectorslo = ((fs&0xffffff80) == IMSIZE7) ? 72 : 36;
+					case IMSIZE5: //720k
+						percom.tracks = 80;
+					case IMSIZE4: //QD
+						percom.heads = 1;
+					case IMSIZE3: //DD = default
+						break;
+					default: //no known floppy format, set
+						 //size and number of sectors
+						percom.bpshi = (secsize >> 8);
+						percom.bpslo = (secsize & 0xff);
+						percom.tracks = 1;
 
-				//no known floppy format, set size and number of sectors
-				percom.bpshi = (secsize >> 8);		//hb
-				percom.bpslo = (secsize & 0xff);	//db
+						if (isxex)
+						{
+							//-=3; //=125
+							secsize=125;
+							//((u32)0x171*(u32)125);
+							fs+=(u32)46125;
+						}
+						if (FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS)
+						{
+							//+384bytes for the
+							//first three sectors of 128bytes
+							fs+=(u32)(3*128);
+						}
 
-				if ( isxex )
-				{
-					secsize=125; //-=3; //=125
-					fs+=(u32)46125;	//((u32)0x171*(u32)125);
-				}
-				if ( FileInfo.vDisk->flags & FLAGS_ATRDOUBLESECTORS )
-				{
-					fs+=(u32)(3*128); //+384bytes for the first three sectors of 128bytes
-				}
-
-				fs /= ((u32)secsize); //convert filesize to sectors
-
-				percom.sectorshi = ((fs >> 8) & 0xff);	//hb sectors
-				percom.sectorslo = (fs & 0xff );	//lb sectors
-				percom.heads = ((fs >> 16) & 0xff);	//sides - 1  (0=> one side)
+						//convert filesize to sectors
+						fs /= ((u32)secsize);
+						//hb sectors
+						percom.sectorshi = ((fs >> 8) & 0xff);
+						//lb sectors
+						percom.sectorslo = (fs & 0xff );
+						//sides - 1  (0=> one side)
+						percom.heads = ((fs >> 16) & 0xff);
+				} //switch
 			}
 percom_prepared:
 				USART_Send_cmpl_and_buffer_and_check_sum((unsigned char *)&percom, sizeof(percom));
@@ -1390,7 +1362,7 @@ percom_prepared:
 					{
 					 b=eeprom_read_byte(spt++);
 					 //Relocation of bootloader from $0700 to another location
-					 if (b==0x07) b+=bootloader_relocation;
+					 if ((b & 0xfe) == 0xf4 ) b+=bootloader_relocation+19;
 					 *dpt++=b;
 					 i--;
 					} while(i);
@@ -1501,6 +1473,55 @@ Send_ERR_and_DATA:
 			USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(4);
 
 			break;
+
+		case 0x68:	//get sio length
+			atari_sector_buffer[0] = highspeed_len & 0xff;	//low
+			atari_sector_buffer[1] = highspeed_len >> 8;	//high
+
+			USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(2);
+			break;
+
+		case 0x69:	//get sio routine
+			{
+				send_CMPL();
+				if (debug) {
+					sio_debug('C');
+				}
+
+				unsigned short e;
+				unsigned char sumo, sum = 0, i = 0;
+				for(e = 0; e < highspeed_len; e++) {
+					atari_sector_buffer[i] = eeprom_read_byte(&highspeed[e]);
+
+					// Relocate all with highbytes 0xcc - 0xcf
+					// (this does not appear otherwise in sio code)
+					if((atari_sector_buffer[i] & 0xfc) == 0xcc) {
+						unsigned char l,h;
+						unsigned short addr1,addr2;
+						h = atari_sector_buffer[i];
+						l = atari_sector_buffer[i-1];
+						addr1 = (h << 8) | l;
+						addr2 = addr1 - (0xcc00 - cmd_buf.aux);
+						atari_sector_buffer[i] = addr2 >> 8;
+						atari_sector_buffer[i-1] = addr2 & 0xff;
+					}
+
+					// send if buffer is full.
+					// Be sure, there is no relocation address at this
+					// boundaries, otherwise this(255) has to be lowered!
+					if(i == 255 || e == (highspeed_len - 1)) {
+						USART_Send_Buffer(atari_sector_buffer, i+1);
+						sumo = sum;
+						sum += get_checksum(atari_sector_buffer, i+1);
+						if(sum < sumo) sum++;
+						i = 0;
+						continue;
+					}
+					i++;
+				}
+				USART_Transmit_Byte(sum);	// send cksum
+			}
+
 		} //switch
 	} // end diskcommands
 
@@ -1513,7 +1534,8 @@ Send_ERR_and_DATA:
 	{
 		//if ( cmd_buf.cmd==0x50 || cmd_buf.cmd==0x52 || cmd_buf.cmd==0x53)
 		//schvalne prehozeno poradi kvuli rychlosti (pri normalnich operacich s SDrive nebude platit hned prvni cast podminky)
-		if ( cmd_buf.cmd<=0x53 && cmd_buf.cmd>=0x50 )
+		if((cmd_buf.cmd<=0x53 && cmd_buf.cmd>=0x50)
+			|| cmd_buf.cmd == 0x3f)
 		{
 			//(0x50,x52,0x53)
 			//pro povely readsector,writesector a status
@@ -1522,9 +1544,11 @@ Send_ERR_and_DATA:
 			goto disk_operations_direct_d0_d4; //vzdy napevno vD0: bez prehazovani
 		}
 
-
+		Delay200us();	//T2=0-16ms (After lifting the command and before the ACK)
 		send_ACK();
 //			Delay1000us();	//delay_us(COMMAND_DELAY);
+		if(blanker_on())
+			blanker_stop();
 
 		//set Ptr to temp vDisk buffer, except for Get vDisk flags
 		if ( cmd_buf.cmd != 0xDB )
@@ -1532,45 +1556,20 @@ Send_ERR_and_DATA:
 
 		switch(cmd_buf.cmd)
 		{
-/*
-		case 0xXX:
-			{
-			 unsigned char* p = 0x060;
-			 //check_sum = get_checksum(p,1024);	//nema smysl - checksum cele pameti by se ukladal zase do pameti a tim by to zneplatnil
-			 Delay800us();	//t5
-			 send_CMPL();
-			 Delay800us();	//t6
-
-			 USART_Send_Buffer(p,1024);
-			 //USART_Transmit_Byte(check_sum);
-			}
-			break;
-
-		case 0xXX:	//STACK POINTER+DEBUG_ENDOFVARIABLES
-			{
-			 Clear_atari_sector_buffer_256();
-			 atari_sector_buffer[0]= SPL;	//inb(0x3d);
-			 atari_sector_buffer[1]= SPH;	//inb(0x3e);
-			 *((u32*)&(atari_sector_buffer[2]))=debug_endofvariables;
-
-			 //check_sum = get_checksum(atari_sector_buffer,256);
-			 //send_CMPL();
-			 //Delay1000us();	//delay_us(COMMAND_DELAY);
-			 //USART_Send_Buffer(atari_sector_buffer,256);
-			 //USART_Transmit_Byte(check_sum);
-			 USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(6);
-			}
-			break;
-
-		case 0xXX:	//$XX nn mm	 config EEPROM par mm = value nn
-			{
-				eeprom_write_byte((&system_atr_name)+cmd_buf.aux2,cmd_buf.aux1);
-				goto Send_CMPL_and_Delay;
-			}
-			break;
-*/
 
 		//--------------------------------------------------------------------------
+
+		case 0xA0:	//AVR memory dump
+			{
+				unsigned char *p = 0x0;
+				Delay800us();
+				send_CMPL();
+				Delay800us();
+				USART_Send_Buffer(p, 2048+0x100);
+				//checksum will be always bad due to dynamic
+				// in buffer, so skip it!
+			}
+			break;
 
 		case 0xC0:	//$C0 xl xh	Get 20 filenames from xhxl. 8.3 + attribute (11+1)*20+1 [<241]
 					//		+1st byte of filename 21 (+1)
@@ -1612,21 +1611,15 @@ Send_ERR_and_DATA:
 			
 			if (cmd_buf.aux1>US_POKEY_DIV_MAX) goto Send_ERR_and_Delay;
 			fastsio_pokeydiv = cmd_buf.aux1;
-			fastsio_active=0;	//zmenila se rychlost, musi prejit na standardni
-			
-			/*
-			//takhle to zlobilo
-			//vzdy to zabrucelo a vratio error #$8a (i kdyz se to provedlo)
-			USART_Init(ATARI_SPEED_STANDARD); //a zinicializovat standardni
-			goto Send_CMPL_and_Delay;
-			*/
+			fastsio_active=0;	//the speed has changed, it must go to standard
 
 			Delay800us();	//t5
+			UCSRA |= (1<<TXC);	//clear TX complete flag
 			send_CMPL();
+			while(! (UCSRA & (1<<TXC)));	//wait for TX complete
+			//otherwise speed will change during TX
+			//and result in broken complete byte!
 			goto change_sio_speed_by_fastsio_active;
-			//USART_Init(ATARI_SPEED_STANDARD); //a zinicializovat standardni
-			//break;
-
 
 		case 0xC2:	//$C2 nn ??	set bootloader relocation = $0700+$nn00
 
@@ -1664,88 +1657,6 @@ Send_ERR_and_DATA:
 			}
 			break;
 
-		case 0xDC:	//$DC xl xh	fatClusterToSector xl xh [<4]
-			{	//brocken for FAT32!!!
-				//FOURBYTESTOLONG(atari_sector_buffer) = fatClustToSect(TWOBYTESTOWORD(command+2));
-				//strict aliasing
-				//*asb32_p = fatClustToSect(TWOBYTESTOWORD(command+2));
-				*asb32_p = fatClustToSect(cmd_buf.aux);
-				USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(4);
-			}
-			break;
-
-		case 0xDD:	//set SDsector number
-
-			if (USART_Get_atari_sector_buffer_and_check_and_send_ACK_or_NACK(4))
-			{
-				break;
-			}
-
-			//extraSDcommands_readwritesectornumber = *((u32*)&atari_sector_buffer);
-			extraSDcommands_readwritesectornumber = *asb32_p;
-
-			//uz si to hned ted nacte do cache kvuli operaci write SDsector
-			//ve ktere Atarko zacne posilat data brzo po ACKu a nemuselo by se to stihat
-			mmcReadCached(extraSDcommands_readwritesectornumber);
-
-			goto Send_CMPL_and_Delay;
-			break;
-
-		case 0xDE:	//read SDsector
-
-			mmcReadCached(extraSDcommands_readwritesectornumber);
-
-			Delay800us();	//t5
-			send_CMPL();
-			Delay800us();	//t6
-			{
-			 u08 check_sum;
-			 check_sum = get_checksum(mmc_sector_buffer,512);
-			 USART_Send_Buffer(mmc_sector_buffer,512);
-			 USART_Transmit_Byte(check_sum);
-			}
-			//USART_Send_cmpl_and_atari_sector_buffer_and_check_sum(atari_sector_size); //nelze pouzit protoze checksum je 513. byte (prelezl by ven z bufferu)
-			break;
-
-		case 0xDF:	//write SDsector
-			
-			//Specificky problem:
-			//Atarko zacina predavat data za t3(min)=1000us,
-			//ale tak rychle nestihneme nacist (Flushnout) mmcReadCached
-			//RESENI => mmcReadCached(extraSDcommands_readwritesectornumber);
-			//          se vola uz pri nastavovani cisla SD sektoru, takze uz je to
-			//          nachystane. (tedy pokud si nezneplatnil cache jinymi operacemi!)
-		
-			//nacte ho do mmc_sector_bufferu
-			//tim se i Flushne pripadny odlozeny write
-			//a nastavi se n_actual_mmc_sector
-			mmcReadCached(extraSDcommands_readwritesectornumber);
-
-			//prepise mmc_buffer daty z Atarka
-			{
-			 u08 err;
-			 err=USART_Get_Buffer_And_Check(mmc_sector_buffer,512,CMD_STATE_H);
-			 Delay1000us();
-			 if(err)
-			 {
-				//obnovi puvodni stav mc_sector_bufferu z SDkarty!!!
-				mmcReadCached(extraSDcommands_readwritesectornumber);
-				send_NACK();
-				break;
-			 }
-			}
-
-			send_ACK();
-
-			//zapise zmenena data v mmc_sector_bufferu do prislusneho SD sektoru
-			if (mmcWriteCached(0)) //klidne s odlozenym zapisem
-			{
-				goto Send_ERR_and_Delay; //nepovedlo se (zakazany zapis)
-			}
-
-			goto Send_CMPL_and_Delay;
-			break;
-
 		//--------------------------------------------------------------------------
 
 		case 0xE0: //get status
@@ -1765,19 +1676,21 @@ Send_ERR_and_DATA:
 
 
 		case 0xE1: //init drive
-			//$E1  n ??	Init drive. n=0 (komplet , jako sdcardejected), n<>0 (jen setbootdrive d0: bez zmeny actual drive)
+			//$E1  n ??	Init drive. n=0 (complete, like sdcardejected),
+			// n<>0 (only setbootdrive d0: without changing the actual drive)
 
-			//protoze muze volat prvni cast s mmcReset,
-			//musi ulozit pripadny nacacheovany sektor
-			mmcWriteCachedFlush(); //pokud ceka nejaky sektor na zapis, zapise ho
+			//because it can call the first part with mmcReset,
+			//must save any cached sector
+			mmcWriteCachedFlush(); //if any sector is waiting to be written, write it
 
 			if (cmd_buf.aux1) {
-				SET_SDRIVEATR_TO_D0(); //bez zmeny actual_drive
+				SET_SDRIVEATR_TO_D0(); //not change actual_drive
 				send_CMPL();
 			}
 			else {
 				Delay800us();	//t5
 				send_CMPL();
+				cli();
 				goto *0x0000;
 			}
 			break;
@@ -2243,7 +2156,6 @@ Command_EC_F0_FF_found:
 				{
 					//Aktivuje soubor
 					FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
-					FileInfo.vDisk->ncluster=0;
 					//reset flags except ATRNEW
 					FileInfo.vDisk->flags &= FLAGS_ATRNEW;
 					FileInfo.vDisk->flags_ext = 0;

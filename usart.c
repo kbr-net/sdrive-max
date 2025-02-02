@@ -17,27 +17,11 @@
 extern unsigned char debug;
 extern void sio_debug(char status);
 
-#if defined(__AVR_ATmega328__) || defined(__AVR_ATmega168__)
-	#define UCSRA	UCSR0A
-	#define UCSRB	UCSR0B
-	#define UCSRC	UCSR0C
-	#define UDRE	UDRE0
-	#define RXEN	RXEN0
-	#define TXEN	TXEN0
-	#define URSEL	0		// does not exist
-	#define UCSZ0	UCSZ00
-	#define UCSZ1	UCSZ01
-	#define U2X	U2X0
-	#define RXC	RXC0
-	#define UDR	UDR0
-	#define FE	FE0
-	#define DOR	DOR0
-#endif
-
 extern unsigned char atari_sector_buffer[256];
 //extern unsigned char last_key;
 
 unsigned char get_checksum (unsigned char* buffer, u16 len) {
+/*
 	u16 i;
 	u08 sumo,sum;
 	sum=sumo=0;
@@ -47,10 +31,25 @@ unsigned char get_checksum (unsigned char* buffer, u16 len) {
 		if(sum<sumo) sum++;
 		sumo = sum;
 	}
+*/
+	//saves 12 bytes
+	unsigned char sum;
+	asm (
+		"clr %0" "\n\t"
+		"0:" "\n\t"
+		"ld __tmp_reg__,%a1+" "\n\t"
+		"add %0,__tmp_reg__" "\n\t"
+		"adc %0,r1" "\n\t"		//r1 is always 0 in avr-gcc
+		"sbiw %2,1" "\n\t"
+		"brne 0b" "\n\t"
+		: "=&r" (sum)
+		: "e" (buffer), "w" (len)
+	);
+
 	return sum;
 }
 
-void USART_Init ( u16 value ) {
+void USART_Init ( u08 value ) {
 	/* Wait for empty transmit buffer */
 	while ( !( UCSRA & (1<<UDRE)) ); //cekani
 
@@ -58,8 +57,8 @@ void USART_Init ( u16 value ) {
 #if defined(__AVR_ATmega328__) || defined(__AVR_ATmega168__)
 	UBRR0 = value;
 #else
-	UBRRH = value >> 8;
-	UBRRL = value & 0xff;
+	UBRRH = 0;
+	UBRRL = value;
 #endif
 
 	/* Set double speed flag */

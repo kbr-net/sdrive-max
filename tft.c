@@ -8,7 +8,6 @@
 #include "avrlibtypes.h"        // global AVRLIB types definitions
 #include "global.h"
 #include "display.h"
-#include "logos.h"
 #include "touchscreen.h"
 #include "tft.h"
 #include "fat.h"
@@ -21,12 +20,16 @@ extern virtual_disk_t vDisk[];
 //extern struct GlobalSystemValues GS;
 extern const char system_name[] PROGMEM;
 extern const char system_version[] PROGMEM;
+extern uint8_t system_fastsio_pokeydiv_default;
+extern struct SDriveParameters sdrparams;
+#define pokeydiv sdrparams.p2
 
 unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
 unsigned int next_file_idx = 0;
 unsigned int nfiles = 0;
 unsigned int file_selected = -1;
+unsigned long tft_last_dir_cluster = MSDOSFSROOT;
 unsigned char scroll_file_len;
 char path[13] = "/";
 const char ready_str[] PROGMEM = "READY";
@@ -80,6 +83,35 @@ unsigned int action_tape (const struct button *b) {
 	return(0);
 }
 
+unsigned int action_tape_start (const struct button *b) {
+	struct b_flags *flags = pgm_read_ptr(&b->flags);
+	const struct button *pb = &tft.pages[actual_page].buttons[1];
+	struct b_flags *pause = pgm_read_ptr(&pb->flags);
+
+	if(tape_flags.run || pause->selected) { //Stop
+		tape_flags.run = 0;
+		flags->selected = 0;
+		//clear also the Pause Button
+		pause->selected = 0;
+		print_str_P(35,132,2,Yellow,window_bg, PSTR("Stopped...   "));
+		draw_Buttons();
+	}
+	else {          //Start
+		FileInfo.vDisk->current_cluster=FileInfo.vDisk->start_cluster;
+		check_for_FUJI_file();
+		tape_flags.run = 1;
+		flags->selected = 1;
+		print_str_P(35,132,2,Yellow,window_bg, PSTR("Sync Wait...   "));
+		draw_Buttons();
+		if(!tape_flags.FUJI) {
+			//sync wait
+			_delay_ms(10000);
+		}
+	}
+	tape_flags.offset = 0;	//reset offset in any case
+	return(0);
+}
+
 unsigned int action_tape_turbo (const struct button *b) {
 	struct b_flags *flags = pgm_read_ptr(&b->flags);
 	flags->selected = ~flags->selected;
@@ -108,11 +140,10 @@ unsigned int action_cancel () {
 	//on file_page reset file index to same page
 	if (actual_page == PAGE_FILE)
 		next_file_idx -= 10;
-	//on debug_page deactivate them
-	else {
-		debug = 0;
-		tape_mode = 0;
-	}
+	//in case of debug_page deactivate them
+	debug = 0;
+	//same for tape_page
+	tape_mode = 0;
 	//and reset to main_page
 	actual_page = PAGE_MAIN;
 	tft.pages[actual_page].draw();
@@ -135,11 +166,39 @@ unsigned int list_files () {
 	unsigned int col;
 	unsigned char e;
 
-	if(!nfiles)
-		while (fatGetDirEntry(nfiles,0)) nfiles++;
+	if(tft_last_dir_cluster != FileInfo.vDisk->dir_cluster) {
+		next_file_idx = 0;
+		nfiles = 0;
 
+		//remember current dir
+		tft_last_dir_cluster = FileInfo.vDisk->dir_cluster;
+
+		//get dir name
+		if(FileInfo.vDisk->dir_cluster == MSDOSFSROOT) { //is root?
+			strncpy(path, "/", 2);
+		}
+		else {
+			fatGetDirEntry(0,0);	//get prev dir entry (..)
+			//and set it to actual directory
+			FileInfo.vDisk->dir_cluster=FileInfo.vDisk->start_cluster;
+			//find the prev dir name
+			for(i = 0; fatGetDirEntry(i,1); i++) {
+				//where the start_cluster matches the cur. dir
+				if(FileInfo.vDisk->start_cluster == tft_last_dir_cluster) {
+					strncpy(path, atari_sector_buffer, 12);
+				}
+			}
+			//reset directory to current
+			FileInfo.vDisk->dir_cluster = tft_last_dir_cluster;
+		}
+	}
+
+	//no more pages, because this routine handles the "Next" button also!
 	if(!fatGetDirEntry(next_file_idx,0))
 		return(0);
+
+	if(!nfiles)
+		while (fatGetDirEntry(nfiles,0)) nfiles++;
 
 	set_text_pos(15,32);	//page counter
 	sprintf_P(atari_sector_buffer, PSTR("%i files, page %i/%i  %s            "),
@@ -161,7 +220,6 @@ unsigned int list_files () {
 					   atari_sector_buffer[10] == pgm_read_byte(&known_extensions[e][2]) )
 					{
 					    col = Green;
-					    break;	//one match is enaugh
 					}
 				}
 			}
@@ -209,8 +267,6 @@ unsigned int list_files_last () {
 
 unsigned int action_select() {
 	unsigned int file;
-	unsigned char i;
-	unsigned long odirc;
 
 	file = p.y - 45;	// 45-280 => 0-235
 	file /= 24;		// split into 10 pieces
@@ -222,34 +278,6 @@ unsigned int action_select() {
 	if(FileInfo.Attr & ATTR_DIRECTORY) {
 		//set new directory to current
 		FileInfo.vDisk->dir_cluster=FileInfo.vDisk->start_cluster;
-
-		//if we have a change to previous dir
-		if(atari_sector_buffer[0] == '.' && atari_sector_buffer[1] == '.') {
-			//was a change to root?
-			if(FileInfo.vDisk->start_cluster == 0) {
-				strncpy(path, "/", 2);
-				goto was_root;
-			}
-			//remember current dir
-			odirc = FileInfo.vDisk->start_cluster;
-			fatGetDirEntry(0,0);	//get prev dir entry (..)
-			//and set it to actual directory
-			FileInfo.vDisk->dir_cluster=FileInfo.vDisk->start_cluster;
-			//find the prev dir name
-			for(i = 0; i < 255; i++) {
-				fatGetDirEntry(i,1);
-				//where the start_cluster matches the cur. dir
-				if(FileInfo.vDisk->start_cluster == odirc)
-					break;
-			}
-			//reset directory to current
-			FileInfo.vDisk->dir_cluster = odirc;
-		}
-		strncpy(path, atari_sector_buffer, 12);
-was_root:	//outbox(path);
-
-		next_file_idx = 0;
-		nfiles = 0;
 		file_selected = -1;
 	}
 	else {	//is a file
@@ -281,8 +309,11 @@ unsigned int action_ok () {
 	actual_page = PAGE_MAIN;
 	next_file_idx -= 10;
 	if(tape_mode) {
-		actual_page = PAGE_TAPE;
-		file_selected = 0;
+		if(file_selected != -1)
+			actual_page = PAGE_TAPE;
+		else	//reset tape mode, if nothing selected
+			tape_mode = 0;
+		file_selected = 0;	//mark no file action on main page
 	}
 	tft.pages[actual_page].draw();
 	return(file_selected);
@@ -302,6 +333,24 @@ unsigned int action_change (const struct button *b) {
 	return(0);
 }
 
+void print_pokeydiv () {
+	char buf[3];
+	sprintf_P(buf, PSTR("$%02X"), pokeydiv);
+	print_str(150,95,2,Yellow,window_bg,buf);
+}
+
+unsigned int action_pokey () {
+	pokeydiv++;
+	if(pokeydiv > 40)
+		pokeydiv = 0;
+	if(pokeydiv == 11)
+		pokeydiv = 16;
+	if(pokeydiv == 17)
+		pokeydiv = 40;
+	print_pokeydiv();
+	return(0);
+}
+
 unsigned int action_save_cfg () {
 	const struct button *b;
 	struct b_flags *flags;
@@ -309,15 +358,17 @@ unsigned int action_save_cfg () {
 	unsigned char rot = tft.cfg.rot;
 
 	*(char*)&tft.cfg = 0;	//clear first
-	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
+	for(i = 0; i < tft.pages[actual_page].nbuttons-3; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
-		if(i < tft.pages[actual_page].nbuttons-3)	//not save last(SaveIm) button, only load ptr
+		if(i < tft.pages[actual_page].nbuttons-4)	//not save last(SaveIm) button, only load ptr
 			*(char*)&tft.cfg |= flags->selected << i;
 	}
 	eeprom_update_byte(&cfg, *(char *)&tft.cfg);
 	//check for SaveIm Button
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 	if(flags->selected) {
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 		//map D1-D4 0-indexed
 		for(i = 0; i < DEVICESNUM-1; i++) {
 			if(vDisk[i+1].flags & FLAGS_DRIVEON) {
@@ -329,6 +380,7 @@ unsigned int action_save_cfg () {
 			}
 		}
 	}
+	eeprom_update_byte(&system_fastsio_pokeydiv_default, pokeydiv);
 	if(rot != tft.cfg.rot) {	//rotation has changed? Then...
 		eeprom_update_word(&MINX, 0xffff);	//force new calibration
 		tft_Setup();
@@ -354,6 +406,7 @@ unsigned int action_cal () {
 		p = getRawPoint();
 		Draw_H_Line(x-10,x+10,y,Green);
 		Draw_V_Line(x,y-10,y+10,Green);
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 		switch (i) {
 			case 0:
 				px1 = p.x;
@@ -402,6 +455,7 @@ unsigned int action_cal () {
         diff /= 2;
 	py1 -= diff;
 	py2 += diff;
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 
 	//print results
 	sprintf_P(atari_sector_buffer, PSTR("X1: %i, X2: %i, Y1: %i, Y2: %i"), px1, px2, py1, py2);
@@ -458,12 +512,13 @@ const struct button PROGMEM buttons_cfg[] = {
 	{"Blank",15,205,80,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
 	//!!leave this buttons at the end, then we can loop thru the previous!!
 	{"SaveIm",15,245,90,30,Grey,Black,Light_Blue,&(struct b_flags){ROUND,1,0},action_change},
+	{"Pokey",130,45,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_pokey},
 	{"Save",164,125,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_save_cfg},
 	{"Exit",164,165,60,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
 };
 
 const struct button PROGMEM buttons_tape[] = {
-	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},press},
+	{"Start",15,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_start},
 	{"Pause",15,205,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_pause},
 	{"Turbo",144,165,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_tape_turbo},
 	{"Exit",144,205,80,30,Grey,Black,White,&(struct b_flags){ROUND,1,0},action_cancel}
@@ -514,9 +569,9 @@ void draw_Buttons () {
 
 		//Logos
 		if(b.name[0] == 'D' && b.name[1] != '0') {
-			Draw_BMP(b.x+b.width-18,b.y+8,b.x+b.width-2,b.y+8+16,disk_image);
+			print_str_P(b.x+b.width-18,b.y+8,2,Dark_Grey,b.fg,PSTR("\x7f"));
 			if(b.name[3] == '<')
-				Draw_Line(b.x+b.width-18,b.y+8,b.x+b.width-2,b.y+8+16,Red);
+				Draw_Line(b.x+b.width-18,b.y+8,b.x+b.width-10,b.y+8+16,Red);
 		}
 	}
 }
@@ -619,11 +674,12 @@ void config_page () {
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
 	Draw_Rectangle(11,41,tft.width-12,279,0,SQUARE,Grey,Black);
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
-	for(i = 0; i < tft.pages[actual_page].nbuttons-2; i++) {
+	print_pokeydiv();
+	for(i = 0; i < tft.pages[actual_page].nbuttons-3; i++) {
 		b = &tft.pages[actual_page].buttons[i];
 		flags = pgm_read_ptr(&b->flags);
 		flags->selected = (*(char*)&tft.cfg >> i) & 1;
-		if(i == tft.pages[actual_page].nbuttons-3)
+		if(i == tft.pages[actual_page].nbuttons-4)
 			flags->selected = 0;
 	}
 	draw_Buttons();

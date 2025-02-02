@@ -44,8 +44,10 @@
 #define MS_HEAD_SETTLE_1050      40
 // mask for checking FDC status "data lost" bit
 #define MASK_FDC_DLOST           0x04
+#define MASK_FDC_CRC_ERROR       0x08
 // mask for checking FDC status "missing" bit
 #define MASK_FDC_MISSING         0x10
+#define MASK_FDC_DELETED         0x20
 // mask for checking FDC status extended data bit
 #define MASK_EXTENDED_DATA       0x40
 #define MASK_RESERVED            0x80
@@ -166,9 +168,6 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
     // set new head track position
     gCurrentHeadTrack = tgtTrackNumber;
 
-    // sample current head position
-    u16 headPosition = getCurrentHeadPosition();
-
     // read the track header
     u32 currentFileOffset = gTrackInfo[tgtTrackNumber - 1].offset;
     // exit, if track not present
@@ -180,6 +179,9 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 #ifndef __AVR__
     byteSwapAtxTrackHeader(trackHeader);
 #endif
+    if (trackHeader->flags == 0x002 && gSectorsPerTrack != 26) {
+        goto error;
+    }
     u16 sectorCount = trackHeader->sectorCount;
 
     // if there are no sectors in this track or the track number doesn't match, return error
@@ -197,9 +199,20 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
 
         int pTT = 0;
         unsigned char retries = MAX_RETRIES_810;
+        if (is_1050())
+            retries = MAX_RETRIES_1050;
+
 
         // if we are still below the maximum number of retries that would be performed by the drive firmware...
         u32 retryOffset = currentFileOffset;
+
+	// adapt sector skew dynamically due to count of sectors per track
+	// e. g. for enhanced density disks it is only about 1000
+	u16 au_one_sector_read = AU_FULL_ROTATION / sectorCount;
+
+        // sample current head position
+        u16 headPosition = getCurrentHeadPosition();
+
         while (retries > 0) {
             retries--;
             currentFileOffset = retryOffset;
@@ -242,9 +255,10 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
                     currentFileOffset += sizeof(struct atxSectorHeader);
                 }
             }
-            // if the sector status is bad, delay for a full disk rotation
+            // if the sector status is bad, update head position and delay for gLastAngle + one sector
             if (*status) {
-                waitForAngularPosition(incAngularDisplacement(getCurrentHeadPosition(), AU_FULL_ROTATION));
+                headPosition = (gLastAngle + au_one_sector_read) % AU_FULL_ROTATION;
+                waitForAngularPosition(headPosition);
             // otherwise, no need to retry
             } else {
                 retries = 0;
@@ -306,10 +320,6 @@ u16 loadAtxSector(u16 num, unsigned short *sectorSize, u08 *status) {
         } else {
             rotationDelay = (AU_FULL_ROTATION - headPosition + gLastAngle);
         }
-
-	// adapt sector skew dynamically due to count of sectors per track
-	// e. g. for enhanced density disks it is only about 1000
-	u16 au_one_sector_read = AU_FULL_ROTATION / sectorCount;
 
         // determine the angular position we need to wait for by summing the head position, rotational delay and the number 
         // of rotational units for a sector read. Then wait for the head to reach that position.

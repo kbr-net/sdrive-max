@@ -911,6 +911,10 @@ void print_char(unsigned int x_pos, unsigned int y_pos, unsigned char font_size,
 
      TFT_set_display_window(x_pos, y_pos, (x_pos + 5 * font_size - 1), (y_pos + 8 * font_size - 1));
 
+     // mask unprintable char
+     if((ch < 0x20) || (ch > 0x80))
+         ch = '.';
+
      for(j = 0; j < 8; j++) {
 	 for(l = 0; l < font_size; l++) {
 	     for(i = 0; i < 5; i++) {
@@ -971,7 +975,7 @@ void print_str(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, 
      {
          print_char(x_pos, y_pos, font_size, colour, back_colour, *ch++);
          x_pos += (font_size * 0x06);
-     }while((*ch >= 0x20) && (*ch <= 0x7F));
+     }while(*ch);
 }
 
 void print_strn(unsigned int x_pos, unsigned int y_pos, unsigned char font_size, unsigned int colour, unsigned int back_colour, char *ch, unsigned char n)

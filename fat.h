@@ -406,6 +406,8 @@ struct PercomStruct {
 	unsigned char control;
 	unsigned char unused[3];
 };
+#define FM 0
+#define MFM 4
 
 typedef struct				//4+4+4+4+2+4+1=23
 {
