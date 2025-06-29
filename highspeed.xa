@@ -11,7 +11,8 @@ USIOA    LDA $0301	;DUNIT	Einsprungspunkt
 DLWTBLL  STA LWTBL-1,X
          DEX
          BNE DLWTBLL	;Ende des SIO-Aufrufs bei DUNIT=0
-         RTS		;-----------------------------------
+         RTS
+
 SIO2     TAX		;Laufwerksnummer
 REL01    LDA LWTBL-1,X	;als Index zum Laden des Speedbytes
          BPL SIO3	;falls initialisiert
@@ -100,7 +101,8 @@ IO4      TAY		;Kein Fehler oder Fehler aber keine Wiederholversuche
          INY
 IO5      STY $0303	;DSTATS	1 = OK, alles andere = Fehler
          CLI
-         RTS		;-----------------------------------
+         RTS
+
 SEND1    LDY #$00	;Sendebetrieb
 SE1      INY		;Warteschleife (2 + 256 x 2 + 256 x 3 Zyklen = ca 0,73 ms)
          BNE SE1
@@ -150,7 +152,8 @@ GE2      CPY $34	;BUFEND
 REL17    JSR GETBYTE
          CMP $31	;CHKSUM
          BNE ERR8F
-         RTS		;-----------------------------------
+         RTS
+
 SETTI1   LDA $0306	;DTIMLO	Diese Routine rechnet die Anzahl der in DTIMLO angegebenen Sekunden in
          ROR		;Jiffies um.
          ROR
@@ -193,7 +196,7 @@ IOER80   LDX $3F	;FEOF	Bei BREAK den Stackpointer wiederherstellen
          BNE EABS3	;-----------------------------------
 ERR8F    LDA #$8F	;Checksum Error
          .byte $2C
-ERR8A    LDA #$8A	;Timeout	Hier landen auch Rahmenbit- und Ueberlauf-Fehler und nicht nur Timeout
+ERR8A    LDA #$8A	;Timeout. Hier landen auch Rahmenbit- und Ueberlauf-Fehler und nicht nur Timeout
 ERR      STA $30	;STATUS	Dadurch koennen die Rahmenbit- und Ueberlauf-Fehler nicht erkannt werden
          LDX $3F	;FEOF	Stackpointer wiederherstellen
          TXS
@@ -205,7 +208,7 @@ REL21    JMP IO12	;Wiederhole das Kommando (Command Retry)
 ERRA     LDA #$28
          STA $D204	;AUDF3
 EABS3    JMP IO3	;Pruefe auf verfuegbare Device Retries
-			;-----------------------------------
+
 GETBYTE  LDA $D20E	;IRQST
          BPL IOER80	;BREAK wurde gedrueckt
          AND #$20	;Daten in SERIN?
@@ -220,7 +223,8 @@ GETBYTE  LDA $D20E	;IRQST
          AND #$20
          BEQ ERR8A	;Overrun Fehler (SERIN wurde nicht rechtzeitig gelesen)
          LDA $D20D	;SERIN	Lese empfangenes Byte
-         RTS		;-----------------------------------
+         RTS
+
 PUTBYTE  TAX		;Zu sendendes Byte retten
 PUTA1    LDA $D20E	;IRQST	SEROUT noch besetzt?
          AND #$10
@@ -237,7 +241,8 @@ ADDSUM   CLC		;Pruefsumme berechnen
          ADC $31	;CHKSUM
          ADC #$00
          STA $31	;CHKSUM
-         RTS		;-----------------------------------
+         RTS
+
 POKEY    STA $D20F	;SKCTL	Je nach Inhalt von "A"
          STA $D20A	;SKRES
          LDA #$28	;Takte Kanal 3 mit 1,77 MHz und haenge Kanal 4 an 3
@@ -246,7 +251,7 @@ POKEY    STA $D20F	;SKCTL	Je nach Inhalt von "A"
          STA $D207	;AUDC4
          LDA #$F8	;Alle Unterbrechungsanforderungen bis auf Timer 4, 2 und 1
          STA $D20E	;IRQEN
-         RTS		;-----------------------------------
+         RTS
 
 C3F      .byte $3f,$40	;Kommando $3F, Daten lesen
          .word $0001	;In Speicheradresse $01
