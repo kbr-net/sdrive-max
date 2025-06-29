@@ -4,257 +4,258 @@
 
 	 *=$cc00
 
-USIOA    LDA $0301     ;DUNIT
+USIOA    LDA $0301	;DUNIT	Einsprungspunkt
          BNE SIO2
-         LDX #$08
-         LDA #$FF
-DLWTBLL  STA LWTBL-1,X ;$F614
+         LDX #$08	;Zuruecksetzen der Geschwindigkeitstabelle
+         LDA #$FF	;fuer alle 8 Laufwerke wenn DUNINT=0 ist
+DLWTBLL  STA LWTBL-1,X
          DEX
-         BNE DLWTBLL
-         RTS
-SIO2     TAX
-REL01    LDA LWTBL-1,X ;$F614
-         BPL SIO3
-         LDA #$28
-REL02    STA LWTBL-1,X ;$F614
-         LDY #$07
-SIOCL    LDA $0302,Y   ;DCOMND
+         BNE DLWTBLL	;Ende des SIO-Aufrufs bei DUNIT=0
+         RTS		;-----------------------------------
+SIO2     TAX		;Laufwerksnummer
+REL01    LDA LWTBL-1,X	;als Index zum Laden des Speedbytes
+         BPL SIO3	;falls initialisiert
+         LDA #$28	;falls noch nicht initialisiert
+REL02    STA LWTBL-1,X
+         LDY #$07	;Retten des DCB auf den Prozessorstapel
+SIOCL    LDA $0302,Y	;DCOMND
          PHA
-REL03    LDA C3F,Y     ;$F60D
-         STA $0302,Y   ;DCOMND
+REL03    LDA C3F,Y	;Um Kommando $3F vorher auszufuehren
+         STA $0302,Y	;DCOMND
          DEY
          BPL SIOCL
-REL04    JSR SIO3      ;$F450
-         LDX $0301     ;DUNIT
-         LDY $0303     ;DSTATS
-         BMI SIO21
-         LDA $01
-REL05    STA LWTBL-1,X ;$F614
-SIO21    LDY #$00
-SIO21CL  PLA
-         STA $0302,Y   ;DCOMND
+REL04    JSR SIO3	;Fuehre Kommando $3F aus
+         LDX $0301	;DUNIT	X-Register wiederherstellen
+         LDY $0303	;DSTATS	War das Kommando erfolgreich
+         BMI SIO21	;Nein ->
+         LDA $01	;Hier steht das Speedbyte
+REL05    STA LWTBL-1,X	;Eintrag in die Tabelle
+SIO21    LDY #$00	;Das urspruengliche Kommando
+SIO21CL  PLA		;vom Stack
+         STA $0302,Y	;DCOMND	wieder in den DCB
          INY
          CPY #$08
          BCC SIO21CL
-SIO3     SEI
+SIO3     SEI		;Unterbrechungsanforderungen blockieren
          CLC
-         TXA
-         ADC $0300     ;add DDEVIC
-         ADC #$FF      ;-1
-         STA $023A     ;CDEVIC
-         LDA $0302     ;DCOMND
-         STA $023B     ;CCOMND
-         LDA $030A     ;DAUX1
-         STA $023C     ;CAUX1
-         LDA $030B     ;DAUX2
-         STA $023D     ;CAUX2
-REL06    LDA LWTBL-1,X ;$F614
-         STA $D204     ;AUDF3
-         TSX
-         STX $3F       ;FEOF
+         TXA		;Bei einem SIO-Kommando sind Geraet und Nummer in einem Byte
+         ADC $0300	;add DDEVIC
+         ADC #$FF	;-1
+         STA $023A	;CDEVIC
+         LDA $0302	;DCOMND	Kommando
+         STA $023B	;CCOMND
+         LDA $030A	;DAUX1	Parameter #1
+         STA $023C	;CAUX1
+         LDA $030B	;DAUX2	Parameter #2
+         STA $023D	;CAUX2
+REL06    LDA LWTBL-1,X	;Speedbyte
+         STA $D204	;AUDF3	als POKEY-Divisor
+         TSX		;Stapelzeiger retten
+         STX $3F	;FEOF	Seite-0 verwendet statt $318 STACKP
+         LDA #$02	;Anzahl der Versuche, ein Geraet anzusprechen
+         STA $37	;DRETRY	Seite-0 verwendet statt $2BD
+IO11     LDA #$07	;Anzahl der Versuche, ein Kommando wiederholt zu versuchen
+         STA $36	;CRETRY	Seite-0 verwendet statt $29C
+IO12     LDA #$34	;Setzte CMD-Leitung auf aktiv
+         STA $D303	;PBCTL
+         LDA #$00	;Initialisiere mit 0
+         STA $30	;STATUS
+         STA $3E	;FTYPE
+         STA $35	;BUFEND+1
+         STA $D206	;AUDF4	High-Byte des 16-Bit AUDF Teilers
+         LDA #$3A	;ZP BufPnt ($32)=$23A
+         STA $32	;BUFADR
          LDA #$02
-         STA $37       ;DRETRY
-IO11     LDA #$07
-         STA $36       ;CRETRY
-IO12     LDA #$34
-         STA $D303
-         LDA #$00
-         STA $30       ;STATUS
-         STA $3E       ;FTYPE
-         STA $35       ;BUFEND+1
-         STA $D206     ;AUDF4
-         LDA #$3A
-         STA $32       ;BUFADR
-         LDA #$02
-         STA $33       ;BUFADR+1
+         STA $33	;BUFADR+1
          ASL
-         STA $34       ;BUFEND
-REL07    JSR SEND1     ;$F4DC
-         LDA $0304     ;DBUFLO
-         STA $32       ;BUFADR
-         LDA $0305     ;DBUFHI
-         STA $33       ;BUFADR+1
-         LDA $0308     ;DBYTLO
-         STA $34       ;BUFEND
-         LDA $0309     ;DBYTHI
-         STA $35       ;BUFEND+1
-         LDA $0303     ;DSTATS
-         BPL IO2
-REL08    JSR SEND1     ;$F4DC
-IO2      DEC $3E       ;FTYPE
-REL09    JSR SETTI1    ;$F544
-         BIT $0303     ;DSTATS
-         BVC IO3
-REL10    JSR GETA1     ;$F521
-IO3      LDA #$A0
-         STA $D207     ;AUDC4
-         LDA $10
-         STA $D20E     ;IRQEN
-REL11    JSR CLRTI1    ;$F576
-         LDA $30       ;STATUS
-         BEQ IO4
-         DEC $37       ;DRETRY
-         BNE IO11
-IO4      TAY
-         BNE IO5
+         STA $34	;BUFEND	$34/$35 werden hier als BUFLEN verwendet
+REL07    JSR SEND1	;Sende 4 Byte Kommando + CHKSUM + Lese ACK(...) ->
+         LDA $0304	;DBUFLO	Setze Werte fuer den Datenblock. Adresse, Laenge
+         STA $32	;BUFADR
+         LDA $0305	;DBUFHI
+         STA $33	;BUFADR+1
+         LDA $0308	;DBYTLO
+         STA $34	;BUFEND
+         LDA $0309	;DBYTHI
+         STA $35	;BUFEND+1
+         LDA $0303	;DSTATS	Lesen (CMD ACK COMPLETE DATA CHKSUM), schreiben (CMD ACK DATA CHKSUM ACK COMPLETE), imm (CMD ACK COMPLETE)
+         BPL IO2	;Kein Daten-Schreiben-Kommando ->
+REL08    JSR SEND1	;Schreiben
+IO2      DEC $3E	;FTYPE	Zweckentfremdet. Als Flag negativ bei einem Schreib-Daten-Kommando.
+REL09    JSR SETTI1	;Setze den Timer, CMD HI, Lese Antwort A/C/E/$8B, kommt zurueck wenn kein Fehler
+         BIT $0303	;DSTATS	#$80 = schreiben, #$40 = lesen, #$00 = keine Daten
+         BVC IO3	;keine Daten lesen ->
+REL10    JSR GETA1	;Lese Daten und Pruefsumme
+IO3      LDA #$A0	;Reiner Rechteckton, Lautstaerke 0
+         STA $D207	;AUDC4
+         LDA $10	;POKMSK
+         STA $D20E	;IRQEN
+REL11    JSR CLRTI1	;Timeout-Timer aus
+         LDA $30	;STATUS	Fehler?
+         BEQ IO4	;Nein ->
+         DEC $37	;DRETRY	Noch Wiederholversuche uebrig?
+         BNE IO11	;Ja -> "Device Retry"
+IO4      TAY		;Kein Fehler oder Fehler aber keine Wiederholversuche
+         BNE IO5	;Fehler ->
          INY
-IO5      STY $0303     ;DSTATS
+IO5      STY $0303	;DSTATS	1 = OK, alles andere = Fehler
          CLI
-         RTS
-SEND1    LDY #$00
-SE1      INY
+         RTS		;-----------------------------------
+SEND1    LDY #$00	;Sendebetrieb
+SE1      INY		;Warteschleife (2 + 256 x 2 + 256 x 3 Zyklen = ca 0,73 ms)
          BNE SE1
-         LDA #$23
-REL12    JSR POKEY     ;$F5F7
-         LDA ($32),Y   ;BUFADR
-         STA $31       ;CHKSUM
-         STA $D20D     ;SEROUT
+         LDA #$23	;POKEY. Sende-/Empfangsfrequenz durch #4, kein POKEY-RESET
+REL12    JSR POKEY
+         LDA ($32),Y	;BUFADR	Erstes Byte aus Puffer
+         STA $31	;CHKSUM	Pruefsumme initialisieren
+         STA $D20D	;SEROUT	und ins Senderegister
+         INY		;Pufferzeiger erhoehen
+         BNE SE3	;Springe nach Pufferende pruefen
+SE2      LDA ($32),Y	;BUFADR
+REL13    JSR PUTBYTE
          INY
          BNE SE3
-SE2      LDA ($32),Y   ;BUFADR
-REL13    JSR PUTBYTE   ;$F5D4
-         INY
-         BNE SE3
-         INC $33       ;BUFADR+1
-         DEC $35       ;BUFEND+1
-         LDX #$E0
-SEWL     INX
-         BNE SEWL
-SE3      CPY $34       ;BUFEND
-         BNE SE2
-         LDA $35       ;BUFEND+1
-         BNE SE2
-         LDA $31       ;CHKSUM
-REL14    JSR PUTBYTE   ;$F5D4
-SEO1     LDA $D20E     ;IRQST
+         INC $33	;BUFADR+1
+         DEC $35	;BUFEND+1
+         LDX #$E0	;Warten zugunsten des Peripheriegeraets bei 16-Bit Inkrement
+SEWL     INX		;Mit einer Speedy koennen auch Code oder Trackinhalte uebertragen werden
+         BNE SEWL	;(ergo Datenbloecke groesser als 256 Bytes)
+SE3      CPY $34	;BUFEND	Ist das Pufferende (low-byte) erreicht
+         BNE SE2	;Nein ->
+         LDA $35	;BUFEND+1	Ist das Pufferende (high-byte) erreicht
+         BNE SE2	;Nein ->
+         LDA $31	;CHKSUM	Ja, der Datenblock ist fertig, sende die Pruefsumme
+REL14    JSR PUTBYTE
+SEO1     LDA $D20E	;IRQST	Ist das Senderegister des POKEY leer?
          AND #$08
-         BNE SEO1
+         BNE SEO1	;Nein, warte ->
          LDY #$03
-REL15    JSR STOUTX0   ;$F578
-         LDA #$C0
-         STA $D20E     ;IRQEN
-         BNE RDQUIT
-GETA1    LDY #$00
-         STY $31       ;CHKSUM
-GE1      JSR GETBYTE   ;$F5B1
-         STA ($32),Y   ;BUFADR
-REL16    JSR ADDSUM    ;$F5EF
+REL15    JSR STOUTX0	;A=1, X=0, Y=3 (Setze CDTMV1 auf $0003 (60 ms) )
+         LDA #$C0	;Setze Bits 5-0 in IRQSTAT zurueck
+         STA $D20E	;IRQEN
+         BNE RDQUIT	;immer ->
+GETA1    LDY #$00	;Lese Datenblock inklusive Pruefsumme
+         STY $31	;CHKSUM
+GE1      JSR GETBYTE
+         STA ($32),Y	;BUFADR
+REL16    JSR ADDSUM
          INY
          BNE GE2
-         INC $33       ;BUFADR+1
-         DEC $35       ;BUFEND+1
-GE2      CPY $34       ;BUFEND
+         INC $33	;BUFADR+1
+         DEC $35	;BUFEND+1
+GE2      CPY $34	;BUFEND
          BNE GE1
-         LDA $35       ;BUFEND+1
+         LDA $35	;BUFEND+1
          BNE GE1
-REL17    JSR GETBYTE   ;$F5B1
-         CMP $31       ;CHKSUM
+REL17    JSR GETBYTE
+         CMP $31	;CHKSUM
          BNE ERR8F
-         RTS
-SETTI1   LDA $0306     ;DTIMLO
+         RTS		;-----------------------------------
+SETTI1   LDA $0306	;DTIMLO	Diese Routine rechnet die Anzahl der in DTIMLO angegebenen Sekunden in
+         ROR		;Jiffies um.
          ROR
-         ROR
-         TAY
-         AND #$3F
+         TAY		;Allerdings basiert die Routine wohl auf NTSC (1/60 Sekunde), denn nur
+         AND #$3F	;dann stimmt das Ergebnis recht genau.
          TAX
-         TYA
+         TYA		;Das High-Byte des Ergebnisses wird in X, das Low-Byte in Y uebergeben.
          ROR
          AND #$C0
          TAY
-REL18    JSR STOUT     ;$F57A
-RDQUIT   LDA #$3C
+REL18    JSR STOUT
+RDQUIT   LDA #$3C	;CMD-Leitung inaktiv
          STA $D303
-         LDA #$13
-REL19    JSR POKEY     ;$F5F7
-REL20    JSR GETBYTE   ;$F5B1
-         CMP #$41
-         BEQ CLRTI1
-         CMP #$43
-         BEQ CLRTI1
-         CMP #$45
-         BEQ ERR90
-         LDA #$8B
-         BNE ERR
+         LDA #$13	;POKEY. asynchrones Lesen, Taktrate durch 16-Bit Zaehler Kanal 3+4
+REL19    JSR POKEY
+REL20    JSR GETBYTE
+         CMP #$41	;Ist es Acknowledge
+         BEQ CLRTI1	;Ja ->
+         CMP #$43	;Ist es Complete
+         BEQ CLRTI1	;Ja ->
+         CMP #$45	;Ist es Error (Fehler bei der Ausfuehrung des Kommandos)
+         BEQ ERR90	;Ja ->
+         LDA #$8B	;Ist es Not-Acknowledged (Kommando ist dem Geraet nicht bekannt)
+         BNE ERR	;Ja ->
 ERR90    LDA #$90
-         STA $30       ;STATUS
+         STA $30	;STATUS
 CLRTI1   LDY #$00
 STOUTX0  LDX #$00
-STOUT    LDA ERRABS    ;$F
-         STA $0226     ;CDTMA1
-STOU2    LDA ERRABS+1  ;$F
-         STA $0227     ;CDTMA1+1
+STOUT    LDA ERRABS	;Wenn der Systemzaehler den Wert "0" erreicht wird an diese Adresse gesprungen
+         STA $0226	;CDTMA1
+STOU2    LDA ERRABS+1
+         STA $0227	;CDTMA1+1
          LDA #$01
-         JMP $E45C     ;Setze CDTMV1
-ERRABS   .word ERR8A   ;$F
-IOER80   LDX $3F       ;FEOF
+         JMP $E45C	;Setze CDTMV1
+ERRABS   .word ERR8A	;-----------------------------------
+IOER80   LDX $3F	;FEOF	Bei BREAK den Stackpointer wiederherstellen
          TXS
          LDA #$80
-         STA $30       ;STATUS
-         BNE EABS3
-ERR8F    LDA #$8F
+         STA $30	;STATUS	BREAK abort
+         BNE EABS3	;-----------------------------------
+ERR8F    LDA #$8F	;Checksum Error
          .byte $2C
-ERR8A    LDA #$8A      ;Timeout
-ERR      STA $30       ;STATUS
-         LDX $3F       ;FEOF
+ERR8A    LDA #$8A	;Timeout	Hier landen auch Rahmenbit- und Ueberlauf-Fehler und nicht nur Timeout
+ERR      STA $30	;STATUS	Dadurch koennen die Rahmenbit- und Ueberlauf-Fehler nicht erkannt werden
+         LDX $3F	;FEOF	Stackpointer wiederherstellen
          TXS
-         LDA $3E       ;FTYPE
-         BMI ERRA
-         DEC $36       ;CRETRY
+         LDA $3E	;FTYPE	War es ein Schreib-Daten-Kommando?
+         BMI ERRA	;Ja -> eventuelle Wiederholung per Device Retry
+         DEC $36	;CRETRY
          BEQ ERRA
-REL21    JMP IO12      ;$F47A
+REL21    JMP IO12	;Wiederhole das Kommando (Command Retry)
 ERRA     LDA #$28
-         STA $D204     ;AUDF3
-EABS3    JMP IO3       ;$F4C1
-GETBYTE  LDA $D20E     ;IRQST
-         BPL IOER80
-         AND #$20
-         BNE GETBYTE
-         LDA #$DF
-         STA $D20E     ;IRQEN
+         STA $D204	;AUDF3
+EABS3    JMP IO3	;Pruefe auf verfuegbare Device Retries
+			;-----------------------------------
+GETBYTE  LDA $D20E	;IRQST
+         BPL IOER80	;BREAK wurde gedrueckt
+         AND #$20	;Daten in SERIN?
+         BNE GETBYTE	;Nein ->
+         LDA #$DF	;Setze Bit 5 zurueck
+         STA $D20E	;IRQEN
          LDA #$E0
-         STA $D20E     ;IRQEN
-         LDA $D20F     ;SKSTAT
-         STA $D20A     ;SKRES
-         BPL ERR8A
+         STA $D20E	;IRQEN
+         LDA $D20F	;SKSTAT	Status lesen
+         STA $D20A	;SKRES	Direkt zuruecksetzen
+         BPL ERR8A	;Serieller Rahmenbitfehler
          AND #$20
-         BEQ ERR8A
-         LDA $D20D     ;SERIN
-         RTS
-PUTBYTE  TAX
-PUTA1    LDA $D20E     ;IRQST
+         BEQ ERR8A	;Overrun Fehler (SERIN wurde nicht rechtzeitig gelesen)
+         LDA $D20D	;SERIN	Lese empfangenes Byte
+         RTS		;-----------------------------------
+PUTBYTE  TAX		;Zu sendendes Byte retten
+PUTA1    LDA $D20E	;IRQST	SEROUT noch besetzt?
          AND #$10
-         BNE PUTA1
-         LDA #$EF
-         STA $D20E     ;IRQEN
+         BNE PUTA1	;JA ->
+         LDA #$EF	;Statusbit #4 zuruecksetzen
+         STA $D20E	;IRQEN
          LDA #$D0
-         STA $D20E     ;IRQEN
-         TXA
-         STA $D20D     ;SEROUT
-         LDX $D20E     ;IRQST
-         BPL IOER80
-ADDSUM   CLC
-         ADC $31       ;CHKSUM
+         STA $D20E	;IRQEN
+         TXA		;Zu sendendes Byte
+         STA $D20D	;SEROUT
+         LDX $D20E	;IRQST	Wurde BREAK gedrueckt?
+         BPL IOER80	;JA ->
+ADDSUM   CLC		;Pruefsumme berechnen
+         ADC $31	;CHKSUM
          ADC #$00
-         STA $31       ;CHKSUM
-         RTS
-POKEY    STA $D20F     ;SKCTL
-         STA $D20A     ;SKRES
-         LDA #$28
-         STA $D208     ;AUDCTL
-         LDA #$A8
-         STA $D207     ;AUDC4
-         LDA #$F8
-         STA $D20E     ;IRQEN
-         RTS
+         STA $31	;CHKSUM
+         RTS		;-----------------------------------
+POKEY    STA $D20F	;SKCTL	Je nach Inhalt von "A"
+         STA $D20A	;SKRES
+         LDA #$28	;Takte Kanal 3 mit 1,77 MHz und haenge Kanal 4 an 3
+         STA $D208	;AUDCTL
+         LDA #$A8	;Reiner Ton ohne Verzerrung, halbe Lautstaerke
+         STA $D207	;AUDC4
+         LDA #$F8	;Alle Unterbrechungsanforderungen bis auf Timer 4, 2 und 1
+         STA $D20E	;IRQEN
+         RTS		;-----------------------------------
 
-C3F	.byte $3f,$40
-	.word $0001
-	.word $0001
-	.word $0001
-LWTBL	.dsb 8,$FF
+C3F      .byte $3f,$40	;Kommando $3F, Daten lesen
+         .word $0001	;In Speicheradresse $01
+         .word $0001	;Timeout
+         .word $0001	;Anzahl der zu lesenden Bytes = 1
+LWTBL    .dsb 8,$FF	;Tabelle fuer POKEY-Divisoren fuer 8 Laufwerke
 /*
-ABSTBL	.word DLWTBLL+1,REL01+1,REL02+1,REL03+1,REL04+1,REL05+1,REL06+1
-	.word REL07+1,REL08+1,REL09+1,REL10+1,REL11+1,REL12+1,REL13+1
-	.word REL14+1,REL15+1,GE1+1,REL16+1,REL17+1,REL18+1,REL19+1
-	.word REL20+1,STOUT+1,STOU2+1,ERRABS,REL21+1,EABS3+1
+ABSTBL   .word DLWTBLL+1,REL01+1,REL02+1,REL03+1,REL04+1,REL05+1,REL06+1
+         .word REL07+1,REL08+1,REL09+1,REL10+1,REL11+1,REL12+1,REL13+1
+         .word REL14+1,REL15+1,GE1+1,REL16+1,REL17+1,REL18+1,REL19+1
+         .word REL20+1,STOUT+1,STOU2+1,ERRABS,REL21+1,EABS3+1
 */
