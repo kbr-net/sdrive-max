@@ -28,7 +28,7 @@
 #include "tape.h"
 
 #define SWVERSIONMAJOR  1
-#define SWVERSIONMINOR  4
+#define SWVERSIONMINOR  5
 
 //workaround to get version numbers converted to strings
 #define STR_A(x)        #x
@@ -1496,14 +1496,11 @@ Send_ERR_and_DATA:
 					// Relocate all with highbytes 0xcc - 0xcf
 					// (this does not appear otherwise in sio code)
 					if((atari_sector_buffer[i] & 0xfc) == 0xcc) {
-						unsigned char l,h;
 						unsigned short addr1,addr2;
-						h = atari_sector_buffer[i];
-						l = atari_sector_buffer[i-1];
-						addr1 = (h << 8) | l;
-						addr2 = addr1 - (0xcc00 - cmd_buf.aux);
-						atari_sector_buffer[i] = addr2 >> 8;
-						atari_sector_buffer[i-1] = addr2 & 0xff;
+						unsigned short *p = (unsigned short *) &atari_sector_buffer[i-1];
+						addr1 = *p;
+						addr2 = addr1 - 0xcc00 + cmd_buf.aux;
+						*p = addr2;
 					}
 
 					// send if buffer is full.

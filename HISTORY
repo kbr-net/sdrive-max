@@ -1,3 +1,7 @@
+v1.5:
+- highspeed relocater optimized
+- fixed broken tape mode
+
 v1.4:
 - some fixes in tape mode
 - added cfg button for pokey div, to disable highspeed use $28
