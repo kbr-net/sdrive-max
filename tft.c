@@ -671,7 +671,7 @@ void file_page () {
 void config_page () {
 	const struct button *b;
 	struct b_flags *flags;
-	unsigned int i;
+	unsigned char i;
 
 	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
