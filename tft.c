@@ -88,11 +88,13 @@ unsigned int action_tape_start (const struct button *b) {
 	const struct button *pb = &tft.pages[actual_page].buttons[1];
 	struct b_flags *pause = pgm_read_ptr(&pb->flags);
 
+	//clear Start button
+	flags->selected = 0;
+	//clear also the Pause Button
+	pause->selected = 0;
+
 	if(tape_flags.run || pause->selected) { //Stop
 		tape_flags.run = 0;
-		flags->selected = 0;
-		//clear also the Pause Button
-		pause->selected = 0;
 		print_str_P(35,132,2,Yellow,window_bg, PSTR("Stopped...   "));
 		draw_Buttons();
 	}
@@ -144,6 +146,7 @@ unsigned int action_cancel () {
 	debug = 0;
 	//same for tape_page
 	tape_mode = 0;
+	tape_flags.run = 0;
 	//and reset to main_page
 	actual_page = PAGE_MAIN;
 	tft.pages[actual_page].draw();
@@ -686,6 +689,16 @@ void config_page () {
 }
 
 void tape_page () {
+	const struct button *b;
+	struct b_flags *flags;
+	unsigned char i;
+
+	for(i = 0; i < 2; i++) {	//reset Start/Pause buttons
+		b = &tft.pages[actual_page].buttons[i];
+		flags = pgm_read_ptr(&b->flags);
+		flags->selected = 0;
+	}
+
 	Draw_Rectangle(5,100,tft.width-6,245,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(5,100,tft.width-6,245,0,SQUARE,Grey,Black);
 	Draw_Rectangle(6,101,tft.width-7,244,0,SQUARE,Grey,Black);
