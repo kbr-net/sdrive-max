@@ -48,7 +48,8 @@ Wirering Arduino <-> Atari-SIO:
 
 Firmware programming:
 
-First use the eeprom-writer.hex to set the correct values to the EEPROM!
+First use the eeprom-writer.hex to set the correct values to the EEPROM.
+The display must be present at this time, otherwise touchscreen is not working!
 Wait until the writer has done, then program the SDrive.hex into the flash.
 That's it!
 
