@@ -624,7 +624,7 @@ ST_IDLE:
 				sfp = atari_sector_buffer;
 				scroll_file_counter = 20000;
 				//if matched, wait for button release
-bad_touch:			while (isTouching());
+bad_touch:			while (isTouching()) {};
 				_delay_ms(50);	//wait a little for debounce
 			}
 			sleep = 0;	//reset display blank timer
