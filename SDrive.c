@@ -647,7 +647,9 @@ bad_touch:			while (isTouching()) {};
 		}
 		//scrolling long filename
 		if (tft.cfg.scroll && actual_page == PAGE_FILE && scroll_file_len) {
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 			if (scroll_file_counter == 20000) {
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 				unsigned char len = 19;
 
 				if (scroll_file_len < 20) {
