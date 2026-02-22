@@ -386,10 +386,10 @@ redraw15
 	ldy #11
 	lda (ns),y			;xxxDVxxx filename(11) jsou fat attributy
 	;zmenime na vlastni druh atributu
-	asl @				;xxDVxxxx
-	asl @				;xDVxxxxx
+	asl				;xxDVxxxx
+	asl				;xDVxxxxx
 	sec
-	rol @				;DVxxxxx1
+	rol				;DVxxxxx1
 	and #$c1			;DV000001
 	ldy file_index
 	sta attr,y
@@ -2632,8 +2632,8 @@ rc01
 	ldx #$80
 	ldy #$00
 	lda siobuffer+0		;zajima nas bit 5 Sector size (0=$80 1=$100)  
-	asl @
-	asl @	
+	asl
+	asl
 	bpl rc02
 	;=1 => $100
 	ldx #0
