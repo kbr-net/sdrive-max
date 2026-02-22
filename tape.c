@@ -14,6 +14,7 @@ extern void Clear_atari_sector_buffer();
 
 unsigned short block;
 unsigned short baud;
+t_flags tape_flags;
 
 void set_tape_baud () {
 	//UBRR = (F_CPU/16/BAUD)-1 +U2X
