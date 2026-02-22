@@ -100,6 +100,7 @@ extern struct display tft;
 extern unsigned char actual_page;
 extern unsigned char scroll_file_len;
 extern struct file_save image_store[] EEMEM;
+extern struct t_flags tape_flags;
 
 uint8_t system_atr_name[] EEMEM = "SDRIVE  ATR";  //8+3 zamerne deklarovano za system_info,aby bylo pripadne v dosahu pres get status
 //

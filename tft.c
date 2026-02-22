@@ -23,6 +23,7 @@ extern const char system_version[] PROGMEM;
 extern uint8_t system_fastsio_pokeydiv_default;
 extern struct SDriveParameters sdrparams;
 #define pokeydiv sdrparams.p2
+extern struct t_flags tape_flags;
 
 unsigned char actual_page = PAGE_MAIN;
 unsigned char tape_mode = 0;
