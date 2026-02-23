@@ -40,7 +40,7 @@ void main_page();
 void file_page();
 void config_page();
 void tape_page();
-unsigned int debug_page();
+unsigned int debug_page(const struct button *b);
 
 struct display tft;
 struct TSPoint p;
@@ -89,13 +89,11 @@ unsigned int action_tape_start (const struct button *b) {
 	const struct button *pb = &tft.pages[actual_page].buttons[1];
 	struct b_flags *pause = pgm_read_ptr(&pb->flags);
 
-	//clear Start button
-	flags->selected = 0;
-	//clear also the Pause Button
-	pause->selected = 0;
-
 	if(tape_flags.run || pause->selected) { //Stop
 		tape_flags.run = 0;
+		flags->selected = 0;
+		//clear also the Pause Button
+		pause->selected = 0;
 		print_str_P(35,132,2,Yellow,window_bg, PSTR("Stopped...   "));
 		draw_Buttons();
 	}
@@ -139,7 +137,7 @@ unsigned int action_tape_pause (const struct button *b) {
 	return(0);
 }
 
-unsigned int action_cancel () {
+unsigned int action_cancel (const struct button *b) {
 	//on file_page reset file index to same page
 	if (actual_page == PAGE_FILE)
 		next_file_idx -= 10;
@@ -147,7 +145,6 @@ unsigned int action_cancel () {
 	debug = 0;
 	//same for tape_page
 	tape_mode = 0;
-	tape_flags.run = 0;
 	//and reset to main_page
 	actual_page = PAGE_MAIN;
 	tft.pages[actual_page].draw();
@@ -165,7 +162,7 @@ void pretty_name(char *b) {	//insert dot in filename.ext
 	b[12] = 0;	//mark new end
 }
 
-unsigned int list_files () {
+unsigned int list_files (const struct button *b) {
 	unsigned int i;
 	unsigned int col;
 	unsigned char e;
@@ -247,29 +244,29 @@ unsigned int list_files () {
 	return(0);
 }
 
-unsigned int list_files_rev () {
+unsigned int list_files_rev (const struct button *b) {
 	if (next_file_idx >= 20) {
 		next_file_idx -= 20;
-		list_files();
+		list_files(b);
 	}
 	return(0);
 }
 
-unsigned int list_files_top () {
+unsigned int list_files_top (const struct button *b) {
 	next_file_idx = 0;
-	list_files();
+	list_files(b);
 	return(0);
 }
 
-unsigned int list_files_last () {
+unsigned int list_files_last (const struct button *b) {
 	//unsigned short i = 0;
 	//while (fatGetDirEntry(i,0)) i++;
 	next_file_idx = (nfiles-1)/10*10;
-	list_files();
+	list_files(b);
 	return(0);
 }
 
-unsigned int action_select() {
+unsigned int action_select(const struct button *b) {
 	unsigned int file;
 
 	file = p.y - 45;	// 45-280 => 0-235
@@ -303,13 +300,13 @@ unsigned int action_select() {
 		file_selected = file;
 		next_file_idx -= 10;	// the same list again
 	}
-	list_files();
+	list_files(b);
 	//read file again, that we have the long name in buffer
 	fatGetDirEntry(file,1);
 	return(0);
 }
 
-unsigned int action_ok () {
+unsigned int action_ok (const struct button *b) {
 	actual_page = PAGE_MAIN;
 	next_file_idx -= 10;
 	if(tape_mode) {
@@ -323,7 +320,7 @@ unsigned int action_ok () {
 	return(file_selected);
 }
 
-unsigned int action_cfg () {
+unsigned int action_cfg (const struct button *b) {
 	actual_page = PAGE_CONFIG;
 	tft.pages[actual_page].draw();
 	return(0);
@@ -338,12 +335,12 @@ unsigned int action_change (const struct button *b) {
 }
 
 void print_pokeydiv () {
-	char buf[4];
+	char buf[3];
 	sprintf_P(buf, PSTR("$%02X"), pokeydiv);
 	print_str(150,95,2,Yellow,window_bg,buf);
 }
 
-unsigned int action_pokey () {
+unsigned int action_pokey (const struct button *b) {
 	pokeydiv++;
 	if(pokeydiv > 40)
 		pokeydiv = 0;
@@ -355,7 +352,7 @@ unsigned int action_pokey () {
 	return(0);
 }
 
-unsigned int action_save_cfg () {
+unsigned int action_save_cfg (const struct button *ib) {
 	const struct button *b;
 	struct b_flags *flags;
 	unsigned char i;
@@ -389,7 +386,7 @@ unsigned int action_save_cfg () {
 		eeprom_update_word(&MINX, 0xffff);	//force new calibration
 		tft_Setup();
 	}
-	action_cancel();
+	action_cancel(ib);
 	return(0);
 }
 
@@ -477,7 +474,7 @@ unsigned int action_cal () {
 	return(0);
 }
 
-unsigned int press () {	//for buttons with no action here
+unsigned int press (const struct button *b) {	//for buttons with no action here
 	return(0);
 }
 
@@ -666,13 +663,13 @@ void file_page () {
 	//Draw_Rectangle(12,42,tft.width-13,278,0,SQUARE,Grey,Black);
 	draw_Buttons();
 	file_selected = -1;
-	list_files();
+	list_files(NULL);
 }
 
 void config_page () {
 	const struct button *b;
 	struct b_flags *flags;
-	unsigned char i;
+	unsigned int i;
 
 	Draw_Rectangle(10,40,tft.width-11,280,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(10,40,tft.width-11,280,0,SQUARE,Grey,Black);
@@ -690,16 +687,6 @@ void config_page () {
 }
 
 void tape_page () {
-	const struct button *b;
-	struct b_flags *flags;
-	unsigned char i;
-
-	for(i = 0; i < 2; i++) {	//reset Start/Pause buttons
-		b = &tft.pages[actual_page].buttons[i];
-		flags = pgm_read_ptr(&b->flags);
-		flags->selected = 0;
-	}
-
 	Draw_Rectangle(5,100,tft.width-6,245,1,SQUARE,window_bg,Black);
 	Draw_Rectangle(5,100,tft.width-6,245,0,SQUARE,Grey,Black);
 	Draw_Rectangle(6,101,tft.width-7,244,0,SQUARE,Grey,Black);
@@ -708,7 +695,7 @@ void tape_page () {
 	draw_Buttons();
 }
 
-unsigned int debug_page () {
+unsigned int debug_page(const struct button *b) {
 
 	TFT_fill(atari_bg);
 
