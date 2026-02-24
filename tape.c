@@ -10,7 +10,7 @@
 
 extern unsigned char atari_sector_buffer[];
 extern struct FileInfoStruct FileInfo;
-extern void Clear_atari_sector_buffer();
+extern void Clear_atari_sector_buffer(u16);
 
 unsigned short block;
 unsigned short baud;
