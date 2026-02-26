@@ -774,6 +774,7 @@ void process_command ()
 			if (debug) {
 				sprintf_P((char*)atari_sector_buffer, PSTR("SIO-Error: %i"), err);
 				outbox((char*)atari_sector_buffer);
+				sio_debug('X');
 			}
 			if (fastsio_pokeydiv!=US_POKEY_DIV_STANDARD)
 			{
