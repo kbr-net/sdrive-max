@@ -9,11 +9,13 @@ sboot.h:	sboot.xa
 	xa -o boot_xex_loader $<
 	xxd -i boot_xex_loader > $@
 	sed -i 's/char/char EEMEM/' $@
+	sed -i 's/unsigned int.*//' $@
 
 highspeed.h:	highspeed.xa
 	xa -o highspeed $<
 	xxd -i highspeed > $@
 	sed -i 's/char/char EEMEM/' $@
+	sed -i 's/unsigned int/const unsigned int/' $@
 
 clean:
 	for dir in $(DIRS); \
