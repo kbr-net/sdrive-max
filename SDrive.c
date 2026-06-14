@@ -1608,7 +1608,7 @@ Send_ERR_and_DATA:
 			fastsio_active=0;	//the speed has changed, it must go to standard
 
 			Delay800us();	//t5
-			UCSRA |= (1<<TXC);	//clear TX complete flag
+			UCSRA = (1<<U2X)|(1<<TXC);	//clear TX complete flag
 			send_CMPL();
 			while(! (UCSRA & (1<<TXC)));	//wait for TX complete
 			//otherwise speed will change during TX
