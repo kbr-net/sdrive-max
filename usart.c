@@ -53,6 +53,9 @@ void USART_Init ( u16 value ) {
 	/* Wait for empty transmit buffer */
 	while ( !( UCSRA & (1<<UDRE)) ); //cekani
 
+	/* disable Receiver and Transmitter */
+	UCSRB = 0;
+
 	/* Set baud rate */
 #if defined(__AVR_ATmega328__) || defined(__AVR_ATmega168__)
 	UBRR0 = value;

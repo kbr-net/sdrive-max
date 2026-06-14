@@ -1,3 +1,6 @@
+v1.6:
+- better serial init on baud change for highspeed SIO
+
 v1.5:
 - highspeed relocater optimized
 - fixed broken tape mode
