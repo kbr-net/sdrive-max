@@ -761,11 +761,8 @@ void process_command ()
 			return; //exit. If Atari is off, it will hang here otherwise
 		}
 
-		//If the reason is to change cmd to H, do not wait to wait_cmd_LH ()
-		//if (err&0x01) goto change_sio_speed; //The cmd rises to H, and the speed changes immediately
-
-		//Delay800us();	//t1 (650-950us) (Without this pause it does not work!!!)
 		wait_cmd_LH();	//Wait until the signal command rises to H
+
 		////due to LED function never needed in normal mode, i think
 		//Delay200us();	//T2=0-16ms (After lifting the command and before the ACK)
 
@@ -782,9 +779,6 @@ void process_command ()
 			}
 			else
 				fastsio_active = 0;
-
-			_delay_ms(5);	//wait all (broken) bytes received
-					//(we have about 50ms before Atari retransmits)
 
 change_sio_speed_by_fastsio_active:
 			{
